@@ -202,7 +202,7 @@ void craftingSaves() {
 }
 int main() {
   try {
-    for(auto [name,test] : {std::pair{"clicks and mining",inputAndMining},{"accidental removal protection",accidentalRemoval},{"crafting lesson",craftingLesson},
+    for(auto [name,test] : {std::pair{"clicks and mining",&inputAndMining},{"accidental removal protection",accidentalRemoval},{"crafting lesson",craftingLesson},
                            {"placement and debris",previewsAndDebris},{"crafting saves",craftingSaves}}) {
       test(); std::cout<<"PASS "<<name<<'\n';
     }

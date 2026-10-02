@@ -254,7 +254,7 @@ void guidedAdventure() {
 }
 int main() {
   try {
-    for(auto [name,test] : {std::pair{"coordinates",coordinates},{"terrain",terrain},{"mesh",mesh},
+    for(auto [name,test] : {std::pair{"coordinates",&coordinates},{"terrain",terrain},{"mesh",mesh},
                            {"raycast",rays},{"physics",physics},{"persistence",saves},
                            {"doors and torches",doorsAndTorches},{"glass",glass},{"daylight",dayCycle},{"beds",beds},
                            {"guided adventure",guidedAdventure}}) {

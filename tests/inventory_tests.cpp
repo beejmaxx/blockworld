@@ -146,7 +146,7 @@ void inventorySaves() {
 }
 int main() {
   try {
-    for(auto [name,test] : {std::pair{"shared hotbar",sharedHotbar},{"contextual use",contextualUse},
+    for(auto [name,test] : {std::pair{"shared hotbar",&sharedHotbar},{"contextual use",contextualUse},
                            {"sneaking and flight",sneakingAndFlight},{"inventory saves",inventorySaves}}) {
       test(); std::cout<<"PASS "<<name<<'\n';
     }

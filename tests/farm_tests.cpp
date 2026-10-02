@@ -514,7 +514,7 @@ void preview(const std::filesystem::path& path,bool upgraded) {
 }
 int main(int argc,char** argv) {
   try {
-    for(auto [name,test] : {std::pair{"wheat planting and growth",planting},{"flock containment and gates",flockAndGates},
+    for(auto [name,test] : {std::pair{"wheat planting and growth",&planting},{"flock containment and gates",flockAndGates},
                            {"chickens do not spin when blocked",chickenTurning},{"mixed garden and watering",gardening},{"garden saves and migration",gardenPersistence},
                            {"feeding and eggs",feedingAndEggs},{"complete farm guide",completeFarmGuide},{"names and baby chicks",namesAndChicks},{"farm persistence and migration",persistence},{"family save migration",chickPersistence}}) {
       test(); std::cout<<"PASS "<<name<<'\n';
