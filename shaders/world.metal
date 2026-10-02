@@ -1,0 +1,211 @@
+#include <metal_stdlib>
+using namespace metal;
+
+struct Camera {
+  float4x4 viewProjection;
+  float4 eye;
+  float4 selection;
+  float4 forward;
+  float4 right;
+  float4 up;
+  float4 screen; // width, height, tan(fov/2), time
+  float4 sun; // direction, twilight
+  float4 horizon;
+  float4 zenith;
+  float4 ambient; // rgb light tint/intensity, daylight blend
+  float4 breaking; // block coordinates, damage progress
+  float4 lights[8];
+};
+struct Input {
+  float3 position [[attribute(0)]];
+  float2 uv [[attribute(1)]];
+  float material [[attribute(2)]];
+  float light [[attribute(3)]];
+  float3 block [[attribute(4)]];
+};
+struct Varying {
+  float4 position [[position]];
+  float3 world;
+  float2 uv;
+  float material [[flat]];
+  float light;
+  float3 block [[flat]];
+};
+vertex Varying worldVertex(Input in [[stage_in]], constant Camera& camera [[buffer(0)]]) {
+  Varying out;
+  out.position=camera.viewProjection*float4(in.position,1);
+  out.world=in.position; out.uv=in.uv; out.material=in.material; out.light=in.light; out.block=in.block;
+  return out;
+}
+float hash21(float2 p) {
+  uint2 cell=uint2(int2(p));
+  uint n=cell.x*1597334677u ^ cell.y*3812015801u;
+  n=(n^(n>>16))*2246822519u; n^=n>>13;
+  return float(n&65535u)/65535.0;
+}
+float3 blockTexture(int material,float2 uv) {
+  float2 p=floor(clamp(uv,0.0,0.9999)*16.0);
+  float noise=hash21(p+float2(material*31,material*17));
+  float detail=1.0-smoothstep(.3,1.0,max(fwidth(uv).x,fwidth(uv).y)*16.0);
+  noise=.5+(noise-.5)*detail;
+  float3 color;
+  switch(material) {
+    case 1: color=float3(.40,.59,.25); break;
+    case 2: color=float3(.48,.32,.20); break;
+    case 3: color=float3(.53,.55,.55); break;
+    case 4: color=float3(.83,.77,.53); break;
+    case 5: color=float3(.44,.29,.15); break;
+    case 6: color=float3(.29,.47,.20); break;
+    case 7: color=float3(.69,.49,.28); break;
+    case 8: color=float3(.65,.30,.21); break;
+    case 9: color=float3(.22,.23,.24); break;
+    case 10: color=p.y>12.0-floor(hash21(float2(p.x,2))*3.0) ? float3(.40,.58,.24) : float3(.48,.32,.20); break;
+    case 12: color=float3(.65,.83,.87); break;
+    case 13: color=float3(.45,.29,.15); break;
+    case 14: color=float3(1.0,.69,.16); break;
+    case 15: case 16: color=float3(.64,.43,.23); break;
+    case 17: color=float3(.71,.25,.21); break;
+    case 18: color=float3(.95,.91,.77); break;
+    case 19: color=float3(.53,.34,.18); break;
+    case 21: color=float3(.75,.56,.32); break;
+    case 24: color=float3(.37,.65,.19); break;
+    case 25: color=float3(.92,.72,.25); break;
+    case 26: color=float3(.97,.94,.83); break;
+    case 27: color=float3(.99,.59,.14); break;
+    case 28: color=float3(.85,.17,.12); break;
+    case 29: color=float3(.055,.065,.05); break;
+    case 30: color=float3(.80,.54,.28); break;
+    case 31: color=float3(1.0,.94,.75); break;
+    case 32: color=float3(1.0,.36,.47); break;
+    case 33: color=float3(.27,.18,.12); break;
+    case 34: color=float3(.97,.48,.10); break;
+    case 35: color=float3(.88,.16,.26); break;
+    case 36: color=float3(.96,.45,.08); break;
+    case 37: color=float3(.38,.79,1.0); break;
+    case 38: color=float3(1.0,.95,.81); break;
+    case 39: color=float3(.29,.76,.24); break;
+    case 40: color=float3(.37,.24,.14); break;
+    case 41: color=float3(.23,.15,.10); break;
+    case 42: color=float3(.36,.69,.74); break;
+    default: {
+      float ring=fmod(floor(max(abs(p.x-7.5),abs(p.y-7.5))),3.0);
+      color=ring==0.0 ? float3(.45,.30,.16) : float3(.70,.52,.30); break;
+    }
+  }
+  if(material==5) color*=.76+.30*hash21(float2(p.x,floor(p.y/5.0)));
+  if(material==7) {
+    if(fmod(p.y,4.0)==0.0 || (fmod(p.x+floor(p.y/4.0)*7.0,16.0)==0.0)) color*=.68;
+  }
+  if(material==8) {
+    if(fmod(p.y,5.0)==0.0 || fmod(p.x+floor(p.y/5.0)*4.0,8.0)==0.0) color=float3(.68,.64,.54);
+  }
+  if(material==3 && noise>.84) color*=.82;
+  if(material==35 && fmod(p.x+floor(p.y/4.0)*2.0,5.0)==0.0 && fmod(p.y,4.0)==1.0) color=float3(1.0,.81,.35);
+  if(material==36 && fmod(p.x,4.0)==0.0) color*=.72;
+  if((material==40 || material==41) && fmod(p.x,4.0)<1.0) color*=.65;
+  if(material==6) color*=mix(1.0,noise>.55 ? 1.1 : .9,detail);
+  if(material==15 || material==16) {
+    if(p.x<1 || p.x>14 || p.y<1 || p.y>14 || (p.x>6 && p.x<9)) color*=.66;
+    if(material==15 && p.x>12 && p.y>9 && p.y<12) color=float3(.88,.73,.36);
+    if(material==16 && p.x>2 && p.x<13 && p.y>4 && p.y<13) color=float3(.26,.32,.28);
+  }
+  if(material==17) {
+    if(fmod(p.x,4.0)==0.0 || fmod(p.y,4.0)==0.0) color*=.86;
+    if(p.x<1 || p.x>14 || p.y<1 || p.y>14) color=float3(.85,.65,.40);
+  }
+  if(material==19 && (p.x<2 || p.x>13 || p.y<3 || p.y>13)) color*=.55;
+  if(material==21) {
+    if(p.x<1 || p.x>14 || p.y<1 || p.y>14) color*=.55;
+    if((fmod(p.x,5.0)==0 || fmod(p.y,5.0)==0) && p.x>2 && p.x<13 && p.y>2 && p.y<13) color*=.56;
+  }
+  return color*(.87+noise*.26);
+}
+fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[buffer(0)]]) {
+  int material=int(in.material+.5);
+  float edge=min(min(in.uv.x,in.uv.y),min(1-in.uv.x,1-in.uv.y));
+  if(material==20) {
+    float pulse=.76+.17*sin(camera.screen.w*3.0);
+    return float4(float3(1.0,.80,.37)*pulse,edge<.025 ? .85 : .035);
+  }
+  if(material==22 || material==23) {
+    float3 tint=material==22 ? float3(.45,1.0,.65) : float3(1.0,.32,.24);
+    return float4(tint,edge<.03 ? .85 : .13);
+  }
+  if(material==12 && edge>.055 && abs(in.uv.x-in.uv.y-.28)>.024 && abs(in.uv.x-in.uv.y+.30)>.015)
+    discard_fragment();
+  float3 base=blockTexture(material,in.uv);
+  float3 color=base*in.light*camera.ambient.rgb;
+  if(material==37) color=base*.95;
+  for(int i=0;i<8;++i) if(camera.lights[i].w>0) {
+    float falloff=saturate(1.0-length(in.world-camera.lights[i].xyz)/camera.lights[i].w);
+    color+=base*float3(1.35,.73,.26)*falloff*falloff;
+  }
+  if(material==14) color=float3(1.0,.62+.14*sin(camera.screen.w*9+in.world.x),.13);
+  if(camera.selection.w>0.5 && all(abs(in.block-camera.selection.xyz)<.1)) {
+    if(edge<.025) color=float3(.10,.13,.10);
+    else color=mix(color,float3(1.0,.95,.75),.08);
+  }
+  if(camera.breaking.w>0 && all(abs(in.block-camera.breaking.xyz)<.1)) {
+    float progress=camera.breaking.w;
+    float2 p=floor(in.uv*24.0)/24.0;
+    float jag=(hash21(float2(floor(p.y*12),8))-.5)*.16;
+    bool crack=abs(p.x-.48+jag)<.028 && abs(p.y-.5)<progress*.72;
+    crack=crack || (progress>.28 && abs(p.y-.18-p.x*.67)<.032 && p.x<progress);
+    crack=crack || (progress>.55 && abs(p.y-.87+p.x*.54)<.025 && p.x>1-progress);
+    if(crack) color*=.16;
+    color=mix(color,float3(1.0,.89,.58),progress*.05);
+  }
+  float distance=length(in.world.xz-camera.eye.xz);
+  float fog=smoothstep(52.0,91.0,distance);
+  float3 fogColor=camera.horizon.rgb;
+  return float4(mix(color,fogColor,fog),1.0);
+}
+
+struct SkyVarying { float4 position [[position]]; float2 uv; };
+vertex SkyVarying skyVertex(uint id [[vertex_id]]) {
+  float2 p=float2(id==1 ? 3.0 : -1.0,id==2 ? 3.0 : -1.0);
+  SkyVarying out; out.position=float4(p,.99999,1); out.uv=p; return out;
+}
+fragment float4 skyFragment(SkyVarying in [[stage_in]],constant Camera& camera [[buffer(0)]]) {
+  float3 dir=normalize(camera.forward.xyz+camera.right.xyz*in.uv.x*camera.screen.x/camera.screen.y*camera.screen.z
+                      +camera.up.xyz*in.uv.y*camera.screen.z);
+  float3 color=mix(camera.horizon.rgb,camera.zenith.rgb,pow(saturate(dir.y),.55));
+  float daylight=camera.ambient.w;
+  float night=1.0-daylight;
+  // Stable spherical coordinates keep the stars fixed as the player looks around.
+  float2 starUV=float2(atan2(dir.z,dir.x)/6.2831853+.5,asin(clamp(dir.y,-1.0,1.0))/3.1415927+.5)*float2(512,256);
+  float2 starCell=floor(starUV),starLocal=abs(fract(starUV)-.5);
+  float starSeed=hash21(starCell);
+  if(starSeed>.994 && dir.y>.04) {
+    float size=.10+.18*hash21(starCell+73.0);
+    float aa=max(max(fwidth(starUV.x),fwidth(starUV.y)),.035);
+    float star=1.0-smoothstep(size,size+aa,max(starLocal.x,starLocal.y));
+    float twinkle=.72+.28*sin(camera.screen.w*(.65+starSeed)+hash21(starCell+9)*80);
+    color+=float3(.77,.83,1.0)*star*twinkle*night*night*smoothstep(.04,.3,dir.y);
+  }
+  float3 sun=camera.sun.xyz;
+  float sunDot=dot(dir,sun);
+  color+=mix(float3(.20,.14,.055),float3(.50,.16,.045),camera.sun.w)*pow(saturate(sunDot),36.0)*smoothstep(-.1,.04,sun.y);
+  float3 sunRight=normalize(cross(sun,float3(0,1,0))), sunUp=cross(sunRight,sun);
+  if(sunDot>.97 && dir.y>-.025 && abs(dot(dir,sunRight))<.037 && abs(dot(dir,sunUp))<.037)
+    color=mix(float3(1.0,.94,.73),float3(1.0,.56,.24),camera.sun.w*.7);
+  float moonDot=dot(dir,-sun);
+  float2 moonUV=float2(dot(dir,sunRight),dot(dir,sunUp));
+  color+=float3(.045,.06,.12)*pow(saturate(moonDot),60.0)*night;
+  if(moonDot>.98 && dir.y>0 && all(abs(moonUV)<.028)) {
+    float crater=hash21(floor(moonUV*230.0));
+    color=float3(.73,.79,.89)*(crater>.70 ? .73 : 1.0);
+  }
+  if(dir.y>.055) {
+    float2 cloud=(camera.eye.xz+dir.xz*(100.0-camera.eye.y)/dir.y)/19.0;
+    cloud.x+=camera.screen.w*.013;
+    float2 cell=floor(cloud);
+    float cover=hash21(floor(cell/float2(3,2)));
+    float mask=cover>.64 && hash21(cell+4.0)>.20 ? 1.0 : 0.0;
+    float fade=smoothstep(.055,.22,dir.y)*.82;
+    float3 cloudColor=mix(float3(.08,.105,.18),float3(.94,.95,.88),daylight);
+    cloudColor=mix(cloudColor,float3(.80,.50,.41),camera.sun.w*.65);
+    color=mix(color,cloudColor,mask*fade);
+  }
+  return float4(color,1);
+}

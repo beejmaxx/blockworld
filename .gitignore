@@ -1,0 +1,10 @@
+/build*/
+/.cache/
+.DS_Store
+/artifacts/
+/compile_commands.json
+*.bw
+*.bw.tmp
+*.bw.bak
+.env
+.env.*
