@@ -31,7 +31,8 @@ export PATH="$(brew --prefix llvm)/bin:$PATH"
 CC=clang CXX=clang++ ./run.command
 ```
 
-Homebrew LLVM provides a compiler with C++26 mode. Apple Clang 21 also works.
+Homebrew LLVM provides a compiler with C++26 mode (tested with LLVM 20.1.5).
+Apple Clang 21 also works.
 The first launch builds the game. See [Build and play](#build-and-play) for
 manual build and test commands, and [Controls](#controls) for keyboard shortcuts.
 
@@ -279,7 +280,7 @@ silently if none is available. No microphone access is used.
 
 ## Build and play
 
-Requires macOS, a compiler with C++26 mode (tested with Apple Clang 21),
+Requires macOS, a compiler with C++26 mode (tested with Apple Clang 21 and LLVM 20.1.5),
 CMake 3.30 or newer, Ninja, SDL3 3.4 or newer, and GLM. Install dependencies with
 `brew install cmake ninja sdl3 glm llvm`; use the compiler setup in Quick start
 if your Apple compiler does not support C++26.
@@ -490,6 +491,9 @@ and tutorial progression. `daylight.*` owns the world clock and sky colors.
 [playback stream](https://wiki.libsdl.org/SDL3/SDL_OpenAudioDeviceStream).
 `ui.*` builds the interface. `main.cpp` connects input, simulation, streaming,
 audio, and rendering. Metal shaders live in `shaders/`.
+`ui_font_native.c` provides a small C bridge to Apple's font APIs, whose SDK
+headers contain enum operations incompatible with standard C++26. All C++ sources
+still compile in required C++26 mode.
 `crafting.*` owns recipes, supplies, tools, and the optional lesson; `building.*`
 owns placement previews, repeat input, mining progress, and debris. To inspect
 the UI without opening a native window, run `./build/ui_tests artifacts/ui`;
