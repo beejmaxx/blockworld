@@ -2,6 +2,7 @@
 #include "audio.hpp"
 #include "garden.hpp"
 #include "ranch.hpp"
+#include "castle.hpp"
 #include <SDL3/SDL_main.h>
 #include <algorithm>
 #include <charconv>
@@ -15,7 +16,7 @@ namespace bw {
 namespace {
 struct Options {
   int frames=0;
-  bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,muted=false;
+  bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
   std::optional<double> hour;
   std::filesystem::path screenshot,worldDirectory;
 };
@@ -29,6 +30,8 @@ Options parse(int argc,char** argv) {
     else if(arg=="--play") result.paused=false;
     else if(arg=="--classic") result.classic=true;
     else if(arg=="--mute") result.muted=true;
+    else if(arg=="--castle") result.castle=true;
+    else if(arg=="--demo-castle") { result.demoCastle=true; result.save=false; result.paused=false; }
     else if(arg=="--time") {
       auto text=value(); double hour=0; auto [end,error]=std::from_chars(text.data(),text.data()+text.size(),hour);
       if(error!=std::errc{} || end!=text.data()+text.size() || !std::isfinite(hour) || hour<0 || hour>=24)
@@ -52,6 +55,8 @@ Options parse(int argc,char** argv) {
         <<"  --demo-cave            Preview the lantern cave in a temporary world\n"
         <<"  --demo-bed             Preview the furnished cabin interior\n"
         <<"  --demo-farm            Visit a temporary chicken pen and mixed garden\n"
+        <<"  --demo-castle          Preview the castle and car without touching saves\n"
+        <<"  --castle               Start at your saved world's castle\n"
         <<"  --time HOURS           Set the starting time (0 to less than 24)\n"
         <<"  --mute                 Start with sound muted (M toggles sound)\n"
         <<"  --no-save              Use a temporary world\n  --world-dir DIRECTORY  Override the save directory\n";
@@ -91,7 +96,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.10.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.11.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -152,6 +157,25 @@ int run(const Options& options) {
     }
   }
   if(options.hour) world.clock.phase=*options.hour/24.;
+  if(!options.smoke && !options.demoCabin && !options.classic && initializeCastle(world,player) && !world.farm.car.owned) {
+    auto o=*world.castleOrigin; Player parking;
+    parking.pose.position={o.x+20.5f,float(o.y),o.z+39.5f}; parking.pose.yaw=0;
+    bringCar(world,parking);
+  }
+  if(options.demoCastle) {
+    if(!initializeCastle(world,player)) throw std::runtime_error("Castle preview needs a free parcel");
+    auto o=*world.castleOrigin;
+    player.pose.position={o.x+43.f,o.y+15.f,o.z+49.f};
+    auto direction=glm::normalize(glm::vec3(o.x+15.f,o.y+4.f,o.z+15.f)-player.eye());
+    player.pose.yaw=std::atan2(direction.x,-direction.z); player.pose.pitch=std::asin(direction.y);
+    player.pose.flying=true;
+    center=chunkAt(int(player.pose.position.x),int(player.pose.position.z)); world.ensure(center,3);
+  }
+  if(options.castle && visitCastle(world,player)) {
+    bringCar(world,player);
+    center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z))); world.ensure(center,3);
+  }
+  initializeCastlePets(world);
   // Recover gracefully if the saved player is inside a newly placed block.
   while(player.collides(world,player.pose.position) && player.pose.position.y<worldHeight+2) player.pose.position.y+=1;
   Renderer renderer(window.get());
@@ -159,7 +183,8 @@ int run(const Options& options) {
   renderer.sync(world,center,1000);
   ChunkWorker worker(world.terrain); worker.request(center,world);
   HudState hud; hud.paused=options.paused; hud.muted=options.muted;
-  hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.smoke);
+  if(options.demoCastle) hud.help=false;
+  hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.smoke);
   ToolSelection tools;
   tools.choose(world.inventory.held(),world.crafting);
   if(tools.mode==PlayMode::Remove) tools.mode=PlayMode::Farm; // Do not resume holding a demolition tool.
@@ -285,16 +310,19 @@ int run(const Options& options) {
   };
   auto farmAction=[&](FarmAction action) {
     if(action==FarmAction::RanchShop || action==FarmAction::GardenShop) { hud.farmRanch=action==FarmAction::RanchShop; return; }
-    if(action==FarmAction::BuyCow || action==FarmAction::BuyHorse || action==FarmAction::Car) {
+    if(action==FarmAction::BuyCow || action==FarmAction::BuyHorse || action==FarmAction::BuySheep || action==FarmAction::BuyFox || action==FarmAction::Car) {
       if(ride.active && !leaveRide(world,player,ride)) { notice("Move to open ground before getting out"); return; }
-      auto problem=action==FarmAction::Car ? bringCar(world,player) : buyLivestock(world,player,action==FarmAction::BuyCow ? LivestockKind::Cow : LivestockKind::Horse);
+      auto kind=action==FarmAction::BuyCow ? LivestockKind::Cow : action==FarmAction::BuyHorse ? LivestockKind::Horse : action==FarmAction::BuySheep ? LivestockKind::Sheep : LivestockKind::Fox;
+      auto problem=action==FarmAction::Car ? bringCar(world,player) : buyLivestock(world,player,kind);
       if(!problem.empty()) { notice(problem); return; }
       auto destination=action==FarmAction::Car ? world.farm.car.position : world.farm.livestock.back().position;
       auto delta=glm::normalize(destination+glm::vec3(0,1,0)-player.eye());
       player.pose.yaw=std::atan2(delta.x,-delta.z); player.pose.pitch=std::asin(delta.y);
       showMenu(Menu::None); audio.play(Sound::Place);
       notice(action==FarmAction::Car ? "Your car is here / V to drive / V to get out"
-        : action==FarmAction::BuyCow ? "Cow delivered / V to collect milk / Sell milk in the shop" : "Horse delivered / V to ride / V to get off");
+        : action==FarmAction::BuyCow ? "Cow delivered / V to collect milk / Sell milk in the shop"
+        : action==FarmAction::BuyHorse ? "Horse delivered / V to ride / V to get off"
+        : action==FarmAction::BuySheep ? "Your sheep is here / V to pet" : "Your friendly fox is here / V to pet / Chickens are safe");
       return;
     }
     if(action==FarmAction::Name) { beginNaming(); return; }
@@ -420,6 +448,9 @@ int run(const Options& options) {
         if(!animal->car && world.farm.livestock[animal->index].kind==LivestockKind::Cow) {
           if(collectMilk(world,player,animal->index)) { audio.play(Sound::Place); notice("Milk collected / Worth 5 coins / Sell basket in the shop"); }
           else notice(ranchPrompt(world,*animal));
+        } else if(!animal->car && petLivestock(world,player,animal->index)) {
+          toolSwingRemaining=toolSwingSeconds;
+          notice(world.farm.livestock[animal->index].kind==LivestockKind::Sheep ? "Your sheep enjoys the attention" : "Your fox wags its tail");
         } else if(mountRanch(world,player,ride,*animal)) {
           cancelEdits(); notice("WASD or arrows to drive / Space brake / V to get out");
         } else notice("Clear some space above the seat first");
@@ -608,6 +639,21 @@ int run(const Options& options) {
           }
           showMenu(hud.menu==Menu::Farm ? Menu::None : Menu::Farm);
         }
+        if(key==SDL_SCANCODE_C && sleepRemaining<=0) {
+          if(ride.active && ride.car) {
+            auto problem=recoverCar(world,player,ride); cancelEdits();
+            notice(problem.empty() ? "Car moved to clear ground / V to get out" : problem);
+          } else if(ride.active) notice("V to get off your horse before bringing your car here");
+          else farmAction(FarmAction::Car);
+        }
+        if(key==SDL_SCANCODE_K && sleepRemaining<=0) {
+          if(visitCastle(world,player)) {
+            initializeCastlePets(world);
+            ride.active=false; world.farm.car.speed=0; trackedAnimal.reset();
+            showMenu(Menu::None); hud.help=true; stride=0;
+            notice("Your castle / Walk inside / Stairs on the left / C brings your car");
+          } else notice("Castle entrance blocked, or no untouched site available");
+        }
         if(hud.menu==Menu::Farm) {
           if(!hud.farmGarden && !hud.farmShop && (key==SDL_SCANCODE_UP || key==SDL_SCANCODE_DOWN) && !world.farm.chickens.empty()) {
             hud.animalSelected=std::clamp(hud.animalSelected+(key==SDL_SCANCODE_UP ? -1 : 1),0,int(world.farm.chickens.size())-1);
@@ -783,7 +829,13 @@ int run(const Options& options) {
       if(opaque(above)) { exposure=above==Block::Leaves ? .65f : .18f; break; }
     }
     audio.environment(world.clock.sky().daylight,exposure,!hud.paused && !hud.menuOpen(),hud.muted);
+    audio.engine(ride.active && ride.car,world.farm.car.speed);
     hud.guide=hud.farming ? (hud.farmGarden ? gardenGuide(world,player) : farmGuide(world,player)) : adventure.view(world,player);
+    if(atCastle(world,player)) {
+      hud.guide={}; hud.guide.enabled=true; hud.guide.landmark=true; hud.guide.title="YOUR CASTLE";
+      hud.guide.lines={"Walk through the arch into the courtyard.","Stairs on the left lead to the wall walk.","North-wall steps lead to the tall tower."};
+    }
+    if(ride.active) hud.guide.enabled=false;
     if(trackedAnimal && *trackedAnimal<world.farm.chickens.size()) {
       const auto& c=world.farm.chickens[*trackedAnimal];
       auto name=animalName(c,*trackedAnimal);

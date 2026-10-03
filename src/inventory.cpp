@@ -7,7 +7,7 @@ namespace bw {
 Block itemBlock(Item item) {
   constexpr std::array blocks{Block::Air,Block::Planks,Block::Wood,Block::Stone,Block::Glass,Block::DoorZ,Block::Torch,
     Block::Grass,Block::Leaves,Block::Brick,Block::BedZ,Block::Workbench,Block::Fence,Block::GateZ,Block::WheatYoung,Block::Air,Block::Air,Block::Dirt,Block::Sand,
-    Block::CarrotYoung,Block::StrawberryYoung,Block::PumpkinYoung,Block::Air,Block::Air,Block::Air,Block::Sprinkler,Block::Air};
+    Block::CarrotYoung,Block::StrawberryYoung,Block::PumpkinYoung,Block::Air,Block::Air,Block::Air,Block::Sprinkler,Block::Air,Block::StoneSlab};
   return item<Item::Count ? blocks[int(item)] : Block::Air;
 }
 Tool itemTool(Item item) { return item==Item::Axe ? Tool::Axe : item==Item::Pickaxe ? Tool::Pickaxe : Tool::Hands; }
@@ -56,7 +56,7 @@ Inventory startingInventory(const CraftState& crafting) {
 std::span<const Item> modeTools(PlayMode mode) {
   static constexpr std::array farm{Item::Hoe,Item::WateringCan,Item::Carrot,Item::Wheat,Item::Strawberry,Item::Pumpkin,Item::Compost,Item::Sprinkler,Item::Greenhouse};
   static constexpr std::array build{Item::Planks,Item::Wood,Item::Stone,Item::Glass,Item::Door,Item::Torch,Item::Fence,Item::Gate,Item::Bed,
-    Item::Brick,Item::Grass,Item::Leaves,Item::Dirt,Item::Sand,Item::Workbench};
+    Item::Brick,Item::Grass,Item::Leaves,Item::Dirt,Item::StoneSlab,Item::Sand,Item::Workbench};
   static constexpr std::array remove{Item::Empty,Item::Axe,Item::Pickaxe};
   switch(mode) {
     case PlayMode::Farm: return farm;
@@ -71,7 +71,7 @@ std::string_view modeName(PlayMode mode) {
 std::string_view toolName(Item item) {
   constexpr std::array names{"Hammer","Planks","Logs","Stone","Glass","Door","Torch","Grass","Leaves","Bricks","Bed","Workbench",
     "Fence","Gate","Wheat / feed","Wooden axe","Pickaxe","Dirt","Sand","Carrot seeds","Strawberry seeds","Pumpkin seeds",
-    "Watering can","Hoe","Compost","Sprinkler","Greenhouse"};
+    "Watering can","Hoe","Compost","Sprinkler","Greenhouse","Stone step"};
   return item<Item::Count ? names[int(item)] : "";
 }
 Item ToolSelection::held() const { return mode==PlayMode::Farm ? farm : mode==PlayMode::Build ? build : remove; }

@@ -64,7 +64,8 @@ See [Clang's language status](https://clang.llvm.org/cxx_status.html).
 - Two-part beds with low collision geometry, pillows, safe placement/removal,
   and a night-to-morning sleep transition.
 - Procedural stereo audio: material footsteps, block edits, doors, sleep/wake
-  chimes, wind, birds, and crickets. Audio mixing runs on SDL's callback thread.
+  chimes, wind, birds, crickets, and a car engine that revs with speed.
+  Audio mixing runs on SDL's callback thread.
 - Local save/load with atomic file replacement.
 
 The first renderer supplies Metal shaders only. SDL's GPU abstraction can support
@@ -95,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and all ten save formats. Building tests exercise the
+headroom, day rollover, and all eleven save formats. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -123,6 +124,12 @@ safe home landings, and reachable beds.
 The livestock/car suite covers purchases and rejected deliveries, milk production
 and sales, riding and safe exits, braking and reverse, wall collision, and version-9
 migration. CPU previews also show the new models and shop.
+The castle suite walks from the entrance to the tower roof and back without jumping,
+drives through the arch, checks stair headroom and flight behavior, preserves edited
+parcels, and round-trips the castle and stone steps through save version 11.
+Ranch tests also cover narrow tree gaps, safe turning, reverse, terrain rises,
+car recovery, petting sheep and foxes, and saving both new animal types. Audio
+tests check engine idle, revs, reverse, braking, exit, mute, and pause.
 UI previews cover antialiased Crafting, Inventory, and Farm text, the Garden and Shop pages, live garden guide, pause screen,
 and all held garden tools. These CPU previews do not verify native input or Metal rendering.
 
@@ -134,7 +141,9 @@ For disposable visual previews:
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-cabin --time 22 --frames 120 --screenshot artifacts/night.bmp
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-bed --time 22
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-farm --mute
+./build/blockworld.app/Contents/MacOS/blockworld --demo-castle --time 10 --frames 120 --screenshot artifacts/castle.bmp --mute
 ./build/sound_tests artifacts/soundscape.wav
+./build/sound_tests artifacts/soundscape.wav artifacts/car-engine.wav
 ./build/farm_tests artifacts/garden-starter.ppm
 ./build/farm_tests artifacts/garden-upgraded.ppm upgraded
 ./build/ui_tests artifacts/garden-ui
@@ -175,3 +184,6 @@ gardening guide. `world.*` advances crops, weather, moisture, and shelter bonuse
 `inventory.*` owns item/block/tool mapping, fixed mode palettes, and contextual use;
 `inventory_state.hpp` defines stable item IDs and saved hotbar state.
 `ranch.*` owns cows, horses, milk, vehicle delivery, riding, driving, and their meshes.
+`castle.*` builds the castle in an untouched parcel and handles safe visits.
+Use `--castle` to start at the castle in your saved world. `--demo-castle` is a
+disposable preview and never reads or writes the saved world.

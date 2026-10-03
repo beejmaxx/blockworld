@@ -354,7 +354,12 @@ FarmView farmView(const World& world) {
   FarmView view; view.wheat=world.farm.wheat; view.eggs=world.farm.eggs; view.plants=int(world.farm.crops.size());
   view.garden=world.farm.garden;
   view.milk=world.farm.milk; view.basketValue=view.milk*5; view.carOwned=world.farm.car.owned;
-  for(const auto& animal : world.farm.livestock) { if(animal.kind==LivestockKind::Cow) ++view.cows; else ++view.horses; }
+  for(const auto& animal : world.farm.livestock) {
+    if(animal.kind==LivestockKind::Cow) ++view.cows;
+    else if(animal.kind==LivestockKind::Horse) ++view.horses;
+    else if(animal.kind==LivestockKind::Sheep) ++view.sheep;
+    else if(animal.kind==LivestockKind::Fox) ++view.foxes;
+  }
   for(auto kind : cropKinds) { view.harvest[int(kind)]=world.farm.harvest(kind); view.basketValue+=world.farm.harvest(kind)*cropPrice(kind); }
   for(const auto& crop : world.farm.crops) {
     if(crop.age>=cropGrowSeconds(crop.kind)) ++view.ripe;

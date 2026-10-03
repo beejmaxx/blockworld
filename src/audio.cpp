@@ -21,6 +21,10 @@ void Audio::environment(float daylight,float exposure,bool active,bool muted) {
   if(!stream_) return;
   SDL_LockAudioStream(stream_); mixer_.environment(daylight,exposure,active,muted); SDL_UnlockAudioStream(stream_);
 }
+void Audio::engine(bool running,float speed) {
+  if(!stream_) return;
+  SDL_LockAudioStream(stream_); mixer_.engine(running,speed); SDL_UnlockAudioStream(stream_);
+}
 void SDLCALL Audio::feed(void* userdata,SDL_AudioStream* stream,int additional,int) {
   auto& audio=*static_cast<Audio*>(userdata);
   std::array<float,1024> samples{};

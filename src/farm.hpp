@@ -38,7 +38,7 @@ struct FarmView {
   std::array<int,4> harvest{};
   GardenState garden;
   int basketValue=0;
-  int cows=0,horses=0,milk=0;
+  int cows=0,horses=0,sheep=0,foxes=0,milk=0;
   bool carOwned=false;
 };
 FarmView farmView(const World& world);

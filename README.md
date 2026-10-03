@@ -18,11 +18,14 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   then water and harvest them. Seeds and water are unlimited; crops never wilt.
 - **Sell and upgrade:** trade produce and milk for coins, then buy compost,
   sprinklers, and a greenhouse.
-- **Keep animals:** feed hens, hatch chicks, buy cows to milk, and ride horses.
+- **Keep animals:** feed hens, hatch chicks, buy cows to milk, ride horses,
+  and pet sheep and friendly foxes.
 - **Build:** place and remove blocks, make a house, and furnish it with windows,
   doors, torches, and a bed. Building materials are unlimited.
 - **Explore:** walk, fly, or drive your farm car. Follow the path to the lantern
   cave, watch the sunset, and sleep until morning.
+- **Your castle:** press **K** to visit a four-tower stone castle. Walk up the
+  courtyard staircase and along the walls to the tower roof, or furnish the hall.
 
 This is a playable prototype, developed on an Apple Silicon Mac. It currently
 supports macOS only, with no multiplayer or survival mode. Textures and sounds
@@ -84,10 +87,11 @@ The numbered bar in Build lets you select materials directly with **1–9**; no 
 | Toggle flying | Tab or double-tap Space |
 | Fly up / down | Space / Shift |
 | Return home | R |
+| Bring your free car nearby / visit the castle | C / K |
 | Pause and release the mouse | Esc |
 | Mute / unmute | M |
 
-Use **V** to enter or leave a horse or car; steer with WASD or arrow keys and
+Press **C** outside to bring your free car nearby. Use **V** to enter or leave a horse or car; steer with WASD or arrow keys and
 brake with Space. [All controls →](docs/PLAYING.md#controls)
 
 ## Your world

@@ -34,6 +34,7 @@ bool visitHome(World& world,Player& player);
 struct GuideView {
   bool enabled=false;
   bool farm=false;
+  bool landmark=false;
   int stage=0;
   std::string title;
   std::array<std::string,3> lines;

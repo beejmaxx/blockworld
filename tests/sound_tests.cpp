@@ -3,6 +3,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 using namespace bw;
@@ -40,6 +41,47 @@ void preview(const std::filesystem::path& path) {
   }
   writeWav(path,result); std::cout<<"Audio preview: "<<path<<'\n';
 }
+void enginePreview(const std::filesystem::path& path) {
+  Soundscape sound; sound.environment(1,.15f,true,false);
+  std::vector<float> result,block(Soundscape::sampleRate/5);
+  for(int i=0;i<140;++i) {
+    float speed=i<30 ? 0 : i<70 ? 9.f*(i-30)/40 : i<95 ? 9.f : i<115 ? -4.05f : 0;
+    sound.engine(i<130,speed); sound.render(block);
+    result.insert(result.end(),block.begin(),block.end());
+  }
+  writeWav(path,result); std::cout<<"Engine preview: "<<path<<'\n';
+}
+void engineSounds() {
+  Soundscape sound; sound.environment(1,0,true,false);
+  std::vector<float> buffer(Soundscape::sampleRate*2);
+  for(int i=0;i<4;++i) sound.render(buffer);
+  auto crossings=[&] {
+    int n=0; bool low=false;
+    for(std::size_t i=0;i<buffer.size();i+=2) {
+      if(buffer[i]<-.005f) low=true;
+      if(low && buffer[i]>.005f) { ++n; low=false; }
+    }
+    return n;
+  };
+  sound.engine(true,0); sound.render(buffer); sound.render(buffer);
+  double idle=energy(buffer); int idlePitch=crossings();
+  check(idle>1e-4,"a running parked car has an audible idle");
+  sound.engine(true,9); sound.render(buffer); sound.render(buffer);
+  check(energy(buffer)>idle*1.5 && crossings()>idlePitch*2,"driving produces louder, higher engine revs");
+  sound.engine(true,-4.05f); sound.render(buffer); sound.render(buffer);
+  check(energy(buffer)>idle && crossings()>idlePitch,"reverse also revs the engine");
+  sound.engine(true,0); sound.render(buffer); sound.render(buffer);
+  check(crossings()<idlePitch+4,"braking returns the engine to idle");
+  sound.environment(1,0,true,true); sound.render(buffer); sound.render(buffer);
+  check(energy(buffer)<1e-12,"M mutes the engine with the rest of the game");
+  sound.environment(1,0,true,false); sound.render(buffer);
+  check(energy(buffer)>1e-4,"unmuting restores the running engine");
+  sound.environment(1,0,false,false); sound.render(buffer); sound.render(buffer);
+  check(energy(buffer)<1e-12,"menus and pause silence the engine");
+  sound.environment(1,0,true,false); sound.engine(false,9); sound.render(buffer); sound.render(buffer);
+  check(energy(buffer)<1e-12,"getting out stops the engine");
+  sound.engine(true,std::numeric_limits<float>::quiet_NaN()); sound.render(buffer); energy(buffer);
+}
 }
 int main(int argc,char** argv) {
   try {
@@ -68,7 +110,9 @@ int main(int argc,char** argv) {
       Soundscape single; single.environment(1,0,true,false); single.render(buffer);
       single.play(event); single.render(buffer); check(energy(buffer)>1e-7,"interaction sound is audible");
     }
-    if(argc==2) preview(argv[1]);
-    std::cout<<"PASS sound: materials, interactions, ambience, bounded mixing, mute, pause\n";
+    engineSounds();
+    if(argc>=2) preview(argv[1]);
+    if(argc>=3) enginePreview(argv[2]);
+    std::cout<<"PASS sound: materials, interactions, ambience, engine, bounded mixing, mute, pause\n";
   } catch(const std::exception& e) { std::cerr<<"FAIL "<<e.what()<<'\n'; return 1; }
 }

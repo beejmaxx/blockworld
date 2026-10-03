@@ -86,6 +86,11 @@ int main(int argc,char** argv) {
     hud.craft=craftView(world,player); hud.recipeSelected=2; ui.build(hud); snapshot(ui,hud,"crafting-small.ppm");
     hud.menu=Menu::None; hud.paused=true; hud.guide.enabled=true;
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"controls-small.ppm");
+    for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
+      hud.width=size.x; hud.height=size.y; hud.paused=false; hud.riding=true; hud.driving=true; hud.guide.enabled=false;
+      ui.build(hud); bounds(ui,size.x,size.y); snapshot(ui,hud,"driving-"+std::to_string(size.x)+".ppm");
+    }
+    hud.width=800; hud.height=600; hud.riding=false; hud.driving=false;
     hud.paused=false; hud.fps=60; hud.guide.enabled=false; hud.breaking=Cell{0,2,1}; hud.breakProgress=.6f;
     hud.interaction="Build / Left-click places / Right-click removes"; hud.tools.choose(Item::Workbench,CraftState{0,0,0,127});
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"building-small.ppm");
@@ -237,9 +242,9 @@ int main(int argc,char** argv) {
     hud.farmRanch=true; hud.farm.garden.coins=55;
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y; auto x=size.x*.5f-340,y=size.y*.5f-276;
-      check(Ui::farmActionAt(size.x,size.y,x+550,y+278,true,true,true)==FarmAction::BuyCow
-        && Ui::farmActionAt(size.x,size.y,x+550,y+354,true,true,true)==FarmAction::BuyHorse
-        && Ui::farmActionAt(size.x,size.y,x+550,y+430,true,true,true)==FarmAction::Car,"cow, horse, and car buttons are distinct");
+      constexpr std::array animals{FarmAction::BuyCow,FarmAction::BuyHorse,FarmAction::BuySheep,FarmAction::BuyFox};
+      for(int i=0;i<4;++i) check(Ui::farmActionAt(size.x,size.y,x+272+(i%2)*328,y+312+(i/2)*98,true,true,true)==animals[i],"each animal purchase has its own button");
+      check(Ui::farmActionAt(size.x,size.y,x+330,y+462,true,true,true)==FarmAction::Car,"free car remains available from the animal shop");
       check(Ui::farmActionAt(size.x,size.y,x+180,y+493,true,true,true)==FarmAction::GardenShop
         && Ui::farmActionAt(size.x,size.y,x+510,y+493,true,true,false)==FarmAction::RanchShop,"both shop sections can be reached");
       ui.build(hud); bounds(ui,size.x,size.y); snapshot(ui,hud,size.x==800 ? "ranch-shop-small.ppm" : "ranch-shop.ppm");

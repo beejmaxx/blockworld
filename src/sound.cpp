@@ -8,7 +8,7 @@ namespace {
 constexpr float tau=2.f*std::numbers::pi_v<float>;
 int surface(Block b) {
   if(b==Block::Wood || b==Block::Planks || b==Block::Workbench || isDoor(b) || isBed(b) || b==Block::Torch || b==Block::Fence || isGate(b)) return 1;
-  if(b==Block::Stone || b==Block::Brick || b==Block::Bedrock) return 2;
+  if(b==Block::Stone || b==Block::StoneSlab || b==Block::Brick || b==Block::Bedrock) return 2;
   if(b==Block::Glass) return 3;
   return 0;
 }
@@ -81,6 +81,10 @@ void Soundscape::environment(float daylight,float exposure,bool active,bool mute
   targetDay_=std::clamp(daylight,0.f,1.f); targetExposure_=std::clamp(exposure,0.f,1.f);
   targetGain_=active && !muted ? .75f : 0.f;
 }
+void Soundscape::engine(bool running,float speed) {
+  targetEngineGain_=running ? 1.f : 0.f;
+  targetEngineLoad_=running && std::isfinite(speed) ? std::clamp(std::abs(speed)/9.f,0.f,1.f) : 0.f;
+}
 void Soundscape::render(std::span<float> stereo) {
   constexpr float step=1.f/sampleRate;
   for(std::size_t i=0;i+1<stereo.size();i+=2) {
@@ -109,6 +113,16 @@ void Soundscape::render(std::span<float> stereo) {
       left+=cricket*.6f; right+=cricket;
     }
     left*=exposure_; right*=exposure_;
+    // Smooth RPM and volume changes avoid clicks on entry, braking, and exit.
+    engineGain_+=(targetEngineGain_-engineGain_)*.0004f;
+    engineLoad_+=(targetEngineLoad_-engineLoad_)*(targetEngineLoad_>engineLoad_ ? .00008f : .000045f);
+    float firing=42.f+engineLoad_*92.f+std::sin(float(time_*11.))*1.1f;
+    enginePhase_+=tau*firing*step;
+    if(enginePhase_>=tau) enginePhase_-=tau;
+    engineNoise_+=.035f*(random()*2.f-1.f-engineNoise_);
+    float motor=.64f*std::sin(enginePhase_)+.24f*std::sin(enginePhase_*2.f+.3f)+.12f*std::sin(enginePhase_*3.f);
+    motor=(motor+engineNoise_*.16f)*engineGain_*(.12f+.09f*engineLoad_);
+    left+=motor; right+=motor*.97f;
     for(auto& voice : voices_) {
       if(voice.clip<0) continue;
       const auto& clip=clips_[voice.clip];

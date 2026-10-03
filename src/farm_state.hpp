@@ -53,15 +53,15 @@ struct Crop {
   bool composted=false;
   int shelter=-1; // Derived cache: -1 unknown, 0 outdoors, 1 roof, 2 glass roof.
 };
-enum class LivestockKind : std::uint8_t { Cow,Horse };
-inline constexpr std::size_t livestockLimit=8;
+enum class LivestockKind : std::uint8_t { Cow,Horse,Sheep,Fox };
+inline constexpr std::size_t livestockLimit=12;
 inline constexpr float milkSeconds=60.f;
-constexpr int livestockPrice(LivestockKind kind) { return kind==LivestockKind::Cow ? 20 : 35; }
+constexpr int livestockPrice(LivestockKind kind) { return kind==LivestockKind::Cow ? 20 : kind==LivestockKind::Horse ? 35 : kind==LivestockKind::Sheep ? 12 : 15; }
 struct Livestock {
   LivestockKind kind=LivestockKind::Cow;
   glm::vec3 position{},home{};
   float yaw=0,milkTimer=0;
-  float think=0,heading=0,walk=0; // Transient animation and steering.
+  float think=0,heading=0,walk=0,happy=0; // Transient animation and steering.
   bool moving=false;
 };
 struct FarmCar {

@@ -78,6 +78,13 @@ void Ui::labelCentered(std::string_view value,float x,float y,float size,glm::ve
   label(value,x-readableWidth(value,size)*.5f,y,size,color);
 }
 void Ui::cube(Block block,float x,float y,float size) {
+  if(block==Block::StoneSlab) {
+    auto color=blockColor(Block::Stone);
+    quad({x,y+size*.5f},{x+size,y+size},{x,y+size*1.5f},{x-size,y+size},glm::vec4(color*1.1f,1));
+    quad({x-size,y+size},{x,y+size*1.5f},{x,y+size*2},{x-size,y+size*1.5f},glm::vec4(color*.75f,1));
+    quad({x,y+size*1.5f},{x+size,y+size},{x+size,y+size*1.5f},{x,y+size*2},glm::vec4(color*.9f,1));
+    return;
+  }
   if(isCrop(block) && !isWheat(block)) {
     float s=size/15.f;
     auto r=[&](float dx,float dy,float w,float h,glm::vec4 color){rectangle(x+dx*s,y+dy*s,w*s,h*s,color);};
@@ -265,9 +272,9 @@ FarmAction Ui::farmActionAt(int width,int height,float px,float py,bool garden,b
     if(in(24,478,304,30)) return FarmAction::GardenShop;
     if(in(352,478,304,30)) return FarmAction::RanchShop;
     if(ranch) {
-      if(in(492,258,148,48)) return FarmAction::BuyCow;
-      if(in(492,334,148,48)) return FarmAction::BuyHorse;
-      if(in(492,410,148,48)) return FarmAction::Car;
+      constexpr std::array actions{FarmAction::BuyCow,FarmAction::BuyHorse,FarmAction::BuySheep,FarmAction::BuyFox};
+      for(int i=0;i<4;++i) if(in(228+(i%2)*328,296+(i/2)*98,88,32)) return actions[i];
+      if(in(24,449,632,26)) return FarmAction::Car;
       return FarmAction::None;
     }
     constexpr std::array buy{FarmAction::BuyCompost,FarmAction::BuySprinkler,FarmAction::BuyGreenhouse};
@@ -318,15 +325,18 @@ void Ui::farmPage(const HudState& h) {
     label("Sells crops and milk. Keeps your eggs.",x+38,y+207,15,cream);
     button(448,177,192,48,"Sell basket",h.farm.basketValue>0 && h.farm.basketValue<=coinLimit-h.farm.garden.coins);
     if(h.farmRanch) {
-      constexpr std::array names{"Cow - 20 coins","Horse - 35 coins","Your farm car - free"};
-      constexpr std::array notes{"Collect milk with V. Each bottle sells for 5 coins.","V to ride. Move with WASD or the arrow keys.","V to drive. Space brakes. V gets you out."};
-      std::array stocks{std::to_string(h.farm.cows)+" cows on your farm",std::to_string(h.farm.horses)+" horses on your farm",h.farm.carOwned ? std::string("Bring your car to a clear spot nearby") : std::string("A little open-top car for exploring")};
-      for(int i=0;i<3;++i) {
-        float by=250+i*76; rectangle(x+24,y+by,632,68,{.14f,.23f,.17f,1});
-        label(names[i],x+38,y+by+3,20,cream);
-        label(notes[i],x+38,y+by+29,15,cream); label(stocks[i],x+38,y+by+49,14,accent);
-        button(492,by+8,148,48,i==2 ? (h.farm.carOwned ? "Bring car here" : "Get my car") : "Buy",i==2 || (h.farm.cows+h.farm.horses<int(livestockLimit) && h.farm.garden.coins>=(i==0 ? 20 : 35)));
+      constexpr std::array names{"Cow - 20 coins","Horse - 35 coins","Sheep - 12 coins","Friendly fox - 15 coins"};
+      constexpr std::array notes{"V: milk. Sell each bottle for 5 coins.","V: ride. WASD or arrows to move.","A woolly friend. V: pet.","V: pet. Your chickens are safe."};
+      std::array stocks{h.farm.cows,h.farm.horses,h.farm.sheep,h.farm.foxes};
+      int total=h.farm.cows+h.farm.horses+h.farm.sheep+h.farm.foxes;
+      for(int i=0;i<4;++i) {
+        float bx=24+(i%2)*328,by=246+(i/2)*98;
+        rectangle(x+bx,y+by,304,92,{.14f,.23f,.17f,1});
+        label(names[i],x+bx+12,y+by+5,19,cream); label(notes[i],x+bx+12,y+by+34,15,cream);
+        label("On your farm: "+std::to_string(stocks[i]),x+bx+12,y+by+65,15,accent);
+        button(bx+204,by+50,88,32,i==3 ? "Adopt" : "Buy",total<int(livestockLimit) && h.farm.garden.coins>=livestockPrice(LivestockKind(i)));
       }
+      button(24,449,632,26,h.farm.carOwned ? "Bring my car here (C)" : "Get my free car (C)");
     } else {
     constexpr std::array items{Item::Compost,Item::Sprinkler,Item::Greenhouse};
     constexpr std::array names{"Compost - 3 coins","Sprinkler - 12 coins","Greenhouse - 40 coins"};
@@ -344,7 +354,7 @@ void Ui::farmPage(const HudState& h) {
     }
     }
     button(24,478,304,30,"Garden upgrades",!h.farmRanch);
-    button(352,478,304,30,"Cows, horses & car",h.farmRanch);
+    button(352,478,304,30,"Animals & car",h.farmRanch);
     if(!h.notice.empty()) labelCentered(h.notice,cx,y+510,std::min(15.f,15.f*620.f/readableWidth(h.notice,15)),accent);
     labelCentered("Esc or P: Back to game",cx,y+528,16,cream);
     return;
@@ -601,7 +611,7 @@ void Ui::heldTool(const HudState& h) {
       box({-.64f,.62f,-.40f},{.64f,.83f,.40f},{.73f,.29f,.24f});
       box({.27f,.83f,-.37f},{.60f,.98f,.37f},{.95f,.92f,.82f});
     } else {
-      box({-.55f,.24f,-.45f},{.55f,1.34f,.45f},block==Block::Grass ? blockColor(Block::Dirt) : color);
+      box({-.55f,.24f,-.45f},{.55f,block==Block::StoneSlab ? .79f : 1.34f,.45f},block==Block::Grass ? blockColor(Block::Dirt) : color);
       if(block==Block::Grass) box({-.56f,1.16f,-.46f},{.56f,1.36f,.46f},color);
       if(block==Block::Wood || block==Block::Planks || block==Block::Workbench) {
         for(float y : {.46f,.73f,1.f}) box({-.54f,y,.451f},{.54f,y+.035f,.46f},color*.62f);
@@ -650,11 +660,16 @@ void Ui::build(const HudState& h) {
   text(!h.audioAvailable ? "SOUND UNAVAILABLE" : h.muted ? "M / SOUND OFF" : "M / SOUND ON",w-214,85,1.1f,muted);
 
   if(h.guide.enabled && h.help && !h.paused) {
-    float panelHeight=h.guide.farm ? (h.farmGarden ? 220.f : 168.f) : h.guide.stage==4 ? 279.f : 144.f;
+    float panelHeight=h.guide.landmark ? 120.f : h.guide.farm ? (h.farmGarden ? 220.f : 168.f) : h.guide.stage==4 ? 279.f : 144.f;
     rectangle(24,106,350,panelHeight,panel);
     rectangle(24,106,350,2,accent);
-    text(h.guide.title,39,124,1.5f,accent);
-    for(int i=0;i<3;++i) text(h.guide.lines[i],39,153+i*19,std::min(1.3f,320.f/std::max(1.f,float(h.guide.lines[i].size())*6)),i==0 ? cream : muted);
+    if(h.guide.landmark) {
+      label(h.guide.title,39,120,20,accent);
+      for(int i=0;i<3;++i) label(h.guide.lines[i],39,153+i*21,16,i==0 ? cream : muted);
+    } else {
+      text(h.guide.title,39,124,1.5f,accent);
+      for(int i=0;i<3;++i) text(h.guide.lines[i],39,153+i*19,std::min(1.3f,320.f/std::max(1.f,float(h.guide.lines[i].size())*6)),i==0 ? cream : muted);
+    }
     if(h.guide.farm) {
       if(h.farmGarden) {
         text("YOUR HARVEST BASKET",39,220,1.2f,accent);
@@ -684,7 +699,7 @@ void Ui::build(const HudState& h) {
       rectangle(39,358,320,5,{.20f,.28f,.23f,1});
       float fraction=float(h.guide.cabin.done)/float(std::max(h.guide.cabin.total,1));
       rectangle(39,358,320*fraction,5,accent);
-    } else {
+    } else if(!h.guide.landmark) {
       for(int i=0;i<7;++i) rectangle(39+i*46,224,36,4,i<h.guide.stage ? accent : glm::vec4(.25f,.33f,.28f,1));
     }
     if(h.waypoint) {
@@ -709,6 +724,13 @@ void Ui::build(const HudState& h) {
     }
   }
   std::string selected=std::string(toolName(h.selectedItem()));
+  if(h.riding) {
+    rectangle(cx-270,height-140,540,115,panel);
+    labelCentered(h.driving ? "Driving your farm car" : "Riding your horse",cx,height-131,23,accent);
+    labelCentered("W / Up: forward    S / Down: reverse",cx,height-96,18,cream);
+    labelCentered("A D / Left Right: steer    Space: brake",cx,height-72,18,cream);
+    labelCentered(h.driving ? "V: get out    C: move to clear ground" : "V: get off",cx,height-47,18,accent);
+  } else {
   labelCentered(h.tools.mode==PlayMode::Build ? selected+" / E: more materials" : "E  Choose mode / tools",cx,height-159,18,cream);
   modeButtons(h,cx-228,height-132,456,40);
   if(h.tools.mode==PlayMode::Build) {
@@ -728,7 +750,8 @@ void Ui::build(const HudState& h) {
     labelCentered(h.tools.mode==PlayMode::Remove ? "Click: remove one block     V: interact"
       : "Click: use tool / harvest     P: farm shop",cx,height-50,16,cream);
   }
-  if(!h.interaction.empty() && !h.paused) {
+  }
+  if(!h.interaction.empty() && !h.paused && !h.riding) {
     float size=std::min(17.f,17.f*(w-48.f)/std::max(1.f,readableWidth(h.interaction,17)));
     float iw=readableWidth(h.interaction,size)+24;
     float top=height*.5f+23;
@@ -737,8 +760,8 @@ void Ui::build(const HudState& h) {
     labelCentered(h.interaction,cx,top+3,size,cream);
   }
   if(h.help && !h.paused) {
-    label(h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
-    label("Tab: fly     R: home     H: hide help",24,height-194,14,muted);
+    label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
+    label("C: bring car    K: castle    R: home    H: hide help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -748,8 +771,8 @@ void Ui::build(const HudState& h) {
   }
   if(h.paused) {
     rectangle(0,0,w,height,{.025f,.055f,.05f,.43f});
-    float x=cx-260,top=height*.5f-218;
-    rectangle(x,top,520,418,{.07f,.115f,.105f,.96f});
+    float x=cx-260,top=height*.5f-230;
+    rectangle(x,top,520,454,{.07f,.115f,.105f,.96f});
     rectangle(x,top,520,3,accent);
     labelCentered("Your farm, your world",cx,top+27,30,cream);
     labelCentered("Choose Farm, Build, or Remove with E.",cx,top+76,19,muted);
@@ -764,6 +787,7 @@ void Ui::build(const HudState& h) {
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
+    labelCentered("C: bring your car     K: visit your castle",cx,top+421,17,accent);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

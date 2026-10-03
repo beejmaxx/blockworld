@@ -48,6 +48,7 @@ void Player::step(const World& world,Movement move,float dt) {
     velocity.y=std::max(velocity.y-24.f*dt,-35.f);
   }
   bool protectEdge=sneaking && grounded && velocity.y<=0;
+  bool canStep=grounded && !pose.flying && velocity.y<=0;
   grounded=false;
   for (int axis : {0,2,1}) {
     float amount=velocity[axis]*dt;
@@ -57,6 +58,22 @@ void Player::step(const World& world,Movement move,float dt) {
       return collides(world,p) || (protectEdge && axis!=1 && !collides(world,p-glm::vec3(0,.5f,0)));
     };
     if (blocked(next)) {
+      // A half-block stair can be walked up, but full blocks still need a jump.
+      // Check headroom at both ends before raising the player's collision box.
+      if(axis!=1 && canStep && collides(world,next)) {
+        constexpr float stepHeight=.501f;
+        auto raised=next+glm::vec3(0,stepHeight,0);
+        if(!collides(world,pose.position+glm::vec3(0,stepHeight,0)) && !collides(world,raised)
+            && collides(world,raised-glm::vec3(0,stepHeight+.01f,0))) {
+          float lo=0,hi=stepHeight;
+          for(int i=0;i<12;++i) {
+            float mid=(lo+hi)*.5f;
+            if(collides(world,next+glm::vec3(0,mid,0))) lo=mid; else hi=mid;
+          }
+          pose.position=next+glm::vec3(0,hi,0);
+          continue;
+        }
+      }
       float lo=0.f,hi=1.f;
       for (int i=0;i<12;++i) {
         float mid=(lo+hi)*.5f; next=pose.position; next[axis]+=amount*mid;

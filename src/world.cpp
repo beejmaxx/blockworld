@@ -36,6 +36,7 @@ std::string_view blockName(Block b) {
   if(b==Block::Fence) return "Oak fence";
   if(b==Block::Farmland) return "Prepared soil";
   if(b==Block::Sprinkler) return "Sprinkler";
+  if(b==Block::StoneSlab) return "Stone step";
   if(isGate(b)) return "Garden gate";
   if(isWheat(b)) return "Wheat seeds / food";
   if(isCrop(b)) return cropKind(b)==CropKind::Carrot ? "Carrot seeds" : cropKind(b)==CropKind::Strawberry ? "Strawberry seeds" : "Pumpkin seeds";
@@ -48,6 +49,7 @@ glm::vec3 blockColor(Block b) {
   if(b==Block::Workbench) return {.64f,.44f,.24f};
   if(b==Block::Farmland) return {.36f,.23f,.13f};
   if(b==Block::Sprinkler) return {.39f,.72f,.77f};
+  if(b==Block::StoneSlab) return blockColor(Block::Stone);
   if(b==Block::Fence || isGate(b)) return {.66f,.46f,.24f};
   if(isWheat(b)) return b==Block::WheatRipe ? glm::vec3(.91f,.72f,.26f) : glm::vec3(.40f,.67f,.22f);
   if(isCrop(b)) return cropKind(b)==CropKind::Strawberry ? glm::vec3(.88f,.19f,.29f) : glm::vec3(.96f,.48f,.12f);
@@ -63,6 +65,7 @@ Box blockBounds(Cell c, Block block) {
   if(block==Block::Torch) { low={.38f,0,.38f}; high={.62f,.78f,.62f}; }
   if(block==Block::Sprinkler) { low={.18f,0,.18f}; high={.82f,.65f,.82f}; }
   if(isBed(block)) high.y=bedHead(block) ? .63f : .55f;
+  if(block==Block::StoneSlab) high.y=.5f;
   if(isWheat(block)) { low={.14f,0,.14f}; high={.86f,block==Block::WheatYoung ? .28f : block==Block::WheatGrowing ? .53f : .85f,.86f}; }
   else if(isCrop(block)) {
     int stage=(int(block)-int(Block::WheatYoung))%3;
@@ -341,7 +344,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 10 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 11 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -363,6 +366,8 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
     file<<int(a.kind)<<' '<<a.position.x<<' '<<a.position.y<<' '<<a.position.z<<' '<<a.home.x<<' '<<a.home.y<<' '<<a.home.z<<' '<<a.yaw<<' '<<a.milkTimer<<'\n';
   const auto& car=farm.car;
   file<<car.owned<<' '<<car.position.x<<' '<<car.position.y<<' '<<car.position.z<<' '<<car.yaw<<'\n';
+  const auto castle=castleOrigin.value_or(Cell{});
+  file<<castleOrigin.has_value()<<' '<<castle.x<<' '<<castle.y<<' '<<castle.z<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -388,7 +393,8 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   WorldClock savedClock;
   CraftState savedCrafting;
   FarmState savedFarm;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>10) corrupt();
+  std::optional<Cell> savedCastle;
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>11) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -465,11 +471,11 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z)
         && std::abs(p.x)<=coordinateLimit-2 && std::abs(p.z)<=coordinateLimit-2 && p.y>=0 && p.y<=256;
     };
-    if(!(file>>savedFarm.milk>>animals) || savedFarm.milk<0 || savedFarm.milk>9999 || animals>livestockLimit) corrupt();
+    if(!(file>>savedFarm.milk>>animals) || savedFarm.milk<0 || savedFarm.milk>9999 || animals>(version>=11 ? livestockLimit : 8)) corrupt();
     for(std::size_t i=0;i<animals;++i) {
       Livestock a; int kind=-1;
       if(!(file>>kind>>a.position.x>>a.position.y>>a.position.z>>a.home.x>>a.home.y>>a.home.z>>a.yaw>>a.milkTimer)
-          || kind<0 || kind>1 || !validPosition(a.position) || !validPosition(a.home)
+          || kind<0 || kind>(version>=11 ? 3 : 1) || !validPosition(a.position) || !validPosition(a.home)
           || !std::isfinite(a.yaw) || std::abs(a.yaw)>6.284f || !std::isfinite(a.milkTimer) || a.milkTimer<0 || a.milkTimer>milkSeconds) corrupt();
       a.kind=LivestockKind(kind); savedFarm.livestock.push_back(a);
     }
@@ -477,12 +483,20 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     if(!(file>>car.owned>>car.position.x>>car.position.y>>car.position.z>>car.yaw)
         || !validPosition(car.position) || !std::isfinite(car.yaw) || std::abs(car.yaw)>6.284f) corrupt();
   }
+  if(version>=11) {
+    bool present=false; Cell c;
+    if(!(file>>present>>c.x>>c.y>>c.z)) corrupt();
+    if(present) {
+      if(!validCell(c) || std::abs(c.x)>coordinateLimit-50 || std::abs(c.z)>coordinateLimit-50 || c.y>worldHeight-18) corrupt();
+      savedCastle=c;
+    } else if(c!=Cell{}) corrupt();
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
     for(auto& item : savedInventory.slots) {
       int value=-1;
-      if(!(file>>value) || value<0 || value>=(version>=9 ? int(Item::Count) : version==8 ? int(Item::Hoe) : int(Item::Carrot)) || !itemAvailable(Item(value),savedCrafting)) corrupt();
+      if(!(file>>value) || value<0 || value>=(version>=11 ? int(Item::Count) : version>=9 ? int(Item::StoneSlab) : version==8 ? int(Item::Hoe) : int(Item::Carrot)) || !itemAvailable(Item(value),savedCrafting)) corrupt();
       item=Item(value);
     }
   }
@@ -494,7 +508,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     Cell c; int b{};
     if (!(file >> c.x >> c.y >> c.z >> b) || !validCell(c) || b < 0 || b==int(Block::Bedrock)
         || b >= (version==1 ? int(Block::Bedrock) : version==2 ? int(Block::BedZ) : version==3 ? int(Block::Workbench)
-                 : version==4 ? int(Block::Fence) : version<8 ? int(Block::CarrotYoung) : version==8 ? int(Block::Farmland) : int(Block::Count))) corrupt();
+                 : version==4 ? int(Block::Fence) : version<8 ? int(Block::CarrotYoung) : version==8 ? int(Block::Farmland) : version<11 ? int(Block::StoneSlab) : int(Block::Count))) corrupt();
     if (!edits.emplace(c,static_cast<Block>(b)).second) corrupt();
     if(Block(b)==Block::Sprinkler) savedFarm.sprinklers.push_back({c.x,c.y,c.z});
   }
@@ -511,7 +525,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   file >> std::ws;
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
-  farm=std::move(savedFarm); edits_ = std::move(edits); chunks.clear();
+  farm=std::move(savedFarm); castleOrigin=savedCastle; edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -602,6 +616,12 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
     if (!solid(block)) continue;
     Cell c{chunk.pos.x*chunkSize+x,y,chunk.pos.z*chunkSize+z};
     float daylight=y<surface[z*chunkSize+x]-2 ? .20f : 1.f;
+    if(block==Block::StoneSlab) {
+      auto first=vertices.size();
+      appendBox(vertices,blockBounds(c,block),c,3,daylight);
+      for(auto i=first;i<vertices.size();++i) vertices[i].light*=shades[(i-first)/6];
+      continue;
+    }
     if(block==Block::Sprinkler) {
       glm::vec3 p(c.x,c.y,c.z);
       appendBox(vertices,{p+glm::vec3(.28f,0,.28f),p+glm::vec3(.72f,.08f,.72f)},c,3,daylight);

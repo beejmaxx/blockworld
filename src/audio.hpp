@@ -12,6 +12,7 @@ public:
   Audio& operator=(const Audio&)=delete;
   void play(Sound sound,Block material=Block::Wood,float gain=1.f,float pan=0.f);
   void environment(float daylight,float exposure,bool active,bool muted);
+  void engine(bool running,float speed);
   bool available() const { return stream_ && !failed_.load(); }
   std::uint64_t framesRendered() const { return frames_.load(); }
 private:

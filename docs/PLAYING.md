@@ -169,27 +169,54 @@ share the same double-growth bonus rather than multiplying it.
 
 ## Cows, horses, and your car
 
-Open **P → Shop → Cows, horses & car**. Stand outside near a clear, level patch
+Press **C** to bring your free car nearby. For animals, open **P → Shop → Animals & car**. Stand outside near a clear, level patch
 when buying or collecting a vehicle. Delivery never replaces your blocks or crops.
 
 - **Cow: 20 coins.** Aim at her and press **V** to collect a bottle
   of milk. More milk is ready after 60 seconds of play; sleeping advances this timer.
   **Sell basket** sells milk for **5 coins each**, along with your crops.
 - **Horse: 35 coins.** Aim at the horse and press **V** to ride.
-  Cows and horses wander near their home spot and rest at night. Up to eight can
+  Cows and horses wander near their home spot and rest at night. Up to twelve can
   live on your farm, in addition to your chickens.
+- **Sheep: 12 coins.** A woolly companion; aim and press **V** to pet it.
+- **Friendly fox: 15 coins.** Press **V** to pet it and watch its tail wag.
+  Foxes leave chickens and eggs alone. Your pasture can hold twelve animals.
 - **Farm car: free.** Choose **Get my car**, then aim at it and press **V** to drive.
   **Bring car here** brings the same car to a clear spot nearby if you lose it.
 
 While riding or driving, **W / Up** goes forward, **S / Down** reverses,
 **A-D / Left-Right** steers, and **Space** brakes. The mouse looks around.
+The car idles while you sit in it and revs as you drive. Getting out stops the
+engine; **M** mutes all sounds, and menus and pause silence it too.
+The car fits through two-block-wide gaps when lined up straight. If you get wedged,
+reverse with **S / Down**, or press **C** while driving to move the car and rider
+to nearby clear ground. This never removes trees, buildings, or crops.
 **V or right-click** gets you out onto nearby clear ground. These vehicles work
-best on open, level ground and stop at walls, animals, and unsafe edges. **R** still
+best on open ground, can cross one-block terrain rises, and stop at walls,
+animals, and unsafe edges. **R** still
 brings you home and parks your ride where you left it. Block editing is disabled
 while riding. Clicking animals or the car on foot never digs through them.
 
 Your livestock, milk, milk timers, and car position are saved with the world.
-Version 10 loads existing version 1–9 worlds without a reset; cars load parked.
+Existing worlds load without a reset; cars load parked.
+
+## Your castle
+
+Press **K** to visit your stone castle. Walk through the broad arch into the
+courtyard. The staircase on the left leads up to the wall walk. Follow the west
+wall north, then turn right: a second staircase reaches the northeast tower roof.
+The steps are shallow enough to walk up without jumping. The hall has a bed;
+use **V** to sleep there at night. **R** still returns to your original home.
+One sheep and one friendly fox join you in the courtyard for free. They wander
+near their home spot and are saved with the world.
+
+There is a free car parked outside if you did not already own one. **C** brings
+it to a clear patch nearby. The entrance is wide enough to drive into the courtyard.
+
+The castle is built once in an untouched parcel. If someone has built or planted
+at that location, the game tries another site. You can change or remove any of
+its blocks; revisiting never rebuilds them. Choose **E → Build → Stone step**
+for half-height stone blocks to make your own staircases.
 
 ## Optional chicken farm
 
@@ -278,6 +305,8 @@ silently if none is available. No microphone access is used.
 | P | Open / close the Farm page; select a targeted animal |
 | Hold G in Build mode | Place the next guided cabin or pen piece within reach |
 | R | Go home; use P → Garden → Visit garden to return to the beds |
+| C | Bring your free car nearby; while driving, move it to clear ground |
+| K | Visit your castle |
 | H | Toggle the guide and movement hints |
 | M | Mute / unmute sound |
 | F5 | Save |
@@ -291,7 +320,7 @@ actions. Holding use does not repeatedly toggle doors, gates, or vehicle rides.
 ## Saved worlds
 
 World edits, named animals and families, crop types, watering and compost, produce and eggs,
-garden coins and supplies, cows, horses, milk, the parked car, weather, seed, day/time, crafting supplies,
+garden coins and supplies, cows, horses, milk, the parked car, castle, weather, seed, day/time, crafting supplies,
 unlocked tools, the selected farm/build item, tutorial milestones, and player position
 save every 30 seconds of play, after sleeping, and on exit to
 `~/Library/Application Support/Bijan/Blockworld/meadow.bw`. F5 saves immediately.
@@ -300,7 +329,8 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–10. Earlier terrain, edits, tutorial
+to open it. The loader accepts versions 1–11. Version 11 adds the castle location
+and stone steps. Earlier terrain, edits, tutorial
 progress, clocks, crafting, and farm data are retained. Worlds from before the
 shared inventory receive a starter hotbar containing owned tools; version 6's
 custom arrangement is preserved. **Version 7** adds animal names, parent

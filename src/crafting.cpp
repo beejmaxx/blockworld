@@ -49,14 +49,14 @@ void collectMaterial(World& world,Block block) {
   auto& bag=world.crafting;
   if(block==Block::Wood) { bag.wood=std::min(bag.wood+1,CraftState::capacity); if(bag.wood>=3) bag.flags|=GatheredWood; }
   if(block==Block::Planks) bag.planks=std::min(bag.planks+1,CraftState::capacity);
-  if(block==Block::Stone || block==Block::Brick) {
+  if(block==Block::Stone || block==Block::StoneSlab || block==Block::Brick) {
     bag.stone=std::min(bag.stone+1,CraftState::capacity); if(bag.stone>=3) bag.flags|=GatheredStone;
   }
 }
 Tool bestTool(const CraftState& bag,Block b) {
   bool wood=b==Block::Wood || b==Block::Planks || b==Block::Workbench || isDoor(b) || isBed(b) || b==Block::Fence || isGate(b);
   if(wood && bag.has(MadeAxe)) return Tool::Axe;
-  if((b==Block::Stone || b==Block::Brick) && bag.has(MadePickaxe)) return Tool::Pickaxe;
+  if((b==Block::Stone || b==Block::StoneSlab || b==Block::Brick) && bag.has(MadePickaxe)) return Tool::Pickaxe;
   return Tool::Hands;
 }
 std::string_view toolName(Tool tool) {
@@ -69,7 +69,7 @@ float breakSeconds(const CraftState& bag,Block b,Tool equipped) {
   if(b==Block::Air || b==Block::Bedrock) return 0;
   // Even the fastest tool requires a deliberate hold; a tap must be harmless.
   if(equipped!=Tool::Hands && bestTool(bag,b)==equipped) return .5f;
-  if(b==Block::Stone || b==Block::Brick) return 1.15f;
+  if(b==Block::Stone || b==Block::StoneSlab || b==Block::Brick) return 1.15f;
   if(b==Block::Wood || b==Block::Workbench) return .8f;
   if(b==Block::Planks || isDoor(b) || isBed(b) || b==Block::Fence || isGate(b)) return .65f;
   if(b==Block::Torch || b==Block::Leaves || b==Block::Glass || isCrop(b)) return .5f;

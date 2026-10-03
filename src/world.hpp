@@ -34,7 +34,7 @@ enum class Block : std::uint8_t {
   BedZ, BedZHead, BedX, BedXHead, Workbench,
   Fence,GateZ,GateZOpen,GateX,GateXOpen,WheatYoung,WheatGrowing,WheatRipe,
   CarrotYoung,CarrotGrowing,CarrotRipe,StrawberryYoung,StrawberryGrowing,StrawberryRipe,
-  PumpkinYoung,PumpkinGrowing,PumpkinRipe,Farmland,Sprinkler,Count
+  PumpkinYoung,PumpkinGrowing,PumpkinRipe,Farmland,Sprinkler,StoneSlab,Count
 };
 std::string_view blockName(Block block);
 glm::vec3 blockColor(Block block);
@@ -62,7 +62,7 @@ inline Block cropStage(CropKind kind,float age) {
   return Block(int(Block::WheatYoung)+int(kind)*3+(age>=duration ? 2 : age>=duration*.5f ? 1 : 0));
 }
 inline Block wheatStage(float age) { return age>=wheatGrowSeconds ? Block::WheatRipe : age>=wheatGrowSeconds*.5f ? Block::WheatGrowing : Block::WheatYoung; }
-constexpr bool opaque(Block b) { return b != Block::Air && b != Block::Glass && b != Block::Torch && b!=Block::Sprinkler && !isDoor(b) && !isBed(b) && b!=Block::Fence && !isGate(b) && !isCrop(b); }
+constexpr bool opaque(Block b) { return b != Block::Air && b != Block::Glass && b != Block::Torch && b!=Block::Sprinkler && b!=Block::StoneSlab && !isDoor(b) && !isBed(b) && b!=Block::Fence && !isGate(b) && !isCrop(b); }
 constexpr bool collidable(Block b) { return b != Block::Air && b != Block::Torch && !isCrop(b) && !gateOpen(b); }
 
 struct ChunkPos {
@@ -135,6 +135,7 @@ public:
   CraftState crafting;
   Inventory inventory;
   FarmState farm;
+  std::optional<Cell> castleOrigin;
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;
   bool set(Cell cell, Block block);

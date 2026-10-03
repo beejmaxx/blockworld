@@ -70,8 +70,21 @@ void drivingAndRiding() {
   for(int x=-15;x<=15;++x) for(int y=2;y<8;++y) w.set({x,y,0},Block::Stone);
   drive={}; drive.forward=1;
   for(int i=0;i<100;++i) tickRanch(w,p,ride,drive,.1f);
-  check(w.farm.car.position.z>=2.69f && w.farm.car.speed==0,"car stops before a wall without tunneling");
+  check(w.farm.car.position.z>=2.36f && w.farm.car.speed==0,"car stops at its bumper before a wall without tunneling");
   check(leaveRide(w,p,ride),"car can be exited beside a wall");
+
+  // The leading wheels reach a rise before the center of the car does.
+  w=flat(); w.farm.car={true,{.5f,2,5.5f},0,0}; p.pose.position={.5f,2,8.5f};
+  aim(p,w.farm.car.position+glm::vec3(0,.8f,0));
+  check(mountRanch(w,p,ride,*targetRanch(w,p)),"terrain-step fixture mounts");
+  for(int x=-10;x<=10;++x) for(int z=-15;z<=0;++z) w.set({x,2,z},Block::Stone);
+  for(int i=0;i<90;++i) tickRanch(w,p,ride,drive,1.f/60.f);
+  check(w.farm.car.position.z<-5 && w.farm.car.position.y==3,"car climbs a one-block rise without getting stuck on its leading edge");
+  drive.forward=-1;
+  for(int i=0;i<240;++i) tickRanch(w,p,ride,drive,1.f/60.f);
+  check(w.farm.car.position.z>4 && w.farm.car.position.y==2,"car can descend back to level ground");
+  check(leaveRide(w,p,ride),"driver can exit after crossing a terrain step");
+  drive.forward=1;
 
   w=flat(); w.farm.garden.coins=35; p.pose.position={.5f,2,.5f}; p.pose.yaw=0;
   check(buyLivestock(w,p,LivestockKind::Horse).empty(),"horse fixture delivered");
@@ -99,9 +112,71 @@ void persistence() {
   lines[8]="4 999"; { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   bool rejected=false; try { loaded.load(path); } catch(const std::exception&) { rejected=true; }
   check(rejected && loaded.farm.livestock.size()==2 && loaded.farm.milk==4,"invalid ranch saves reject atomically");
-  lines=original; lines[0].replace(0,13,"BLOCKWORLD 9 "); lines.erase(lines.begin()+8,lines.begin()+12);
+  lines=original; lines[0].replace(0,13,"BLOCKWORLD 10 "); lines.erase(lines.begin()+12);
+  { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
+  World previous; check(previous.load(path).has_value() && !previous.castleOrigin && previous.farm.car.owned
+    && previous.farm.livestock.size()==2 && previous.editCount()==w.editCount(),"version-ten worlds retain cars, animals, and buildings");
+  lines=original; lines[0].replace(0,13,"BLOCKWORLD 9 "); lines.erase(lines.begin()+8,lines.begin()+13);
   { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   World old; check(old.load(path).has_value() && old.farm.livestock.empty() && !old.farm.car.owned && old.editCount()==w.editCount(),"version-nine worlds migrate without changing their existing builds");
+}
+void tightTrees() {
+  auto w=flat(); Player p; RideState ride;
+  w.farm.car={true,{1,2,5.5f},0,0}; p.pose.position={1,2,8.5f};
+  aim(p,w.farm.car.position+glm::vec3(0,.8f,0));
+  check(mountRanch(w,p,ride,*targetRanch(w,p)),"narrow passage fixture mounts");
+  for(int x : {-1,2}) for(int z=-3;z<=2;++z) for(int y=2;y<=7;++y) w.set({x,y,z},Block::Wood);
+  auto clear=[&] {
+    for(int x : {-1,2}) for(int z=-3;z<=2;++z) for(int y=2;y<=7;++y)
+      check(!ranchOverlap(w,blockBounds({x,y,z},Block::Wood)),"car cannot rotate or slide into tree trunks");
+  };
+  Movement drive; drive.forward=1;
+  for(int i=0;i<35;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
+  check(w.farm.car.position.z<1,"the visible car fits through a two-block-wide gap between trees");
+  drive.forward=0; drive.right=1;
+  for(int i=0;i<60;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
+  check(std::abs(w.farm.car.yaw)<.15f,"steering stops before wedging the car sideways into the trees");
+  drive.right=0; drive.forward=-1;
+  for(int i=0;i<120;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
+  check(w.farm.car.position.z>6,"reverse and sliding let a car back out of a tight gap");
+  auto before=w.farm.car.position; auto edits=w.editCount();
+  check(recoverCar(w,p,ride).empty() && ride.active && w.farm.car.position!=before
+    && w.editCount()==edits && glm::length(p.pose.position-w.farm.car.position)<.4f,
+    "C moves the same car and rider to clear ground without removing trees or buildings");
+  World empty; auto old=w.farm.car; empty.farm.car=old; auto pose=p.pose;
+  check(!recoverCar(empty,p,ride).empty() && empty.farm.car.position==old.position && p.pose.position==pose.position,
+    "failed recovery leaves car and rider untouched");
+}
+void friendlyAnimals() {
+  auto w=flat(); Player p; p.pose.position={.5f,2,.5f}; w.farm.garden.coins=27;
+  check(buyLivestock(w,p,LivestockKind::Sheep).empty() && w.farm.garden.coins==15,"a sheep costs twelve coins");
+  check(buyLivestock(w,p,LivestockKind::Fox).empty() && w.farm.garden.coins==0,"a friendly fox costs fifteen coins");
+  auto view=farmView(w); check(view.sheep==1 && view.foxes==1 && view.cows==0 && view.horses==0,"shop counts distinguish sheep and foxes from horses");
+  // Space the animals apart to exercise each direct interaction independently.
+  w.farm.livestock[0].position=w.farm.livestock[0].home={-5,2,0};
+  w.farm.livestock[1].position=w.farm.livestock[1].home={5,2,0};
+  RideState ride;
+  for(std::size_t i=0;i<2;++i) {
+    auto& a=w.farm.livestock[i]; p.pose.position=a.position+glm::vec3(0,0,3);
+    aim(p,a.position+glm::vec3(0,.6f,0));
+    auto target=targetRanch(w,p);
+    check(target && target->index==i && !miningTarget(w,p),"sheep and foxes intercept edits aimed at them");
+    check(petLivestock(w,p,i) && a.happy>0 && !mountRanch(w,p,ride,*target) && !collectMilk(w,p,i),"V pets these animals without trying to ride or milk them");
+    check(ranchPrompt(w,*target).find("pet")!=std::string::npos,"the on-screen animal prompt explains petting");
+    auto before=w.farm.livestock[i].happy; p.pose.position+=glm::vec3(0,0,10);
+    check(!petLivestock(w,p,i) && w.farm.livestock[i].happy==before,"petting respects interaction reach");
+  }
+  Chicken c; c.position={7,2,0}; w.farm.chickens.push_back(c); w.farm.eggs=3;
+  p.pose.position={0,2,15}; w.clock.phase=.5;
+  for(int i=0;i<600;++i) tickRanch(w,p,ride,{},1.f/60.f);
+  check(w.farm.chickens.size()==1 && w.farm.eggs==3 && w.farm.livestock.size()==2,"friendly fox never attacks chickens or takes eggs");
+  auto mesh=ranchMesh(w); check(!mesh.empty() && mesh.size()<=ranchVertexLimit,"sheep and fox models fit the ranch GPU buffer");
+  auto path=std::filesystem::temp_directory_path()/("blockworld-pets-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".bw");
+  struct Cleanup { std::filesystem::path path; ~Cleanup(){std::error_code error;std::filesystem::remove(path,error);} } cleanup{path};
+  w.save(path,p.pose); World loaded;
+  check(loaded.load(path).has_value() && loaded.farm.livestock.size()==2
+    && loaded.farm.livestock[0].kind==LivestockKind::Sheep && loaded.farm.livestock[1].kind==LivestockKind::Fox
+    && loaded.farm.livestock[1].position==w.farm.livestock[1].position,"new animals and their positions survive save and reload");
 }
 glm::vec3 color(int material) {
   switch(material) {
@@ -121,7 +196,9 @@ void preview(const std::filesystem::path& path) {
   World world=flat();
   Livestock cow; cow.position={-3,2,0}; cow.yaw=-.2f;
   Livestock horse; horse.kind=LivestockKind::Horse; horse.position={0,2,0}; horse.yaw=.15f;
-  world.farm.livestock={cow,horse}; world.farm.car={true,{4,2,0},-.2f,0};
+  Livestock sheep; sheep.kind=LivestockKind::Sheep; sheep.position={-2,2,-4}; sheep.yaw=-.3f;
+  Livestock fox; fox.kind=LivestockKind::Fox; fox.position={1,2,-4}; fox.yaw=-.3f;
+  world.farm.livestock={cow,horse,sheep,fox}; world.farm.car={true,{4,2,0},-.2f,0};
   auto mesh=ranchMesh(world);
   appendBox(mesh,{{-8,1.85f,-5},{8,2,5}},{0,1,0},1,1);
   constexpr int w=1200,h=700;
@@ -156,6 +233,6 @@ void preview(const std::filesystem::path& path) {
 }
 }
 int main(int argc,char** argv) {
-  try { purchasesAndMilk(); drivingAndRiding(); persistence(); if(argc>1) preview(argv[1]); std::cout<<"PASS purchases, milk, car driving, horse riding, collision, and save migration\n"; }
+  try { purchasesAndMilk(); drivingAndRiding(); tightTrees(); friendlyAnimals(); persistence(); if(argc>1) preview(argv[1]); std::cout<<"PASS purchases, milk, car driving, horse riding, sheep, foxes, collision, and save migration\n"; }
   catch(const std::exception& e) { std::cerr<<"FAIL "<<e.what()<<'\n'; return 1; }
 }
