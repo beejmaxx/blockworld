@@ -48,10 +48,10 @@ Apple Clang 21 have been tested.
 
 1. Click to enter the world. Move with **WASD or the arrow keys** and look with
    the mouse. **P → Garden → Visit garden** takes you to the vegetable beds.
-2. In **P → Garden**, take the hoe. Aim at grass and press **V** to prepare soil.
-3. Choose carrot seeds from the same menu, then press **V** on the soil to plant.
-4. Take the watering can and press **V** on the seedlings. When the carrots have
-   orange roots, press **V** again to harvest them.
+2. Press **E → Farm → Hoe**. Aim at grass and click to prepare soil.
+3. Choose **Carrot seeds** from the same picker, then click the soil to plant.
+4. Choose **Watering can** and click the seedlings. When the carrots have
+   orange roots, click them again to harvest.
 5. Open **P → Shop → Sell basket**. Save **12 coins** for your first sprinkler.
 
 Seeds are free, and plants keep growing without water. Menus pause the world.
@@ -59,16 +59,26 @@ See the [playing guide](docs/PLAYING.md) for crop prices, animals, upgrades, and
 
 ## Controls
 
-**On a Mac trackpad, use V instead of right-click.**
+**Press E, choose Farm, Build, or Remove, then click a labeled tool.**
+The tool goes straight into your hand. Each mode remembers its own selection;
+there are no slots to arrange. Your active mode stays visible at the bottom.
+
+- **Farm:** click to use the hoe, plant seeds, water, harvest, or tend animals.
+- **Build:** left-click removes a block instantly; **V or right-click** places your selected block.
+- **Remove:** hold the visible hammer and click to remove a block instantly.
+
+**V or right-click** remains an interaction shortcut in every mode.
 
 | Action | Input |
 | --- | --- |
 | Move / look | WASD or arrow keys / mouse |
 | Jump / sprint / sneak | Space / Ctrl / Shift |
-| Remove a block instantly | Left-click or X; hold to repeat |
-| Use a tool, harvest, interact, or place a block | Right-click or V |
-| Select an item | 1–9 or scroll |
-| Inventory and crafting | E |
+| Farm: use tool. Build / Remove: remove block | Left-click; hold to repeat |
+| Place a block in Build mode | V or right-click |
+| Choose mode and tools / optional crafting | E |
+| Quick mode shortcuts | F: Farm, B: Build, X: Remove |
+| Change tool within the current mode | Scroll; 1–9 are optional shortcuts |
+| Interact with doors, beds, or animals | V or right-click |
 | Farm, shop, and animals | P |
 | Toggle flying | Tab or double-tap Space |
 | Fly up / down | Space / Shift |

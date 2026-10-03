@@ -37,8 +37,9 @@ See [Clang's language status](https://clang.llvm.org/cxx_status.html).
   and a persistent day/night cycle.
 - Walking, sprinting, sneaking with ledge protection, jumping, flight, solid-block
   collision, and ray-based editing.
-- A shared nine-slot hotbar, inventory with mouse and keyboard assignment,
-  visible held blocks and tools, and Minecraft-style controls with trackpad aliases.
+- Fixed Farm, Build, and Remove palettes with direct tool selection, visible held
+  tools, a free removal hammer, and mode-specific click actions. Build uses
+  left-click to remove and right-click/V to place, on foot or in flight.
 - Placement previews with collision feedback, instant block removal,
   controlled hold repetition, bounded debris particles, and swing animations.
 - An optional crafting lesson for planks, a workbench, an axe, and a pickaxe.
@@ -97,7 +98,7 @@ headroom, day rollover, and all ten save formats. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
-swings at 800×600 and 1280×800. Inventory tests cover assignment and ownership,
+swings at 800×600 and 1280×800. Inventory tests cover legacy slot compatibility, mode selection, removal protection, and ownership,
 contextual use, sneaking at ledges, flight toggling and takeoff, landing out of
 flight, saved selections,
 version-5 migration, and atomic rejection of malformed hotbars. Audio tests check distinct
@@ -169,6 +170,6 @@ it writes PPM previews using the same UI vertices as the game.
 `farm_state.hpp` defines the farm data saved by `world.*`.
 `garden.*` owns the starter beds, hoe, compost, harvest shop, greenhouse kit, and
 gardening guide. `world.*` advances crops, weather, moisture, and shelter bonuses.
-`inventory.*` owns item/block/tool mapping, slot assignment, and contextual use;
+`inventory.*` owns item/block/tool mapping, fixed mode palettes, and contextual use;
 `inventory_state.hpp` defines stable item IDs and saved hotbar state.
 `ranch.*` owns cows, horses, milk, vehicle delivery, riding, driving, and their meshes.

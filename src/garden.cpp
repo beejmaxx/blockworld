@@ -132,13 +132,13 @@ GuideView gardenGuide(const World& world,const Player&) {
   }
   switch(view.stage) {
     case 0: view.title="01 / PREPARE YOUR SOIL";
-      view.lines={"P / GARDEN / take the hoe.","Right-click or V on grass to till it.","P visits the garden. R goes home."}; break;
+      view.lines={"P / GARDEN / take the hoe.","Click or V on grass to till it.","P visits the garden. R goes home."}; break;
     case 1: view.title="02 / PLANT YOUR FIRST ROW";
-      view.lines={"P / GARDEN / choose carrot seeds.","Right-click or V on prepared soil.","Seeds are free. Try a little row."}; break;
+      view.lines={"P / GARDEN / choose carrot seeds.","Click or V on prepared soil.","Seeds are free. Try a little row."}; break;
     case 2: view.title="03 / WATER YOUR PLANTS";
-      view.lines={"P / GARDEN / take the watering can.","Right-click or V waters a plant.","Wet plants grow twice as fast."}; break;
+      view.lines={"P / GARDEN / take the watering can.","Click or V waters a plant.","Wet plants grow twice as fast."}; break;
     case 3: view.title="04 / FILL YOUR HARVEST BASKET";
-      view.lines={"Right-click or V picks a ripe crop.","Carrots leave room for new seeds.","Strawberry bushes fruit again."}; break;
+      view.lines={"Click or V picks a ripe crop.","Carrots leave room for new seeds.","Strawberry bushes fruit again."}; break;
     case 4: view.title="05 / SELL YOUR HARVEST";
       view.lines={"P / SHOP shows your harvest basket.","Sell the basket to earn garden coins.","Save 12 coins for a sprinkler."}; break;
     case 5: view.title="06 / IMPROVE YOUR GARDEN";

@@ -1,6 +1,7 @@
 #include "building.hpp"
 #include "farm.hpp"
 #include "ranch.hpp"
+#include "inventory.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -26,6 +27,15 @@ std::optional<RayHit> miningTarget(const World& world,const Player& player) {
   // Animals intercept the click: never dig the floor or wall through a chicken.
   if(targetChicken(world,player,7.f) || targetRanch(world,player,7.f)) return {};
   return world.raycast(player.eye(),player.direction(),7.f);
+}
+std::optional<BreakEvent> removeSelectedBlock(World& world,const Player& player,const ToolSelection& tools) {
+  if(!tools.removesBlocks()) return {};
+  auto hit=miningTarget(world,player);
+  if(!hit) return {};
+  BreakEvent event{hit->block,world.get(hit->block)};
+  if(!breakBlock(world,event.cell)) return {};
+  collectMaterial(world,event.block); world.guideFlags|=Broke;
+  return event;
 }
 std::optional<BreakEvent> Mining::tick(World& world,const std::optional<RayHit>& hit,bool held,float dt,Tool equipped) {
   if(!held || !hit || !std::isfinite(hit->distance) || hit->distance>7.f || hit->distance<0) { reset(); return {}; }

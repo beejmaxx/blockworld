@@ -160,12 +160,16 @@ int run(const Options& options) {
   ChunkWorker worker(world.terrain); worker.request(center,world);
   HudState hud; hud.paused=options.paused; hud.muted=options.muted;
   hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.smoke);
-  hud.inventory=world.inventory;
+  ToolSelection tools;
+  tools.choose(world.inventory.held(),world.crafting);
+  if(tools.mode==PlayMode::Remove) tools.mode=PlayMode::Farm; // Do not resume holding a demolition tool.
+  if(options.classic || (options.demoCabin && !options.demoFarm) || options.smoke) tools.mode=PlayMode::Build;
+  hud.tools=tools;
   Adventure adventure;
   BuildRepeater removeInput;
   RideState ride;
   BuildRepeater buildInput;
-  constexpr unsigned keyEditSource=1,mouseEditSource=2;
+  constexpr unsigned keyEditSource=1,mouseEditSource=2,rightEditSource=4;
   unsigned placeHeld=0,removeHeld=0;
   DebrisCloud debris;
   bool running=true;
@@ -234,7 +238,7 @@ int run(const Options& options) {
       hud.animalSelected=std::clamp(hud.animalSelected,0,std::max(0,int(world.farm.chickens.size())-1));
       hud.farmPage=hud.animalSelected/6;
     }
-    hud.menu=menu; hud.paused=false; hud.carried.reset(); hud.inventoryHover=-1;
+    hud.menu=menu; hud.paused=false; hud.inventoryHover=-1;
     cancelEdits(); player.velocity={}; capture(menu==Menu::None);
   };
   auto beginNaming=[&] {
@@ -258,6 +262,18 @@ int run(const Options& options) {
       if(hud.nameSelectedAll) { hud.nameDraft.clear(); hud.nameSelectedAll=false; }
       if(hud.nameDraft.size()<animalNameLimit) hud.nameDraft.push_back(char(c));
     }
+  };
+  auto rememberTool=[&] {
+    // Keep the existing save format and old custom slots compatible.
+    if(tools.mode!=PlayMode::Remove) equipItem(world.inventory,world.crafting,tools.held());
+    hud.tools=tools; cancelEdits();
+  };
+  auto chooseTool=[&](Item item) {
+    if(!tools.choose(item,world.crafting)) return false;
+    rememberTool(); return true;
+  };
+  auto changeMode=[&](PlayMode mode) {
+    tools.mode=mode; hud.inventoryHover=-1; rememberTool();
   };
   auto goHome=[&] {
     if(!visitHome(world,player)) { notice("HOME LANDING IS BLOCKED / CLEAR SOME SPACE"); return; }
@@ -288,9 +304,9 @@ int run(const Options& options) {
       hud.farmShop=action==FarmAction::Shop; hud.farmGarden=action!=FarmAction::Animals; trackedAnimal.reset(); return;
     }
     auto takeGardenTool=[&](Item item) {
-      equipItem(world.inventory,world.crafting,item); hud.farming=true; hud.farmGarden=true; hud.help=true;
+      chooseTool(item); hud.farming=true; hud.farmGarden=true; hud.help=true;
       showMenu(Menu::None);
-      notice(item==Item::Hoe ? "HOE READY / RIGHT CLICK OR V ON GRASS TO PREPARE SOIL"
+      notice(item==Item::Hoe ? "HOE READY / CLICK OR V ON GRASS TO PREPARE SOIL"
         : item==Item::Compost ? "COMPOST READY / V ON A GROWING CROP / TWO EXTRA PER HARVEST"
         : item==Item::Sprinkler ? "SPRINKLER READY / V ON GROUND / WATERS A 5 BY 5 AREA"
         : "GREENHOUSE KIT / V ON LEVEL SOIL / EXTENDS 4 BLOCKS NORTH");
@@ -318,10 +334,10 @@ int run(const Options& options) {
     if(action>=FarmAction::Seeds && action<=FarmAction::Gates) {
       constexpr std::array items{Item::Wheat,Item::Carrot,Item::Strawberry,Item::Pumpkin,Item::WateringCan,Item::Fence,Item::Gate};
       auto item=items[int(action)-int(FarmAction::Seeds)];
-      equipItem(world.inventory,world.crafting,item); hud.farming=true; hud.help=true; hud.farmGarden=isCrop(itemBlock(item)) || item==Item::WateringCan;
+      chooseTool(item); hud.farming=true; hud.help=true; hud.farmGarden=isCrop(itemBlock(item)) || item==Item::WateringCan;
       showMenu(Menu::None);
-      notice(item==Item::WateringCan ? "WATERING CAN READY / RIGHT CLICK OR V ON A PLANT"
-             : isCrop(itemBlock(item)) ? "SEEDS READY / RIGHT CLICK OR V ON PREPARED SOIL" : "RIGHT CLICK OR V TO BUILD / G HELPS BUILD THE PEN");
+      notice(item==Item::WateringCan ? "WATERING CAN READY / CLICK OR V ON A PLANT"
+             : isCrop(itemBlock(item)) ? "SEEDS READY / CLICK OR V ON PREPARED SOIL" : "RIGHT CLICK OR V TO BUILD / CLICK TO REMOVE / G HELPS BUILD THE PEN");
     } else if(action==FarmAction::Hatch) {
       if(incubateEgg(world,std::size_t(hud.animalSelected))) {
         audio.play(Sound::Cluck); notice("EGG KEPT WARM / RETURN TO THE WORLD FOR 60 SECONDS");
@@ -343,7 +359,7 @@ int run(const Options& options) {
       notice(std::string(recipes()[index].name)+" READY / E TO RETURN TO THE WORLD");
       auto item=recipe==Recipe::Workbench ? Item::Workbench : recipe==Recipe::Axe ? Item::Axe
         : recipe==Recipe::Pickaxe ? Item::Pickaxe : Item::Planks;
-      equipItem(world.inventory,world.crafting,item); cancelEdits();
+      chooseTool(item);
     }
   };
   auto pointerPixels=[&](float x,float y) {
@@ -352,23 +368,19 @@ int run(const Options& options) {
     hud.width=pw; hud.height=ph;
     return glm::vec2(x*float(pw)/float(std::max(w,1)),y*float(ph)/float(std::max(h,1)));
   };
-  auto putInSlot=[&](int slot,Item item) {
-    if(assignItem(world.inventory,world.crafting,slot,item)) { hud.carried.reset(); cancelEdits(); }
-  };
   auto edit=[&](bool place) {
-    auto hit=place ? world.raycast(player.eye(),player.direction()) : miningTarget(world,player);
-    if(!hit || ride.active) return false;
-    if(place) {
-      bool alongX=std::abs(player.direction().x)>std::abs(player.direction().z);
-      auto status=placementStatus(world,player,hit->adjacent,itemBlock(world.inventory.held()),alongX);
-      if(status!=PlacementStatus::Ready) { notice(std::string(placementMessage(status))); return false; }
-      bool changed=placeBlock(world,player,hit->adjacent,itemBlock(world.inventory.held()),alongX);
-      if(changed) { world.guideFlags|=Placed; soundAt(Sound::Place,itemBlock(world.inventory.held()),hit->adjacent); }
-      return changed;
+    if(ride.active) return false;
+    if(!place) {
+      if(auto event=removeSelectedBlock(world,player,tools)) { broke(*event); return true; }
+      return false;
     }
-    auto material=world.get(hit->block);
-    bool changed=breakBlock(world,hit->block);
-    if(changed) { world.guideFlags|=Broke; collectMaterial(world,material); broke({hit->block,material}); }
+    auto hit=world.raycast(player.eye(),player.direction());
+    if(!hit) return false;
+    bool alongX=std::abs(player.direction().x)>std::abs(player.direction().z);
+    auto status=placementStatus(world,player,hit->adjacent,itemBlock(tools.held()),alongX);
+    if(status!=PlacementStatus::Ready) { notice(std::string(placementMessage(status))); return false; }
+    bool changed=placeBlock(world,player,hit->adjacent,itemBlock(tools.held()),alongX);
+    if(changed) { world.guideFlags|=Placed; soundAt(Sound::Place,itemBlock(tools.held()),hit->adjacent); }
     return changed;
   };
   auto use=[&](bool repeating) {
@@ -378,12 +390,12 @@ int run(const Options& options) {
     }
     const bool* keys=SDL_GetKeyboardState(nullptr);
     bool sneak=keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-    auto target=useTarget(world,player,world.inventory.held(),sneak);
+    auto target=useTarget(world,player,tools.held(),sneak);
     if(target.kind==UseKind::Place) { edit(true); return; }
     if(target.kind==UseKind::Till) {
       if(tillSoil(world,player,target.cell)) {
         debris.emit(target.cell,Block::Dirt); toolSwingRemaining=toolSwingSeconds; soundAt(Sound::Place,Block::Dirt,target.cell);
-        notice("SOIL PREPARED / CHOOSE SEEDS AND RIGHT CLICK OR V TO PLANT");
+        notice("SOIL PREPARED / CHOOSE SEEDS AND CLICK OR V TO PLANT");
       } else if(!repeating) notice(target.distance>3.5f ? "STEP CLOSER TO PREPARE SOIL" : "USE THE HOE ON CLEAR GRASS OR DIRT");
       return;
     }
@@ -428,8 +440,8 @@ int run(const Options& options) {
         break;
       case UseKind::Chicken: {
         if(!isChick(world.farm.chickens[target.chicken]) && world.farm.chickens[target.chicken].hatchTimer<0
-           && !world.farm.chickens[target.chicken].eggReady && world.inventory.held()!=Item::Wheat) {
-          notice("SELECT WHEAT IN YOUR HOTBAR TO FEED THE CHICKEN"); break;
+           && !world.farm.chickens[target.chicken].eggReady && tools.held()!=Item::Wheat) {
+          notice("E / FARM / WHEAT TO FEED THE CHICKEN"); break;
         }
         auto result=useChicken(world,player,target.chicken);
         if(result==FarmUse::Fed) { audio.play(Sound::Cluck); notice("HAPPY CHICKEN / AN EGG WILL BE READY IN 30 SECONDS"); }
@@ -459,7 +471,7 @@ int run(const Options& options) {
     if(!placeHeld) buildInput.release();
   };
   auto pressRemove=[&](unsigned source) {
-    if(ride.active) return;
+    if(ride.active || !tools.removesBlocks()) return;
     if(!removeHeld) {
       removeInput.press(); removeInput.tick(0,true); // Consume the immediate action exactly once.
       edit(false);
@@ -495,7 +507,7 @@ int run(const Options& options) {
       }
       if(event.type==SDL_EVENT_MOUSE_MOTION && hud.menuOpen()) {
         hud.pointer=pointerPixels(event.motion.x,event.motion.y);
-        if(hud.menu==Menu::Inventory) hud.inventoryHover=Ui::inventoryItemAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y);
+        if(hud.menu==Menu::Inventory) hud.inventoryHover=Ui::toolAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y,tools.mode);
         else if(hud.menu==Menu::Crafting) {
           int recipe=Ui::recipeAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y);
           if(recipe>=0) hud.recipeSelected=recipe;
@@ -517,51 +529,45 @@ int run(const Options& options) {
             if(animal>=0) { endNaming(); hud.animalSelected=animal; }
             else farmAction(Ui::farmActionAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y,hud.farmGarden,hud.farmShop,hud.farmRanch));
           } else {
-            int itemIndex=Ui::inventoryItemAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y);
-            int slot=Ui::inventorySlotAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y);
-            if(itemIndex>=0) {
-              auto item=itemCatalog[itemIndex];
-              if(itemAvailable(item,world.crafting)) hud.carried=item;
+            if(auto mode=Ui::modeAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y)) {
+              changeMode(*mode);
+            } else if(int itemIndex=Ui::toolAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y,tools.mode); itemIndex>=0) {
+              auto item=modeTools(tools.mode)[itemIndex];
+              if(chooseTool(item)) showMenu(Menu::None);
               else {
                 showMenu(Menu::Crafting); hud.recipeSelected=item==Item::Workbench ? 1 : item==Item::Axe ? 2 : 3;
                 notice(craftProblem(world,player,Recipe(hud.recipeSelected)));
               }
-            } else if(slot>=0) {
-              if(hud.carried) putInSlot(slot,*hud.carried);
-              else world.inventory.selected=slot;
             }
           }
         }
         else if(hud.menuOpen()) {}
         else if(hud.paused) { hud.paused=false; cancelEdits(); capture(true); }
         else if(sleepRemaining>0 || !interactive) {}
-        else if(event.button.button==SDL_BUTTON_LEFT) pressRemove(mouseEditSource);
-        else if(event.button.button==SDL_BUTTON_RIGHT) pressPlace(mouseEditSource);
+        else if(event.button.button==SDL_BUTTON_LEFT) {
+          if(tools.removesBlocks() && !ride.active) pressRemove(mouseEditSource);
+          else pressPlace(mouseEditSource);
+        }
+        else if(event.button.button==SDL_BUTTON_RIGHT) pressPlace(rightEditSource);
         else if(event.button.button==SDL_BUTTON_MIDDLE) {
           if(auto hit=world.raycast(player.eye(),player.direction())) {
             auto item=itemFromBlock(world.get(hit->block));
-            if(item!=Item::Empty && equipItem(world.inventory,world.crafting,item)) cancelEdits();
+            if(item!=Item::Empty) chooseTool(item);
           }
         }
       }
       if(event.type==SDL_EVENT_MOUSE_BUTTON_UP) {
         if(event.button.button==SDL_BUTTON_LEFT) {
-          releaseRemove(mouseEditSource);
-          if(hud.menu==Menu::Inventory && hud.carried) {
-            hud.pointer=pointerPixels(event.button.x,event.button.y);
-            int slot=Ui::inventorySlotAt(hud.width,hud.height,hud.pointer.x,hud.pointer.y);
-            if(slot>=0) putInSlot(slot,*hud.carried);
-          }
+          releaseRemove(mouseEditSource); releasePlace(mouseEditSource);
         }
-        if(event.button.button==SDL_BUTTON_RIGHT) releasePlace(mouseEditSource);
+        if(event.button.button==SDL_BUTTON_RIGHT) releasePlace(rightEditSource);
       }
       if(event.type==SDL_EVENT_KEY_UP) {
-        if(event.key.scancode==SDL_SCANCODE_X) releaseRemove(keyEditSource);
         if(event.key.scancode==SDL_SCANCODE_V) releasePlace(keyEditSource);
       }
       if(event.type==SDL_EVENT_MOUSE_WHEEL && !hud.paused && !hud.menuOpen()) {
         float y=event.wheel.y*(event.wheel.direction==SDL_MOUSEWHEEL_FLIPPED ? -1.f : 1.f);
-        if(y!=0) { world.inventory.selected=(world.inventory.selected+(y>0 ? hotbarSize-1 : 1))%hotbarSize; cancelEdits(); }
+        if(y!=0) { tools.cycle(y>0 ? -1 : 1,world.crafting); rememberTool(); }
       }
       if(event.type==SDL_EVENT_TEXT_INPUT && hud.naming) appendName(event.text.text);
       if(event.type==SDL_EVENT_KEY_DOWN && hud.naming) {
@@ -609,18 +615,19 @@ int run(const Options& options) {
           if(key==SDL_SCANCODE_DOWN) hud.recipeSelected=(hud.recipeSelected+1)%4;
           if(key==SDL_SCANCODE_RETURN) makeRecipe(hud.recipeSelected);
         } else if(hud.menu==Menu::Inventory) {
-          if(key>=SDL_SCANCODE_1 && key<=SDL_SCANCODE_9) {
-            int slot=int(key-SDL_SCANCODE_1);
-            if(hud.carried) putInSlot(slot,*hud.carried);
-            else if(hud.inventoryHover>=0) putInSlot(slot,itemCatalog[hud.inventoryHover]);
-            else world.inventory.selected=slot;
+          if(key>=SDL_SCANCODE_1 && key<=SDL_SCANCODE_9 && tools.select(int(key-SDL_SCANCODE_1),world.crafting)) {
+            rememberTool(); showMenu(Menu::None);
           }
-          if(key==SDL_SCANCODE_BACKSPACE || key==SDL_SCANCODE_DELETE) putInSlot(world.inventory.selected,Item::Empty);
+          if(key==SDL_SCANCODE_F) changeMode(PlayMode::Farm);
+          if(key==SDL_SCANCODE_B) changeMode(PlayMode::Build);
+          if(key==SDL_SCANCODE_X) changeMode(PlayMode::Remove);
         }
         if(!hud.paused && !hud.menuOpen() && sleepRemaining<=0) {
-          if(key==SDL_SCANCODE_X && interactive) pressRemove(keyEditSource);
+          if(key==SDL_SCANCODE_F) changeMode(PlayMode::Farm);
+          if(key==SDL_SCANCODE_B) changeMode(PlayMode::Build);
+          if(key==SDL_SCANCODE_X) changeMode(PlayMode::Remove);
           if(key==SDL_SCANCODE_V && interactive) pressPlace(keyEditSource);
-          if(key>=SDL_SCANCODE_1 && key<=SDL_SCANCODE_9) { world.inventory.selected=int(key-SDL_SCANCODE_1); cancelEdits(); }
+          if(key>=SDL_SCANCODE_1 && key<=SDL_SCANCODE_9 && tools.select(int(key-SDL_SCANCODE_1),world.crafting)) rememberTool();
           if(key==SDL_SCANCODE_H) hud.help=!hud.help;
           if(key==SDL_SCANCODE_TAB && (!ride.active || leaveRide(world,player,ride))) {
             player.toggleFlying(); jump=false; cancelEdits();
@@ -642,8 +649,8 @@ int run(const Options& options) {
     }
     if(!running) break;
     if(options.smoke) {
-      if(frame==24) { player.pose.flying=true; player.velocity={}; player.pose.pitch=-1.3f; if(edit(false)) ++smokeEdits; }
-      if(frame==30) { if(edit(true)) ++smokeEdits; }
+      if(frame==24) { changeMode(PlayMode::Remove); player.pose.flying=true; player.velocity={}; player.pose.pitch=-1.3f; if(edit(false)) ++smokeEdits; }
+      if(frame==30) { changeMode(PlayMode::Build); if(edit(true)) ++smokeEdits; }
       if(frame==36) { player.pose.flying=false; player.pose.pitch=-.23f; world.guideFlags|=Looked|Walked|Broke|Placed; }
       if(frame==60) SDL_SetWindowSize(window.get(),1120,720);
       if(frame==90) SDL_SetWindowSize(window.get(),1280,800);
@@ -711,7 +718,7 @@ int run(const Options& options) {
         if(travelled<.001f) stride=0;
       } else stride=0;
       adventure.moved(world,before,player.pose.position);
-      tickFarm(world,player,dt,isWheat(itemBlock(world.inventory.held())));
+      tickFarm(world,player,dt,isWheat(itemBlock(tools.held())));
       rainTimer-=dt;
       if(world.farm.garden.raining() && rainTimer<=0) {
         auto eye=player.eye();
@@ -728,12 +735,12 @@ int run(const Options& options) {
       bool removing=interactive && removeHeld!=0;
       if(removeInput.tick(dt,removing && !ride.active)) { edit(false); toolSwingRemaining=toolSwingSeconds; }
       if(buildInput.tick(dt,interactive && !removing)) { use(repeatedUse); repeatedUse=true; }
-      if(keys[SDL_SCANCODE_G] && !ride.active && guideCooldown==0.f && interactive && !removing && !hud.menuOpen() && sleepRemaining<=0) {
+      if(keys[SDL_SCANCODE_G] && tools.mode==PlayMode::Build && !ride.active && guideCooldown==0.f && interactive && !removing && !hud.menuOpen() && sleepRemaining<=0) {
         auto next=adventure.nextPiece(world,player);
         if(hud.farming && !hud.farmGarden) {
           if(buildPenNext(world,player)) audio.play(Sound::Place,Block::Wood);
         } else if(!hud.farming && adventure.buildNext(world,player) && next) {
-          equipItem(world.inventory,world.crafting,itemFromBlock(next->block));
+          chooseTool(itemFromBlock(next->block));
           soundAt(Sound::Place,next->block,next->cell);
         }
         guideCooldown=.16f;
@@ -758,7 +765,7 @@ int run(const Options& options) {
     hud.flying=player.pose.flying;
     if(hud.menuOpen()) hud.craft=craftView(world,player);
     else hud.craft.bag=world.crafting;
-    hud.inventory=world.inventory;
+    hud.tools=tools;
     hud.breaking.reset(); hud.breakProgress=0; hud.riding=ride.active; hud.driving=ride.active && ride.car;
     hud.toolSwing=toolSwingRemaining>0 ? 1.f-toolSwingRemaining/toolSwingSeconds : 0.f;
     hud.clock=world.clock; hud.sleeping=sleepRemaining>0; hud.waking=sleepApplied;
@@ -784,8 +791,8 @@ int run(const Options& options) {
     hud.wheat=world.farm.wheat; hud.eggs=world.farm.eggs;
     auto hit=world.raycast(player.eye(),player.direction());
     const bool* keys=SDL_GetKeyboardState(nullptr);
-    auto target=useTarget(world,player,world.inventory.held(),keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]);
-    hud.placement=target.kind==UseKind::Place ? placementPreview(world,player,hit,itemBlock(world.inventory.held())) : std::nullopt;
+    auto target=useTarget(world,player,tools.held(),keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]);
+    hud.placement=target.kind==UseKind::Place ? placementPreview(world,player,hit,itemBlock(tools.held())) : std::nullopt;
     if(target.kind==UseKind::Greenhouse) {
       auto c=target.cell;
       hud.placement=PlacementPreview{c,Block::Glass,greenhouseProblem(world,player,c).empty() ? PlacementStatus::Ready : PlacementStatus::Occupied,
@@ -794,7 +801,7 @@ int run(const Options& options) {
     hud.interaction.clear();
     switch(target.kind) {
       case UseKind::Ranch: if(auto animal=targetRanch(world,player)) hud.interaction=ranchPrompt(world,*animal); break;
-      case UseKind::Till: hud.interaction=target.distance>3.5f ? "STEP CLOSER / V TO PREPARE SOIL" : "HOE / RIGHT CLICK OR V ON GRASS / THEN PLANT SEEDS"; break;
+      case UseKind::Till: hud.interaction=target.distance>3.5f ? "STEP CLOSER / V TO PREPARE SOIL" : "HOE / CLICK OR V ON GRASS / THEN PLANT SEEDS"; break;
       case UseKind::Compost:
         hud.interaction=world.farm.garden.compost>0 ? "COMPOST / V ONCE / TWO EXTRA AT HARVEST" : "COMPOST EMPTY / P / SHOP FOR MORE"; break;
       case UseKind::Greenhouse: {
@@ -810,22 +817,27 @@ int run(const Options& options) {
         break;
       }
       case UseKind::Crop: case UseKind::Water:
-        hud.interaction=target.distance>3.5f ? "STEP CLOSER TO YOUR CROP" : cropPrompt(world,target.cell,world.inventory.held()==Item::WateringCan); break;
+        hud.interaction=target.distance>3.5f ? "STEP CLOSER TO YOUR CROP" : cropPrompt(world,target.cell,tools.held()==Item::WateringCan); break;
       case UseKind::Chicken:
         hud.interaction=chickenPrompt(world,target.chicken);
         if(!isChick(world.farm.chickens[target.chicken]) && world.farm.chickens[target.chicken].hatchTimer<0
            && world.farm.chickens[target.chicken].eggTimer<0 && !world.farm.chickens[target.chicken].eggReady
-           && world.farm.wheat>0 && world.clock.sky().daylight>=.12f && world.inventory.held()!=Item::Wheat)
-          hud.interaction="HOLD WHEAT TO FEED / E INVENTORY";
+           && world.farm.wheat>0 && world.clock.sky().daylight>=.12f && tools.held()!=Item::Wheat)
+          hud.interaction="E / FARM / WHEAT TO FEED";
         break;
       default: break;
     }
     if(hud.interaction.empty() && hud.placement) hud.interaction=placementMessage(hud.placement->status);
-    if(hud.interaction.empty()) hud.interaction=world.inventory.held()==Item::WateringCan ? "AIM AT A PLANT / RIGHT CLICK OR V TO WATER"
-      : world.inventory.held()==Item::Hoe ? "AIM AT GRASS OR DIRT / V TO PREPARE SOIL"
-      : world.inventory.held()==Item::Compost ? "AIM AT A GROWING PLANT / V TO ADD COMPOST"
-      : isCrop(itemBlock(world.inventory.held())) ? "AIM AT PREPARED SOIL / RIGHT CLICK OR V TO PLANT"
-      : itemBlock(world.inventory.held())==Block::Air ? "LEFT CLICK SWING / E INVENTORY" : "AIM AT THE GROUND OR A BLOCK TO BUILD";
+    if(hud.interaction.empty()) hud.interaction=tools.held()==Item::WateringCan ? "AIM AT A PLANT / CLICK OR V TO WATER"
+      : tools.held()==Item::Hoe ? "AIM AT GRASS OR DIRT / V TO PREPARE SOIL"
+      : tools.held()==Item::Compost ? "AIM AT A GROWING PLANT / V TO ADD COMPOST"
+      : isCrop(itemBlock(tools.held())) ? "AIM AT PREPARED SOIL / CLICK OR V TO PLANT"
+      : itemBlock(tools.held())==Block::Air ? "CLICK TO USE / E CHOOSE TOOLS" : "AIM AT THE GROUND OR A BLOCK TO BUILD";
+    if(tools.mode==PlayMode::Remove && !ride.active) {
+      hud.placement.reset();
+      hud.interaction=miningTarget(world,player) ? "Remove mode / Click to remove one block" : "Remove mode / Aim at a block / E to change tools";
+      if(target.kind==UseKind::Ranch || target.kind==UseKind::Chicken) hud.interaction="Animals are safe / V to interact / E to change mode";
+    }
     if(ride.active) { hud.placement.reset(); hud.interaction="W / UP FORWARD   S / DOWN REVERSE   A-D STEER   SPACE BRAKE   V EXIT"; }
     renderer.sync(world,center,4);
     bool last=options.frames>0 && frame+1>=options.frames;

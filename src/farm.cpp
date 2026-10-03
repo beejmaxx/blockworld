@@ -314,7 +314,7 @@ GuideView farmGuide(const World& world,const Player& player) {
   switch(view.stage) {
     case 0: {
       view.title="01 / MAKE A CHICKEN PEN";
-      view.lines={"Hold G to build the glowing fence.","Walk around to reach every piece.","E has fences and gates for your hotbar."};
+      view.lines={"Hold G to build the glowing fence.","Walk around to reach every piece.","E / Build has fences and gates."};
       if(auto next=nextPenPiece(world,player)) {
         view.preview=next->cell; view.previewBlock=next->block;
         view.destination=glm::vec3(next->cell.x+.5f,next->cell.y+.5f,next->cell.z+.5f);
@@ -324,11 +324,11 @@ GuideView farmGuide(const World& world,const Player& player) {
       break;
     }
     case 1: view.title="02 / PLANT SOME WHEAT";
-      view.lines={"Use the hoe on grass to prepare soil.","Choose wheat, then right-click or V.","Seeds are unlimited. Try a small patch."}; break;
+      view.lines={"Use the hoe on grass to prepare soil.","Choose wheat, then click or V.","Seeds are unlimited. Try a small patch."}; break;
     case 2: view.title="03 / WATCH YOUR GARDEN GROW";
-      view.lines={"P has a watering can to help it grow.","Right-click or V on golden wheat.","Plant new seeds after the harvest."}; break;
+      view.lines={"P has a watering can to help it grow.","Click or V on golden wheat.","Plant new seeds after the harvest."}; break;
     case 3: view.title="04 / FEED YOUR CHICKENS";
-      view.lines={"Hold wheat. Nearby chickens follow.","Right-click or V opens the gate.","Right-click or V feeds one wheat."}; break;
+      view.lines={"Hold wheat. Nearby chickens follow.","Right-click or V opens the gate.","Click or V feeds one wheat."}; break;
     case 4: view.title="05 / YOUR FIRST EGG";
       view.lines={"A fed chicken lays an egg in 30 seconds.","Right-click or V collects its egg.","Right-click or V closes the gate."}; break;
     case 5: view.title="06 / HATCH A BABY CHICK";

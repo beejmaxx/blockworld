@@ -58,7 +58,7 @@ PlacementStatus placementStatus(const World& world,const Player& player,Cell c,B
 }
 std::string_view placementMessage(PlacementStatus status) {
   switch(status) {
-    case PlacementStatus::Ready: return "RIGHT CLICK / V PLACE / LEFT CLICK TO BREAK";
+    case PlacementStatus::Ready: return "CLICK TO PLACE / E TO CHANGE MODE";
     case PlacementStatus::Occupied: return "THAT SPACE IS OCCUPIED";
     case PlacementStatus::NeedsFloor: return "PLACE ON A SOLID FLOOR";
     case PlacementStatus::NoRoom: return "CLEAR BOTH SPACES FIRST";
@@ -260,15 +260,15 @@ GuideView Adventure::view(const World& world,const Player& player) const {
       out.lines={"Use ARROWS or W A S D to walk.","Press SPACE to jump onto a block.","The sandy path leads to your cabin."}; break;
     case 2:
       out.title="03 / TRY BREAKING A BLOCK";
-      out.lines={"Aim the crosshair at the oak stump.","Left-click once to remove the block.","Hold to remove more blocks."};
+      out.lines={"E / Build / choose Planks.","Aim at the stump and click once.","Hold to remove more blocks."};
       out.destination=glm::vec3(7.5f,25.f,3.5f); out.destinationName="PRACTICE STUMP"; break;
     case 3:
       out.title="04 / PLACE YOUR FIRST BLOCK";
-      out.lines={"Choose planks from your hotbar or E.","Aim at the ground. Right-click or V.","The green outline shows what you build."}; break;
+      out.lines={"E / Build / choose Planks.","Aim at the ground. Right-click or V.","The green outline shows what you build."}; break;
     case 4: {
       out.title="05 / BUILD YOUR FIRST CABIN";
       auto next=nextPiece(world,player);
-      out.lines={"Hold G to place the glowing pieces.","Or choose blocks with 1-9 and build.","Walk around the frame as you go."};
+      out.lines={"Hold G to place the glowing pieces.","Or use E / Build to choose blocks.","Walk around the frame as you go."};
       if(next) {
         out.preview=next->cell; out.previewBlock=next->block;
         out.destination=middle(next->cell); out.destinationName=std::string(blockName(next->block));
@@ -310,7 +310,7 @@ GuideView Adventure::view(const World& world,const Player& player) const {
       break;
     default:
       out.title="YOUR ADVENTURE HAS BEGUN";
-      out.lines={"Your house is ready. Make it your own.","E opens your items and crafting.","Press R anytime to return home."};
+      out.lines={"Your house is ready. Make it your own.","E opens your tools and crafting.","Press R anytime to return home."};
       out.destination.reset(); break;
   }
   return out;

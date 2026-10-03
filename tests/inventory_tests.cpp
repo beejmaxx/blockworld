@@ -1,4 +1,5 @@
 #include "inventory.hpp"
+#include "building.hpp"
 #include "adventure.hpp"
 #include "farm.hpp"
 #include <chrono>
@@ -41,6 +42,63 @@ void sharedHotbar() {
         && itemFromBlock(Block::WheatRipe)==Item::Wheat,"beds, gates, and crops pick their placeable item");
   for(auto item : itemCatalog) if(itemBlock(item)!=Block::Air)
     check(itemFromBlock(itemBlock(item))==item,"all building items round trip through block picking");
+}
+void modeToolsAndRemoval() {
+  auto world=emptyWorld(); world.crafting.flags=127;
+  Player player; player.pose.position={.5f,2,3.5f}; player.pose.yaw=0; player.pose.pitch=0;
+  Cell wall{0,3,0}; world.set(wall,Block::Wood);
+  ToolSelection tools;
+  for(auto item : modeTools(PlayMode::Farm)) {
+    check(tools.choose(item,world.crafting) && tools.mode==PlayMode::Farm && tools.held()==item,"direct selection equips the chosen farm tool");
+    check(!removeSelectedBlock(world,player,tools) && world.get(wall)==Block::Wood && world.crafting.wood==0,
+          "farming tools cannot remove a house block or collect its materials");
+  }
+  for(bool flying : {false,true}) for(auto item : modeTools(PlayMode::Build)) {
+    world.set(wall,Block::Wood); world.crafting.wood=0; player.pose.flying=flying;
+    check(tools.choose(item,world.crafting) && tools.mode==PlayMode::Build && tools.held()==item,"direct selection equips the chosen building material");
+    auto target=useTarget(world,player,tools.held());
+    check(target.kind==UseKind::Place && target.cell==Cell{0,3,1},"right-use still places against the targeted block in Build mode");
+    auto removed=removeSelectedBlock(world,player,tools);
+    check(removed && removed->cell==wall && world.get(wall)==Block::Air && world.crafting.wood==1,
+          "Build mode removes and collects a block immediately while walking or flying");
+    check(tools.mode==PlayMode::Build && tools.held()==item && !removeSelectedBlock(world,player,tools) && world.crafting.wood==1,
+          "removal keeps the chosen building material and cannot collect the same block twice");
+  }
+  world.set(wall,Block::Wood); world.crafting.wood=0; player.pose.flying=false;
+  tools.choose(Item::Pumpkin,world.crafting); tools.choose(Item::Glass,world.crafting); tools.choose(Item::Empty,world.crafting);
+  check(tools.removesBlocks() && tools.held()==Item::Empty,"Remove starts with the free hammer");
+  auto removed=removeSelectedBlock(world,player,tools);
+  check(removed && removed->cell==wall && world.get(wall)==Block::Air && world.crafting.wood==1,
+        "one deliberate Remove action breaks and collects a block immediately");
+  check(!removeSelectedBlock(world,player,tools) && world.crafting.wood==1,"an empty target cannot duplicate materials");
+  tools.mode=PlayMode::Farm;
+  check(tools.held()==Item::Pumpkin,"switching back to Farm remembers the chosen seeds");
+  tools.mode=PlayMode::Build;
+  check(tools.held()==Item::Glass,"switching back to Build remembers the chosen material");
+  tools.choose(Item::Sand,world.crafting);
+  CraftState locked;
+  tools.cycle(1,locked);
+  check(tools.held()==Item::Planks,"scrolling wraps and skips the uncrafted workbench");
+  check(!tools.choose(Item::Axe,locked) && tools.mode==PlayMode::Build && tools.held()==Item::Planks,
+        "a locked tool cannot change the current mode or selection");
+  check(!tools.choose(Item::Count,locked) && !tools.select(-1,locked) && !tools.select(99,locked),"invalid tool choices are inert");
+  tools.choose(Item::Empty,locked); tools.cycle(1,locked);
+  check(tools.held()==Item::Empty,"the hammer works without crafting and scrolling cannot select locked removal tools");
+  tools.mode=PlayMode::Farm; tools.choose(Item::Hoe,world.crafting);
+  world.set({0,1,0},Block::Farmland); world.set({0,2,0},Block::CarrotRipe);
+  player.pose.pitch=std::atan2(2.2f-player.eye().y,3.f);
+  check(useTarget(world,player,tools.held()).kind==UseKind::Crop && !removeSelectedBlock(world,player,tools)
+        && world.get({0,2,0})==Block::CarrotRipe,"a ripe crop is a harvest target even with the hoe selected, never a remove action");
+  world.set({0,2,0},Block::Air);
+  for(int z=-3;z<=4;++z) for(int x=-2;x<=2;++x) world.set({x,1,z},Block::Grass);
+  Chicken hen; hen.position={.5f,2,.5f}; world.farm.chickens.push_back(hen);
+  player.pose.pitch=std::atan2(2.4f-player.eye().y,3.f);
+  auto floor=world.raycast(player.eye(),player.direction());
+  for(auto mode : {PlayMode::Build,PlayMode::Remove}) {
+    tools.mode=mode;
+    check(floor && !removeSelectedBlock(world,player,tools) && world.get(floor->block)==Block::Grass,
+          "Build and Remove protect animals and the ground behind them");
+  }
 }
 void contextualUse() {
   auto world=emptyWorld(); Player player; player.pose.position={.5f,2,3.5f}; player.pose.yaw=0; player.pose.pitch=0;
@@ -146,7 +204,7 @@ void inventorySaves() {
 }
 int main() {
   try {
-    for(auto [name,test] : {std::pair{"shared hotbar",&sharedHotbar},{"contextual use",contextualUse},
+    for(auto [name,test] : {std::pair{"shared hotbar",&sharedHotbar},{"mode tools and removal",modeToolsAndRemoval},{"contextual use",contextualUse},
                            {"sneaking and flight",sneakingAndFlight},{"inventory saves",inventorySaves}}) {
       test(); std::cout<<"PASS "<<name<<'\n';
     }

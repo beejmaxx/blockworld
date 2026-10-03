@@ -53,6 +53,50 @@ Inventory startingInventory(const CraftState& crafting) {
   if(crafting.has(MadePickaxe)) { result.slots[7]=Item::Pickaxe; if(result.selected==0) result.selected=7; }
   return result;
 }
+std::span<const Item> modeTools(PlayMode mode) {
+  static constexpr std::array farm{Item::Hoe,Item::WateringCan,Item::Carrot,Item::Wheat,Item::Strawberry,Item::Pumpkin,Item::Compost,Item::Sprinkler,Item::Greenhouse};
+  static constexpr std::array build{Item::Planks,Item::Wood,Item::Stone,Item::Glass,Item::Door,Item::Torch,Item::Fence,Item::Gate,Item::Bed,
+    Item::Brick,Item::Grass,Item::Leaves,Item::Dirt,Item::Sand,Item::Workbench};
+  static constexpr std::array remove{Item::Empty,Item::Axe,Item::Pickaxe};
+  switch(mode) {
+    case PlayMode::Farm: return farm;
+    case PlayMode::Build: return build;
+    case PlayMode::Remove: return remove;
+  }
+  return farm;
+}
+std::string_view modeName(PlayMode mode) {
+  return mode==PlayMode::Farm ? "Farm" : mode==PlayMode::Build ? "Build" : "Remove";
+}
+std::string_view toolName(Item item) {
+  constexpr std::array names{"Hammer","Planks","Logs","Stone","Glass","Door","Torch","Grass","Leaves","Bricks","Bed","Workbench",
+    "Fence","Gate","Wheat / feed","Wooden axe","Pickaxe","Dirt","Sand","Carrot seeds","Strawberry seeds","Pumpkin seeds",
+    "Watering can","Hoe","Compost","Sprinkler","Greenhouse"};
+  return item<Item::Count ? names[int(item)] : "";
+}
+Item ToolSelection::held() const { return mode==PlayMode::Farm ? farm : mode==PlayMode::Build ? build : remove; }
+bool ToolSelection::choose(Item item,const CraftState& crafting) {
+  if(!itemAvailable(item,crafting)) return false;
+  for(auto candidate : {PlayMode::Farm,PlayMode::Build,PlayMode::Remove}) {
+    if(std::ranges::find(modeTools(candidate),item)==modeTools(candidate).end()) continue;
+    mode=candidate;
+    (mode==PlayMode::Farm ? farm : mode==PlayMode::Build ? build : remove)=item;
+    return true;
+  }
+  return false;
+}
+bool ToolSelection::select(int index,const CraftState& crafting) {
+  auto choices=modeTools(mode);
+  return index>=0 && index<int(choices.size()) && choose(choices[index],crafting);
+}
+void ToolSelection::cycle(int direction,const CraftState& crafting) {
+  auto choices=modeTools(mode);
+  int index=int(std::ranges::find(choices,held())-choices.begin());
+  for(int i=0;i<int(choices.size());++i) {
+    index=(index+(direction<0 ? -1 : 1)+int(choices.size()))%int(choices.size());
+    if(select(index,crafting)) return;
+  }
+}
 UseTarget useTarget(const World& world,const Player& player,Item item,bool sneaking) {
   if(auto ranch=targetRanch(world,player)) return {UseKind::Ranch,{},ranch->distance,ranch->index};
   if(!sneaking) if(auto chicken=targetChicken(world,player)) return {UseKind::Chicken,{},0,*chicken};

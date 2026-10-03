@@ -12,10 +12,10 @@ enum class FarmAction { None,Seeds,Carrots,Strawberries,Pumpkins,WateringCan,Fen
 struct AnimalLabel { glm::vec2 position; std::string name; bool baby=false; };
 struct HudState {
   int width{},height{};
-  Inventory inventory;
+  ToolSelection tools;
   bool farming=false;
   int wheat=0,eggs=0;
-  Item selectedItem() const { return inventory.held(); }
+  Item selectedItem() const { return tools.held(); }
   Block selectedBlock() const { return itemBlock(selectedItem()); }
   Tool tool() const { return itemTool(selectedItem()); }
   float fps{};
@@ -24,7 +24,6 @@ struct HudState {
   float sleepFade=0;
   Menu menu=Menu::None;
   bool menuOpen() const { return menu!=Menu::None; }
-  std::optional<Item> carried;
   int inventoryHover=-1;
   glm::vec2 pointer{};
   int recipeSelected=0;
@@ -53,8 +52,8 @@ public:
   std::vector<UiVertex> vertices;
   void build(const HudState& hud);
   static int recipeAt(int width,int height,float x,float y);
-  static int inventoryItemAt(int width,int height,float x,float y);
-  static int inventorySlotAt(int width,int height,float x,float y);
+  static int toolAt(int width,int height,float x,float y,PlayMode mode);
+  static std::optional<PlayMode> modeAt(int width,int height,float x,float y);
   static Menu menuTabAt(int width,int height,float x,float y);
   static int farmAnimalAt(int width,int height,float x,float y,int page,int count);
   static FarmAction farmActionAt(int width,int height,float x,float y,bool garden=false,bool shop=false,bool ranch=false);
@@ -69,7 +68,8 @@ private:
   void itemIcon(Item item,float x,float y,float size);
   void inventory(const HudState& hud);
   void menuTabs(const HudState& hud);
-  void hotbar(const HudState& hud,float y);
+  void modeButtons(const HudState& hud,float x,float y,float width,float height);
+  void hammerIcon(float x,float y,float size);
   void workshop(const HudState& hud);
   void farmPage(const HudState& hud);
   void heldTool(const HudState& hud);

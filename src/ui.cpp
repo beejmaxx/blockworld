@@ -39,7 +39,10 @@ Glyph glyph(char c) {
 }
 constexpr glm::vec4 cream{.96f,.94f,.84f,1}, muted{.72f,.79f,.73f,1}, panel{.065f,.105f,.10f,.87f}, accent{.77f,.87f,.47f,1};
 constexpr float workshopWidth=680,workshopHeight=552,recipeTop=238,recipeStride=60,recipeHeight=54;
-constexpr float slotSize=58,slotStride=64,catalogTop=108,catalogStride=64,inventoryHotbarTop=373;
+constexpr float toolsTop=166,toolStrideY=76,toolHeight=70;
+int toolColumns(PlayMode mode) { return mode==PlayMode::Build ? 4 : 3; }
+constexpr glm::vec4 removeColor{.98f,.57f,.42f,1},buildColor{.57f,.80f,.94f,1};
+glm::vec4 modeColor(PlayMode mode) { return mode==PlayMode::Remove ? removeColor : mode==PlayMode::Build ? buildColor : accent; }
 }
 void Ui::quad(glm::vec2 a,glm::vec2 b,glm::vec2 c,glm::vec2 d,glm::vec4 color) {
   for (auto p : {a,b,c,a,c,d}) vertices.push_back({p,color});
@@ -199,31 +202,35 @@ void Ui::itemIcon(Item item,float x,float y,float size) {
     r(14,7,6,12,{.53f,.58f,.58f,1}); r(-21,17,3,6,cream); r(18,17,3,6,cream);
   }
 }
-void Ui::hotbar(const HudState& h,float y) {
-  float start=float(h.width)*.5f-(hotbarSize*slotStride-6)*.5f;
-  for(int i=0;i<hotbarSize;++i) {
-    float x=start+i*slotStride;
-    if(i==h.inventory.selected) {
-      rectangle(x-3,y-3,slotSize+6,slotSize+6,cream);
-      rectangle(x,y,slotSize,slotSize,{.21f,.29f,.23f,.97f});
-      rectangle(x+10,y+slotSize+5,slotSize-20,3,accent);
-    } else rectangle(x,y,slotSize,slotSize,panel);
-    if(h.inventory.slots[i]!=Item::Empty) itemIcon(h.inventory.slots[i],x+slotSize*.5f,y+8,15);
-    text(std::to_string(i+1),x+5,y+5,1,muted);
+void Ui::hammerIcon(float x,float y,float size) {
+  float scale=size/15.f;
+  rectangle(x-3*scale,y+8*scale,6*scale,30*scale,{.70f,.43f,.24f,1});
+  rectangle(x-17*scale,y+3*scale,34*scale,14*scale,{.64f,.71f,.74f,1});
+  rectangle(x-17*scale,y+3*scale,5*scale,14*scale,removeColor);
+}
+void Ui::modeButtons(const HudState& h,float x,float y,float width,float height) {
+  float stride=(width+8)/3;
+  for(int i=0;i<3;++i) {
+    auto mode=PlayMode(i); auto ink=modeColor(mode); bool active=h.tools.mode==mode;
+    rectangle(x+i*stride,y,stride-8,height,active ? ink : panel);
+    labelCentered(modeName(mode),x+i*stride+(stride-8)*.5f,y+(height-28)*.5f,22,active ? panel : cream);
   }
 }
-int Ui::inventoryItemAt(int width,int height,float px,float py) {
-  float x=float(width)*.5f-(hotbarSize*slotStride-6)*.5f,y=float(height)*.5f-workshopHeight*.5f+catalogTop;
+int Ui::toolAt(int width,int height,float px,float py,PlayMode mode) {
+  float x=float(width)*.5f-workshopWidth*.5f+24,y=float(height)*.5f-workshopHeight*.5f+toolsTop;
   if(px<x || py<y) return -1;
-  int col=int((px-x)/slotStride),row=int((py-y)/catalogStride),index=row*hotbarSize+col;
-  if(col>=hotbarSize || index>=int(itemCatalog.size()) || px-x-col*slotStride>=slotSize || py-y-row*catalogStride>=slotSize) return -1;
+  int columns=toolColumns(mode); float stride=640.f/float(columns);
+  int col=int((px-x)/stride),row=int((py-y)/toolStrideY),index=row*columns+col;
+  if(col>=columns || index>=int(modeTools(mode).size()) || px-x-col*stride>=stride-8 || py-y-row*toolStrideY>=toolHeight) return -1;
   return index;
 }
-int Ui::inventorySlotAt(int width,int height,float px,float py) {
-  float x=float(width)*.5f-(hotbarSize*slotStride-6)*.5f,y=float(height)*.5f-workshopHeight*.5f+inventoryHotbarTop;
-  if(px<x || py<y || py>=y+slotSize) return -1;
-  int col=int((px-x)/slotStride);
-  return col<hotbarSize && px-x-col*slotStride<slotSize ? col : -1;
+std::optional<PlayMode> Ui::modeAt(int width,int height,float px,float py) {
+  float x=float(width)*.5f-workshopWidth*.5f+24,y=float(height)*.5f-workshopHeight*.5f+76;
+  if(px<x || py<y || py>=y+50) return {};
+  constexpr float stride=640.f/3;
+  int col=int((px-x)/stride);
+  if(col>=3 || px-x-col*stride>=stride-8) return {};
+  return PlayMode(col);
 }
 Menu Ui::menuTabAt(int width,int height,float px,float py) {
   float x=float(width)*.5f-workshopWidth*.5f,y=float(height)*.5f-workshopHeight*.5f;
@@ -239,7 +246,7 @@ void Ui::menuTabs(const HudState& h) {
     rectangle(x+offset,y+16,width,32,h.menu==menu ? accent : panel);
     labelCentered(label,x+offset+width*.5f,y+20,17,h.menu==menu ? panel : cream);
   };
-  tab(Menu::Inventory,304,96,"Items"); tab(Menu::Crafting,408,150,"Crafting"); tab(Menu::Farm,566,90,"Farm");
+  tab(Menu::Inventory,304,96,"Tools"); tab(Menu::Crafting,408,150,"Crafting"); tab(Menu::Farm,566,90,"Farm");
 }
 int Ui::farmAnimalAt(int width,int height,float px,float py,int page,int count) {
   float x=float(width)*.5f-workshopWidth*.5f,y=float(height)*.5f-workshopHeight*.5f;
@@ -364,7 +371,7 @@ void Ui::farmPage(const HudState& h) {
     }
     label(std::to_string(h.farm.plants)+" plants     "+std::to_string(h.farm.ripe)+" ready to pick     "+std::to_string(h.farm.watered)+" watered",x+24,y+431,18,cream);
     button(24,466,196,34,"Visit garden",h.farm.garden.initialized); button(242,466,196,34,"Sell / Upgrades"); button(460,466,196,34,"Go home (R)");
-    labelCentered("V / right-click to use tools or pick ripe crops.",cx,y+507,15,cream);
+    labelCentered("Farm mode: Click to use tools or pick ripe crops.",cx,y+507,15,cream);
     labelCentered("Esc or P: Back to game. Growing pauses here.",cx,y+529,15,cream);
     return;
   }
@@ -411,28 +418,31 @@ void Ui::farmPage(const HudState& h) {
 }
 void Ui::inventory(const HudState& h) {
   float cx=float(h.width)*.5f,x=cx-workshopWidth*.5f,y=float(h.height)*.5f-workshopHeight*.5f;
+  auto ink=modeColor(h.tools.mode);
   rectangle(0,0,float(h.width),float(h.height),{.025f,.055f,.05f,.60f});
-  rectangle(x,y,workshopWidth,workshopHeight,{.07f,.115f,.105f,.98f}); rectangle(x,y,workshopWidth,3,accent);
-  label("Inventory",x+24,y+15,30,cream);
-  label("Click an item, then a hotbar slot. Or drag it there.",x+24,y+59,17,cream);
-  label("Building blocks are free. Make tools in the Crafting tab.",x+24,y+83,16,cream);
-  float start=cx-(hotbarSize*slotStride-6)*.5f;
-  for(int i=0;i<int(itemCatalog.size());++i) {
-    float sx=start+(i%hotbarSize)*slotStride,sy=y+catalogTop+(i/hotbarSize)*catalogStride;
-    bool ready=itemAvailable(itemCatalog[i],h.craft.bag);
-    rectangle(sx,sy,slotSize,slotSize,i==h.inventoryHover ? glm::vec4(.25f,.34f,.26f,1) : panel);
-    itemIcon(itemCatalog[i],sx+slotSize*.5f,sy+6,15);
-    if(!ready) { rectangle(sx,sy,slotSize,slotSize,{.03f,.06f,.05f,.42f}); labelCentered("Craft",sx+slotSize*.5f,sy+40,13,accent); }
+  rectangle(x,y,workshopWidth,workshopHeight,{.07f,.115f,.105f,.98f}); rectangle(x,y,workshopWidth,3,ink);
+  label("Choose tools",x+24,y+15,28,cream);
+  label("Choose a mode, then click a tool to start playing.",x+24,y+53,17,cream);
+  modeButtons(h,x+24,y+76,632,50);
+  label(h.tools.mode==PlayMode::Farm ? "Tend crops and animals. Your buildings stay safe."
+    : h.tools.mode==PlayMode::Build ? "Click removes. Right-click / V places your block."
+    : "Click to remove one block instantly. Animals stay safe.",x+24,y+136,17,ink);
+  auto choices=modeTools(h.tools.mode); int columns=toolColumns(h.tools.mode); float stride=640.f/float(columns);
+  for(int i=0;i<int(choices.size());++i) {
+    float sx=x+24+(i%columns)*stride,sy=y+toolsTop+(i/columns)*toolStrideY,width=stride-8;
+    bool ready=itemAvailable(choices[i],h.craft.bag),selected=choices[i]==h.selectedItem();
+    rectangle(sx,sy,width,toolHeight,selected ? glm::vec4(.23f,.33f,.28f,1) : panel);
+    if(selected) rectangle(sx,sy,3,toolHeight,ink);
+    if(h.tools.removesBlocks() && choices[i]==Item::Empty) hammerIcon(sx+width*.5f,sy+4,11);
+    else itemIcon(choices[i],sx+width*.5f,sy+4,11);
+    auto name=toolName(choices[i]); float size=std::min(17.f,17.f*(width-12)/std::max(1.f,readableWidth(name,17)));
+    labelCentered(name,sx+width*.5f,sy+44,size,cream);
+    if(i<9) label(std::to_string(i+1),sx+8,sy+5,13,muted);
+    if(!ready) { rectangle(sx,sy,width,toolHeight,{.03f,.06f,.05f,.45f}); label("Craft first",sx+8,sy+5,13,ink); }
   }
-  if(h.carried) labelCentered(std::string(itemName(*h.carried))+" / Choose slot 1-9",cx,y+312,18,accent);
-  else if(h.inventoryHover>=0) labelCentered(itemName(itemCatalog[h.inventoryHover]),cx,y+312,20,cream);
-  else labelCentered("Keep your blocks, tools, and seeds in this hotbar.",cx,y+312,17,cream);
-  label("Your hotbar",x+53,y+346,18,cream);
-  hotbar(h,y+inventoryHotbarTop);
-  labelCentered("1-9: Select or assign a slot     Backspace: Clear slot",cx,y+451,16,cream);
-  if(!h.notice.empty()) labelCentered(h.notice,cx,y+487,std::min(17.f,17.f*620.f/readableWidth(h.notice,17)),accent);
-  labelCentered("E or Esc: Back to game",cx,y+526,17,cream);
-  if(h.carried) itemIcon(*h.carried,std::clamp(h.pointer.x+24,32.f,float(h.width)-32),std::clamp(h.pointer.y+12,4.f,float(h.height)-52),15);
+  std::string selection=std::string(modeName(h.tools.mode))+" / "+std::string(toolName(h.selectedItem()));
+  labelCentered(selection,cx,y+485,19,ink);
+  labelCentered("E or Esc: Back to game",cx,y+526,16,cream);
 }
 int Ui::recipeAt(int width,int height,float px,float py) {
   float x=float(width)*.5f-workshopWidth*.5f,y=float(height)*.5f-workshopHeight*.5f;
@@ -501,7 +511,12 @@ void Ui::heldTool(const HudState& h) {
   };
   const glm::vec3 shaft{.52f,.29f,.13f},grain{.70f,.44f,.22f},skin{.83f,.62f,.43f},sleeve{.28f,.48f,.36f};
   auto block=h.selectedBlock();
-  if(h.selectedItem()==Item::Hoe) {
+  if(h.tools.removesBlocks() && h.selectedItem()==Item::Empty) {
+    box({-.10f,-.10f,-.10f},{.10f,1.90f,.10f},shaft);
+    box({-.74f,1.55f,-.25f},{.74f,2.13f,.25f},{.62f,.69f,.73f});
+    box({-.81f,1.52f,-.28f},{-.60f,2.16f,.28f},{.91f,.42f,.28f});
+    box({.60f,1.52f,-.28f},{.81f,2.16f,.28f},{.75f,.81f,.83f});
+  } else if(h.selectedItem()==Item::Hoe) {
     box({-.08f,-.10f,-.08f},{.08f,1.90f,.08f},shaft);
     box({-.10f,1.80f,-.12f},{.22f,1.98f,.12f},{.60f,.68f,.69f});
     box({-.78f,1.65f,-.17f},{-.06f,1.84f,.17f},{.64f,.72f,.73f});
@@ -594,7 +609,7 @@ void Ui::heldTool(const HudState& h) {
     }
   }
   // A fist wraps around the handle. The forearm enters from the screen edge,
-  // behind the hotbar and other controls.
+  // behind the mode buttons and other controls.
   box({-.25f,-.71f,-.24f},{.28f,-.16f,.26f},sleeve);
   box({-.28f,-.18f,-.25f},{.30f,.29f,.28f},skin);
   box({-.31f,.05f,.12f},{-.11f,.36f,.34f},skin*1.06f);
@@ -607,10 +622,7 @@ void Ui::heldTool(const HudState& h) {
   std::ranges::sort(faces,{},&Face::depth);
   for(const auto& face : faces) quad(face.points[0],face.points[1],face.points[2],face.points[3],face.color);
 
-  float x=float(h.width)-234.f,y=float(h.height)-173.f;
-  rectangle(x,y,210,51,panel); rectangle(x,y,3,51,accent);
-  text(itemName(h.selectedItem()),x+12,y+10,1.25f,cream);
-  text("1-9 SELECT   E INVENTORY",x+12,y+31,1.f,muted);
+
 }
 void Ui::build(const HudState& h) {
   vertices.clear();
@@ -627,10 +639,6 @@ void Ui::build(const HudState& h) {
     if(!h.riding) heldTool(h);
   }
   float w=float(h.width),height=float(h.height),cx=w*.5f;
-  rectangle(24,24,224,65,panel);
-  rectangle(24,24,3,65,accent);
-  text("BLOCKWORLD",41,38,2,cream);
-  text(h.riding ? (h.driving ? "DRIVING / V TO GET OUT" : "RIDING / V TO GET OFF") : h.farming ? "YOUR VEGETABLE GARDEN" : h.guide.enabled ? "THE MEADOW / YOUR FIRST HOME" : h.flying ? "CREATIVE / FLYING" : "CREATIVE / EXPLORING",41,64,h.guide.enabled ? 1.f : 1.2f,muted);
   char status[64];
   int minutes=int(h.clock.phase*24*60);
   std::snprintf(status,sizeof(status),"DAY %u / %02d:%02d",h.clock.day,minutes/60,minutes%60);
@@ -700,13 +708,13 @@ void Ui::build(const HudState& h) {
       rectangle(cx-55,height*.5f+13,110*std::clamp(h.breakProgress,0.f,1.f),5,accent);
     }
   }
-  float y=height-104;
-  auto name=itemName(h.selectedItem());
-  float nameWidth=float(name.size())*9.6f+30;
-  rectangle(cx-nameWidth*.5f,y-39,nameWidth,28,panel);
-  centered(name,cx,y-31,1.6f,cream);
-  hotbar(h,y);
-  centered("1-9 SELECT   LEFT CLICK / X BREAK   RIGHT CLICK / V USE   E ITEMS   P FARM",cx,height-23,1.05f,cream);
+  labelCentered("E  Choose mode / tools",cx,height-159,18,cream);
+  modeButtons(h,cx-228,height-132,456,40);
+  rectangle(cx-228,height-84,456,59,panel);
+  std::string selected=std::string(toolName(h.selectedItem()));
+  labelCentered(selected,cx,height-80,20,modeColor(h.tools.mode));
+  labelCentered(h.tools.mode==PlayMode::Remove ? "Click: remove one block     V: interact" : h.tools.mode==PlayMode::Build
+    ? "Click: remove   Right-click / V: place" : "Click: use tool / harvest     P: farm shop",cx,height-50,16,cream);
   if(!h.interaction.empty() && !h.paused) {
     float size=std::min(17.f,17.f*(w-48.f)/std::max(1.f,readableWidth(h.interaction,17)));
     float iw=readableWidth(h.interaction,size)+24;
@@ -716,10 +724,8 @@ void Ui::build(const HudState& h) {
     labelCentered(h.interaction,cx,top+3,size,cream);
   }
   if(h.help && !h.paused) {
-    rectangle(24,height-175,254,59,panel);
-    text(h.flying ? "FLYING / SPACE UP / SHIFT DOWN" : "WASD / ARROWS  MOVE",36,height-161,1.1f,cream);
-    text(h.flying ? "SPACE UP  SHIFT DOWN  TAB STOP FLYING" : "SPACE JUMP  TAB FLY  SHIFT SNEAK",36,height-141,1.1f,muted);
-    text(h.guide.enabled ? "R  HOME    P  GARDEN    H  HIDE HELP" : "H  HIDE HELP",36,height-205,1.2f,cream);
+    label(h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
+    label("Tab: fly     R: home     H: hide help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -732,19 +738,18 @@ void Ui::build(const HudState& h) {
     float x=cx-260,top=height*.5f-218;
     rectangle(x,top,520,418,{.07f,.115f,.105f,.96f});
     rectangle(x,top,520,3,accent);
-    centered(h.farming ? "YOUR VEGETABLE GARDEN" : h.guide.enabled ? "YOUR FIRST CABIN" : "BLOCKWORLD",cx,top+34,h.guide.enabled ? 3.f : 4.f,cream);
-    centered(h.farming ? "GROW FOOD. FILL YOUR BASKET. GROW YOUR FARM." : h.guide.enabled ? "A QUIET MEADOW. A HOME TO MAKE YOUR OWN." : "A WORLD TO EXPLORE AND BUILD",cx,top+82,1.5f,muted);
-    rectangle(x+36,top+118,448,1,{.28f,.36f,.29f,1});
-    text("WASD / ARROWS",x+38,top+140,1.5f,accent); text("MOVE",x+216,top+140,1.7f,cream);
-    text("MOUSE",x+38,top+168,1.7f,accent); text("LOOK AROUND",x+216,top+168,1.7f,cream);
-    text("LEFT CLICK",x+38,top+196,1.35f,accent); text("REMOVE A BLOCK",x+216,top+196,1.7f,cream);
-    text("RIGHT CLICK / V",x+38,top+224,1.35f,accent); text("PLACE / USE",x+216,top+224,1.7f,cream);
-    text("1-9 / SCROLL",x+38,top+252,1.5f,accent);
-    text("SELECT HELD ITEM",x+216,top+252,1.5f,cream);
-    text("E / P",x+38,top+280,1.7f,accent); text("INVENTORY / FARM",x+216,top+280,1.5f,cream);
-    rectangle(x+36,top+322,448,44,accent);
-    centered(h.guide.enabled ? "CLICK OR PRESS ESC TO BEGIN" : "CLICK OR PRESS ESC TO EXPLORE",cx,top+337,1.7f,{.08f,.14f,.10f,1});
-    centered("SPACE JUMP   TAB / DOUBLE SPACE FLY ON-OFF   R HOME",cx,top+389,1.1f,muted);
+    labelCentered("Your farm, your world",cx,top+27,30,cream);
+    labelCentered("Choose Farm, Build, or Remove with E.",cx,top+76,19,muted);
+    rectangle(x+36,top+113,448,1,{.28f,.36f,.29f,1});
+    auto row=[&](std::string_view key,std::string_view action,float dy) {
+      label(key,x+38,top+dy,17,accent); label(action,x+216,top+dy,17,cream);
+    };
+    row("WASD / arrows","Move",136); row("Mouse","Look around",166);
+    row("Click",h.tools.removesBlocks() ? "Remove a block" : "Use tool / harvest",196); row("E","Choose mode / tools",226);
+    row("P","Garden, shop, animals",256); row("V / right-click","Place / interact",286);
+    rectangle(x+36,top+326,448,44,accent);
+    labelCentered("Click or press Esc to play",cx,top+332,22,panel);
+    labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

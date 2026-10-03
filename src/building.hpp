@@ -6,6 +6,8 @@ struct PlacementPreview { Cell cell; Block block; PlacementStatus status; std::o
 std::optional<PlacementPreview> placementPreview(const World& world,const Player& player,const std::optional<RayHit>& hit,Block block);
 std::optional<RayHit> miningTarget(const World& world,const Player& player);
 struct BreakEvent { Cell cell; Block block; };
+struct ToolSelection;
+std::optional<BreakEvent> removeSelectedBlock(World& world,const Player& player,const ToolSelection& tools);
 class BuildRepeater {
 public:
   void press() { held_=true; queued_=true; delay_=.35f; }

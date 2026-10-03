@@ -87,9 +87,9 @@ int main(int argc,char** argv) {
     hud.menu=Menu::None; hud.paused=true; hud.guide.enabled=true;
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"controls-small.ppm");
     hud.paused=false; hud.fps=60; hud.guide.enabled=false; hud.breaking=Cell{0,2,1}; hud.breakProgress=.6f;
-    hud.interaction="LEFT CLICK BREAK / RIGHT CLICK USE"; hud.inventory.slots[0]=Item::Workbench;
+    hud.interaction="Build / Click removes / Right-click or V places"; hud.tools.choose(Item::Workbench,CraftState{0,0,0,127});
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"building-small.ppm");
-    hud.farming=true; hud.inventory.selected=8; hud.breaking.reset(); hud.interaction="CHICKEN / RIGHT CLICK / V FEED WHEAT";
+    hud.farming=true; hud.tools.choose(Item::Wheat,CraftState{0,0,0,127}); hud.breaking.reset(); hud.interaction="CHICKEN / RIGHT CLICK / V FEED WHEAT";
     hud.wheat=9999; hud.eggs=9999;
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y;
@@ -100,53 +100,54 @@ int main(int argc,char** argv) {
     }
     hud.width=800; hud.height=600; hud.wheat=3; hud.eggs=1; world.farm.flags=7;
     hud.guide=farmGuide(world,player); ui.build(hud); snapshot(ui,hud,"farm-small.ppm");
-    hud.farming=false; hud.guide.enabled=false; hud.inventory.selected=0; hud.interaction="RIGHT CLICK / V PLACE / LEFT CLICK BREAK";
+    hud.farming=false; hud.guide.enabled=false; hud.interaction="E to choose mode and tools";
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y;
       for(auto item : itemCatalog) {
-        hud.inventory.slots[0]=item;
+        hud.tools.choose(item,CraftState{0,0,0,127});
         for(int frame=0;frame<=20;++frame) {
           hud.toolSwing=float(frame)/20; ui.build(hud); bounds(ui,size.x,size.y);
         }
       }
     }
-    hud.width=800; hud.height=600; hud.inventory.slots[0]=Item::Axe; hud.toolSwing=0;
+    hud.width=800; hud.height=600; hud.tools.choose(Item::Axe,CraftState{0,0,0,127}); hud.toolSwing=0;
     ui.build(hud); snapshot(ui,hud,"axe-in-hand.ppm");
     hud.toolSwing=.5f; ui.build(hud); snapshot(ui,hud,"axe-swing.ppm");
-    hud.inventory.slots[0]=Item::Pickaxe; hud.toolSwing=0; ui.build(hud); snapshot(ui,hud,"pickaxe-in-hand.ppm");
-    hud.inventory.slots[0]=Item::Planks; ui.build(hud); snapshot(ui,hud,"planks-in-hand.ppm");
-    hud.inventory.slots[0]=Item::Wheat; ui.build(hud); snapshot(ui,hud,"wheat-in-hand.ppm");
+    hud.tools.choose(Item::Pickaxe,CraftState{0,0,0,127}); hud.toolSwing=0; ui.build(hud); snapshot(ui,hud,"pickaxe-in-hand.ppm");
+    hud.tools.choose(Item::Planks,CraftState{0,0,0,127}); ui.build(hud); snapshot(ui,hud,"planks-in-hand.ppm");
+    hud.tools.choose(Item::Wheat,CraftState{0,0,0,127}); ui.build(hud); snapshot(ui,hud,"wheat-in-hand.ppm");
     hud.menu=Menu::Inventory; hud.notice.clear();
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y;
-      float x=float(size.x)/2-285,y=float(size.y)/2-276;
-      for(int i=0;i<int(itemCatalog.size());++i) {
-        float px=x+(i%9)*64+29,py=y+108+(i/9)*64+29;
-        check(Ui::inventoryItemAt(size.x,size.y,px,py)==i,"every inventory item is clickable");
-        check(Ui::inventoryItemAt(size.x,size.y,px+30,py)==-1,"gaps between inventory items do not select anything");
+      float x=float(size.x)/2-340,y=float(size.y)/2-276;
+      for(int m=0;m<3;++m) {
+        auto mode=PlayMode(m); hud.tools.mode=mode;
+        check(Ui::modeAt(size.x,size.y,x+24+m*640.f/3+50,y+100)==mode,"all three mode buttons work at both sizes");
+        check(!Ui::modeAt(size.x,size.y,x+24+m*640.f/3+211,y+100),"gaps between modes cannot switch modes");
+        auto choices=modeTools(mode); int columns=mode==PlayMode::Build ? 4 : 3; float stride=640.f/columns;
+        for(int i=0;i<int(choices.size());++i) {
+          float px=x+24+(i%columns)*stride+stride*.5f,py=y+166+(i/columns)*76+35;
+          check(Ui::toolAt(size.x,size.y,px,py,mode)==i,"every labeled tool selects directly without slot assignment");
+          check(Ui::toolAt(size.x,size.y,px,py+38,mode)==-1,"gaps between tool rows are inert");
+        }
+        check(Ui::toolAt(size.x,size.y,x+10,y+180,mode)==-1 && Ui::toolAt(size.x,size.y,x+80,y+490,mode)==-1,
+          "tool headings and footer cannot select a tool");
+        for(auto flags : {0u,127u}) {
+          world.crafting.flags=flags; hud.craft=craftView(world,player);
+          ui.build(hud); bounds(ui,size.x,size.y);
+        }
+        snapshot(ui,hud,std::string(modeName(mode))+"-tools-"+std::to_string(size.x)+".ppm");
+        auto menu=hud.menu; hud.menu=Menu::None; hud.tools.choose(choices[0],world.crafting);
+        hud.interaction=mode==PlayMode::Remove ? "Remove mode / Click to remove one block" : mode==PlayMode::Build
+          ? "Build / Click removes / Right-click or V places" : "Click to use / E to choose tools";
+        ui.build(hud); bounds(ui,size.x,size.y);
+        snapshot(ui,hud,std::string(modeName(mode))+"-hud-"+std::to_string(size.x)+".ppm");
+        hud.menu=menu;
       }
-      for(int i=0;i<9;++i) {
-        check(Ui::inventorySlotAt(size.x,size.y,x+i*64+29,y+400)==i,"each of the nine hotbar slots accepts an item");
-        check(Ui::inventorySlotAt(size.x,size.y,x+i*64+59,y+400)==-1,"hotbar gaps cannot assign items");
-      }
-      check(Ui::inventoryItemAt(size.x,size.y,x-1,y+130)==-1
-            && Ui::inventoryItemAt(size.x,size.y,x+540,y+320)==-1
-            && Ui::inventorySlotAt(size.x,size.y,x,y+300)==-1,"outside and unused areas are inert");
       check(Ui::menuTabAt(size.x,size.y,float(size.x)/2,y+32)==Menu::Inventory
             && Ui::menuTabAt(size.x,size.y,float(size.x)/2+140,y+32)==Menu::Crafting
-            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+270,y+32)==Menu::Farm
-            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+64,y+32)==Menu::None,"all three inventory tabs have distinct hit areas");
-      for(auto flags : {0u,127u}) {
-        world.crafting.flags=flags; hud.craft=craftView(world,player); hud.inventory=startingInventory(world.crafting);
-        for(int i=0;i<int(itemCatalog.size());++i) {
-          hud.inventoryHover=i; hud.carried=itemCatalog[i];
-          for(auto pointer : {glm::vec2(0,0),glm::vec2(size)}) {
-            hud.pointer=pointer; ui.build(hud); bounds(ui,size.x,size.y);
-          }
-        }
-        hud.carried.reset(); hud.inventoryHover=14; ui.build(hud);
-        if(size.x==800) snapshot(ui,hud,flags ? "inventory-small.ppm" : "inventory-locked.ppm");
-      }
+            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+270,y+32)==Menu::Farm,
+            "tools, crafting, and farm menus remain accessible");
     }
     hud.menu=Menu::Farm; hud.farmGarden=false; world.farm.chickens.clear(); world.farm.wheat=12; world.farm.eggs=3;
     for(std::size_t i=0;i<flockLimit;++i) {
@@ -205,21 +206,21 @@ int main(int argc,char** argv) {
       ui.build(hud); bounds(ui,size.x,size.y); snapshot(ui,hud,size.x==800 ? "shop-small.ppm" : "shop.ppm");
       hud.farmShop=false;
     }
-    hud.width=800; hud.height=600; hud.menu=Menu::None; hud.guide.enabled=false; hud.inventory.selected=0;
-    hud.inventory.slots[0]=Item::WateringCan; hud.toolSwing=0; hud.interaction="PUMPKINS / RIGHT CLICK / V WATER";
+    hud.width=800; hud.height=600; hud.menu=Menu::None; hud.guide.enabled=false;
+    hud.tools.choose(Item::WateringCan,CraftState{0,0,0,127}); hud.toolSwing=0; hud.interaction="PUMPKINS / RIGHT CLICK / V WATER";
     ui.build(hud); snapshot(ui,hud,"watering-can.ppm");
     hud.toolSwing=.5f; ui.build(hud); snapshot(ui,hud,"watering-can-pour.ppm");
     for(auto item : {Item::Hoe,Item::Compost,Item::Sprinkler,Item::Greenhouse}) {
-      hud.inventory.slots[0]=item; ui.build(hud); bounds(ui,hud.width,hud.height);
+      hud.tools.choose(item,CraftState{0,0,0,127}); ui.build(hud); bounds(ui,hud.width,hud.height);
       snapshot(ui,hud,"garden-tool-"+std::to_string(int(item))+".ppm");
     }
-    hud.inventory.slots[0]=Item::Strawberry; hud.toolSwing=0; hud.interaction="AIM AT PREPARED SOIL / RIGHT CLICK OR V TO PLANT";
+    hud.tools.choose(Item::Strawberry,CraftState{0,0,0,127}); hud.toolSwing=0; hud.interaction="AIM AT PREPARED SOIL / RIGHT CLICK OR V TO PLANT";
     ui.build(hud); snapshot(ui,hud,"strawberry-seeds.ppm");
     hud.farming=true; hud.farmGarden=true; hud.farmShop=false; hud.help=true;
     world.farm.garden.initialized=true; world.farm.garden.coins=12; world.farm.garden.weather=160;
     world.farm.carrots=4; world.farm.strawberries=3; world.farm.pumpkins=1;
-    hud.farm=farmView(world); hud.inventory.slots={Item::Hoe,Item::Carrot,Item::WateringCan,Item::Strawberry,Item::Pumpkin,Item::Compost,Item::Wheat,Item::Planks,Item::Glass};
-    hud.inventory.selected=2; hud.interaction="STRAWBERRIES / GROWTH 73 OF 100 / WET / COMPOST +2";
+    hud.farm=farmView(world);
+    hud.tools.choose(Item::WateringCan,world.crafting); hud.interaction="STRAWBERRIES / GROWTH 73 OF 100 / WET / COMPOST +2";
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y;
       for(std::uint32_t flags : {0u,1u,3u,7u,15u,31u,63u}) {

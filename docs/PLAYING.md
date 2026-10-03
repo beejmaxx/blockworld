@@ -4,7 +4,7 @@
 
 - [Your first garden](#your-first-garden)
 - [Your home](#your-home-and-optional-cabin-adventure)
-- [Inventory and tools](#inventory-and-tools)
+- [Modes and tools](#modes-and-tools)
 - [Growing and selling crops](#growing-and-selling-crops)
 - [Cows, horses, and your car](#cows-horses-and-your-car)
 - [Chickens](#optional-chicken-farm)
@@ -28,9 +28,9 @@ walks through a first harvest and buying an upgrade.
    buy compost for larger harvests, or save **40 coins** for a greenhouse.
 
 **P → Garden → Visit garden** brings you to the vegetable beds. **R always brings
-you home.** **Arrow keys or WASD** move; the mouse looks around. **Left-click
-or X** removes one block immediately. Hold to remove more. **Right-click / V** uses the
-held tool, picks a ripe crop, or places a block. V is the trackpad-friendly option.
+you home.** **Arrow keys or WASD** move; the mouse looks around. Press **E**, choose
+**Farm**, then click a labeled tool to equip it directly. **Click** uses that tool
+or picks a ripe crop. Building and removal have their own modes in E.
 **H** hides the guide and **M** mutes sound. Seeds and water are free; plants
 never die, and menus pause growing.
 
@@ -48,7 +48,7 @@ untouched. Existing changes to the cabin are preserved.
 If you are finishing or rebuilding the cabin yourself:
 
 1. Follow the glowing block and **hold G** to place the next cabin piece, or build
-   manually with the hotbar. Walk around the frame to reach the other sides.
+   manually with **E → Build**. Walk around the frame to reach the other sides.
 2. Add the windows, roof, door, torch, and bed. The checklist counts the blocks that
    are actually in the cabin. Other builds do not affect its progress.
 3. Aim at the door and **right-click** (or **V**) to open it. Both halves move
@@ -58,55 +58,52 @@ If you are finishing or rebuilding the cabin yourself:
    sleep until **07:12**. Older completed cabins can add their new bed with **G**.
 
 There is no time limit and building materials are unlimited. **R** brings you
-home; **H** hides the guide. **Arrow keys or WASD** move. **Left-click** breaks a
-block immediately; holding repeats after a short delay. **Right-click** places the held block or uses the targeted door, bed,
-workbench, gate, crop, or animal. **V** does the same thing on a trackpad.
-**X** is an optional click-to-break shortcut. Removed blocks leave debris.
+home; **H** hides the guide. **V or right-click** opens doors, gates, workbenches,
+and beds in any mode. Removed blocks leave debris.
 
-## Inventory and tools
+## Modes and tools
 
-**One nine-slot hotbar holds blocks, tools, seeds, and the watering can.** Use **1–9** or scroll to
-select a slot. The selected item appears in your hand and determines your action:
-left-click swings it; right-click places it if it is a building item, or interacts
-with the target. An axe never places a different, hidden block.
+Press **E** to release the mouse and open the tool picker. Choose a mode, then
+click a labeled tool or material to equip it and return to the world:
 
-Press **E** for inventory. Click or drag an item from the catalog into a hotbar
-slot. You can also hover over an item and press **1–9** to assign it, or press
-Backspace to clear the selected slot. E or Escape returns to the world.
-Your arrangement and selected slot are saved.
+| Mode | Tools | What left-click does |
+| --- | --- | --- |
+| Farm | Hoe, watering can, four crops, compost, sprinkler, greenhouse | Tills, plants, waters, harvests, or tends animals |
+| Build | Planks, logs, stone, glass, doors, fences, beds, and other blocks | Removes one block immediately; hold to repeat |
+| Remove | Free hammer, plus optionally crafted axe and pickaxe | Removes one block immediately; hold to repeat |
 
-A new meadow starts with the hoe, carrot seeds, watering can, strawberry seeds,
-pumpkin seeds, compost, wheat seeds, planks, and glass. The inventory also contains
-building blocks, doors, torches, beds, fences, and gates. Older hotbar arrangements
-are retained; the first garden visit equips the hoe. Selecting compost, sprinklers,
-or greenhouse kits from the catalog still requires their supplies to use them.
+Each mode remembers its own tool during play. No slot assignment or dragging is
+needed. The current mode and tool stay visible at the bottom of the screen.
+In **Build**, use **V or right-click** to place your selected block. Left-click
+removes blocks without changing modes or your selected material, even while flying.
+Farm cannot break blocks. Build and Remove protect animals and blocks behind them.
+**V or right-click** still interacts in every mode, including when holding the hammer.
 
-Doors need two clear blocks above a solid floor. Torches stand on solid blocks.
-Beds occupy two adjacent floor spaces; their pillow points north or east according
-to your facing axis. The placement outline turns red with an explanation if the
-block will not fit. Hold **Shift** while placing against an interactive block to
-place instead of opening or using it.
+Optional shortcuts are **F** for Farm, **B** for Build, and **X** for Remove.
+X only selects Remove; it does not destroy anything until you click. Scroll
+cycles through available tools in the current mode; **1–9** selects the labeled
+choices. Opening a menu, changing modes or tools, and losing focus cancel held
+clicks. Relaunching never starts in Remove mode.
 
-The **Crafting** tab in inventory contains the optional tool lesson. It pauses the
-world and releases the pointer. Click a recipe or press **1–4** to craft; arrows
-and Enter also work within this tab. Clicking a locked item in the catalog opens
-its recipe.
+Farm tools and seeds are free. Compost, sprinklers, and greenhouse kits need
+supplies from the Shop before use. Seeds, watering cans, and materials are also
+available through the Farm page; selecting one automatically chooses its mode.
 
-1. Left-click three tree-trunk blocks to collect logs. Each log makes four planks.
-2. Make a workbench with four planks. It is added to your hotbar and selected;
-   close E, then right-click or V on the floor to place it.
-3. Stand within 3.5 blocks of the workbench and make an axe with three planks.
-4. Collect three stone, then make a pickaxe with that stone and two more planks.
+Doors need two clear blocks above a solid floor. Beds occupy two adjacent floor
+spaces. Invalid placement shows a red outline and an explanation. Hold **Shift**
+while placing against a door or other interactive block to place instead of use it.
 
-Crafted items are selected immediately: they use an existing matching slot, an
-empty slot, or the currently selected slot if the hotbar is full. Workbenches
-must be accessible, not behind a wall. Right-click or V on one opens crafting.
+The **Crafting** tab in E is an optional lesson. The free hammer already removes
+blocks instantly, and building materials are unlimited:
 
-Tools have visible swing animations. All held items remove blocks instantly in
-this Creative-style world; tools are optional. Crafting uses a separate supply
-bag; building is unlimited and never consumes those supplies. Once made, tools
-remain available in the inventory and workbenches can be placed repeatedly.
-Supplies, tools, and lesson progress save with your world.
+1. Choose **Remove** and click three tree-trunk blocks to collect logs.
+2. Make planks, then a workbench. It is equipped in Build mode; close the menu
+   and right-click the floor (or press V) to place it.
+3. Stand within 3.5 blocks of the workbench and craft an axe with three planks.
+4. Collect three stone, then craft a pickaxe with that stone and two more planks.
+
+Crafted tools are equipped immediately in Remove mode. Clicking a locked tool
+opens its recipe. Supplies and unlocked tools save with your world.
 
 ## Growing and selling crops
 
@@ -136,7 +133,7 @@ or **V** on a growing plant pours water, plays a soft sprinkling sound, and dark
 the soil. **Hold V** while aiming across a row to water several plants. Watered
 plants grow **twice as fast for 45 seconds**. Water is unlimited, so no refill is
 needed. Watering an already-watered plant does not stack bonuses. The can can
-also harvest ripe crops; left-click removes blocks.
+also harvest ripe crops. Switch to Build or Remove to break blocks.
 
 **Crops never wilt or die from neglect.** Dry plants keep growing normally, and
 ripe crops wait for you. Time pauses in menus and while the game is closed.
@@ -257,19 +254,20 @@ silently if none is available. No microphone access is used.
 | Input | Action |
 | --- | --- |
 | Click on the pause screen / Escape | Enter the world / pause and release the mouse |
-| Arrow keys or WASD / mouse | Move / look (left and right move sideways) |
+| Arrow keys or WASD / mouse | Move / look |
 | Space | Jump |
 | Ctrl / Shift | Sprint / sneak; sneaking stops at ledges |
-| Left-click / X | Remove one block immediately; hold to repeat |
-| Right-click / V | Hoe, plant, water, compost, harvest, use, or place; hold to tend a row |
-| Shift + right-click / V | Place against an interactive block without using it |
-| 1–9 / scroll | Select the held item from the shared hotbar |
-| E | Open / close inventory; its Crafting tab contains recipes |
-| Middle mouse button | Pick the targeted block into the hotbar |
-| Tab / double-tap Space | Toggle flight on or off (collision stays enabled) |
+| Left-click | Farm: use / harvest. Build and Remove: break instantly |
+| V / right-click | Use, place, or interact; holding tends a row |
+| Shift + right-click or Shift + V | Place against an interactive block without using it |
+| E | Choose Farm, Build, or Remove and a labeled tool; optional Crafting tab |
+| F / B / X | Switch to Farm / Build / Remove |
+| Scroll / 1–9 | Cycle available tools / select a labeled choice in the current mode |
+| Middle mouse button | Equip the targeted block and select its mode |
+| Tab / double-tap Space | Toggle flight on or off |
 | Space / Shift in flight | Ascend / descend; landing ends flight |
 | P | Open / close the Farm page; select a targeted animal |
-| Hold G | Place the next guided cabin or pen piece, within reach |
+| Hold G in Build mode | Place the next guided cabin or pen piece within reach |
 | R | Go home; use P → Garden → Visit garden to return to the beds |
 | H | Toggle the guide and movement hints |
 | M | Mute / unmute sound |
@@ -277,17 +275,15 @@ silently if none is available. No microphone access is used.
 | F11 | Toggle fullscreen |
 | Command-Q / close window | Save and quit |
 
-These follow Minecraft's main mouse, hotbar, inventory, and Creative movement
-bindings, with Tab for flight, and V and arrow keys for the Mac trackpad. The first click on the pause
-screen only resumes play, even when held. Menus and focus loss cancel editing
-until a new click or key press. Releasing one alias keeps repeats going if the
-other is still held. Holding use does not repeatedly toggle doors or gates.
+The first click on the pause screen only resumes play. Menu clicks select tools
+without editing the world. Mode/tool changes, menus, and focus loss cancel held
+actions. Holding use does not repeatedly toggle doors, gates, or vehicle rides.
 
 ## Saved worlds
 
 World edits, named animals and families, crop types, watering and compost, produce and eggs,
 garden coins and supplies, cows, horses, milk, the parked car, weather, seed, day/time, crafting supplies,
-tools, hotbar arrangement and selection, tutorial milestones, and player position
+unlocked tools, the selected farm/build item, tutorial milestones, and player position
 save every 30 seconds of play, after sleeping, and on exit to
 `~/Library/Application Support/Bijan/Blockworld/meadow.bw`. F5 saves immediately.
 A damaged or unknown save is rejected without overwriting it. Use

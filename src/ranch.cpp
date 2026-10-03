@@ -133,13 +133,13 @@ bool collectMilk(World& world,const Player& player,std::size_t index) {
   ++world.farm.milk; animal.milkTimer=milkSeconds; return true;
 }
 std::string ranchPrompt(const World& world,RanchTarget target) {
-  if(target.car) return "Farm car / V or right-click to drive";
+  if(target.car) return "Farm car / Right-click or V to drive";
   if(target.index>=world.farm.livestock.size()) return {};
   const auto& animal=world.farm.livestock[target.index];
-  if(animal.kind==LivestockKind::Horse) return "Horse / V or right-click to ride";
+  if(animal.kind==LivestockKind::Horse) return "Horse / Right-click or V to ride";
   if(world.farm.milk>=9999) return "Milk basket full / P / Shop / Sell basket";
   if(animal.milkTimer>0) return "Cow / Milk ready in "+std::to_string(int(std::ceil(animal.milkTimer)))+" seconds";
-  return "Cow / V or right-click to collect milk";
+  return "Cow / Right-click or V to collect milk";
 }
 void tickRanch(World& world,Player& player,RideState& ride,Movement movement,float dt) {
   if(!std::isfinite(dt) || dt<=0) return;

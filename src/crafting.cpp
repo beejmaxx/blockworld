@@ -8,8 +8,8 @@ const std::array<RecipeInfo,4>& recipes() {
   static constexpr std::array<RecipeInfo,4> list{{
     {"4 planks","1 log","Prepare wood for your tools.",1,0,0,MadePlanks,false},
     {"Workbench","4 planks","Select it, then use V to place it on the ground.",0,4,0,MadeWorkbench,false},
-    {"Wooden axe","3 planks + workbench","Select it in your hotbar. Click to use it.",0,3,0,MadeAxe,true},
-    {"Stone pickaxe","2 planks + 3 stone + bench","Select it in your hotbar. Click to use it.",0,2,3,MadePickaxe,true}
+    {"Wooden axe","3 planks + workbench","Choose it in E / Remove. Click to use it.",0,3,0,MadeAxe,true},
+    {"Stone pickaxe","2 planks + 3 stone + bench","Choose it in E / Remove. Click to use it.",0,2,3,MadePickaxe,true}
   }};
   return list;
 }
@@ -87,11 +87,11 @@ CraftView craftView(const World& world,const Player& player) {
     case 0: view.title="1. Collect three logs"; view.lines={"Close inventory with E. Aim at a tree trunk.","Click to break a block and collect the wood."}; break;
     case 1: view.title="2. Turn logs into planks"; view.lines={"Click recipe 1 below. One log makes four planks.","Your building blocks stay unlimited."}; break;
     case 2: view.title="3. Make a workbench"; view.lines={"Use four planks to make your first workbench.","Click recipe 2 below."}; break;
-    case 3: view.title="4. Place your workbench"; view.lines={"Close E. Select the workbench from your hotbar.","Aim at the floor, then right-click or V to place it."}; break;
+    case 3: view.title="4. Place your workbench"; view.lines={"E / Build / choose the Workbench.","Aim at the floor, then right-click or V."}; break;
     case 4: view.title="5. Make your first axe"; view.lines={"Stay near your workbench and make recipe 3.","Need more planks? Recipe 1 turns a log into four."}; break;
-    case 5: view.title="6. Collect three stone"; view.lines={"Click stone in the cave or below the soil.","Collect three stone blocks for your pickaxe."}; break;
+    case 5: view.title="6. Collect three stone"; view.lines={"Choose E / Remove, then click stone.","Collect three stone blocks for your pickaxe."}; break;
     case 6: view.title="7. Make a pickaxe"; view.lines={"Return to your workbench and make recipe 4.","It uses three stone and two planks."}; break;
-    default: view.title="Your first tools are ready"; view.lines={"Use 1-9 or scroll to select a tool from your hotbar.","Left-click to swing. E opens your items and crafting."}; break;
+    default: view.title="Your first tools are ready"; view.lines={"E / Remove / choose your axe or pickaxe.","Left-click to swing. E opens your tools and crafting."}; break;
   }
   return view;
 }
