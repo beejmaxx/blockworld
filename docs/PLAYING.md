@@ -51,14 +51,14 @@ If you are finishing or rebuilding the cabin yourself:
    manually with **E → Build**. Walk around the frame to reach the other sides.
 2. Add the windows, roof, door, torch, and bed. The checklist counts the blocks that
    are actually in the cabin. Other builds do not affect its progress.
-3. Aim at the door and **right-click** (or **V**) to open it. Both halves move
+3. Aim at the door and press **V** to open it. Both halves move
    together, and an open door has a gap you can walk through.
 4. Follow the marker and sandy path to the **lantern cave** in the nearby hill.
-5. Return to your cabin at dusk. Right-click or V on either half of the bed to
+5. Return to your cabin at dusk. Press V on either half of the bed to
    sleep until **07:12**. Older completed cabins can add their new bed with **G**.
 
 There is no time limit and building materials are unlimited. **R** brings you
-home; **H** hides the guide. **V or right-click** opens doors, gates, workbenches,
+home; **H** hides the guide. **V** opens doors, gates, workbenches,
 and beds in any mode. Removed blocks leave debris.
 
 ## Modes and tools
@@ -69,21 +69,26 @@ click a labeled tool or material to equip it and return to the world:
 | Mode | Tools | What left-click does |
 | --- | --- | --- |
 | Farm | Hoe, watering can, four crops, compost, sprinkler, greenhouse | Tills, plants, waters, harvests, or tends animals |
-| Build | Planks, logs, stone, glass, doors, fences, beds, and other blocks | Removes one block immediately; hold to repeat |
+| Build | Planks, logs, stone, glass, doors, fences, beds, and other blocks | Places the chosen block; uses interactive objects |
 | Remove | Free hammer, plus optionally crafted axe and pickaxe | Removes one block immediately; hold to repeat |
 
 Each mode remembers its own tool during play. No slot assignment or dragging is
 needed. The current mode and tool stay visible at the bottom of the screen.
-In **Build**, use **V or right-click** to place your selected block. Left-click
+In **Build**, use **left-click or V** to place your selected block. Right-click
 removes blocks without changing modes or your selected material, even while flying.
 Farm cannot break blocks. Build and Remove protect animals and blocks behind them.
-**V or right-click** still interacts in every mode, including when holding the hammer.
+**V** still interacts in every mode, including when holding the hammer.
+Right-click also uses or interacts in Farm and Remove modes.
 
 Optional shortcuts are **F** for Farm, **B** for Build, and **X** for Remove.
 X only selects Remove; it does not destroy anything until you click. Scroll
 cycles through available tools in the current mode; **1–9** selects the labeled
 choices. Opening a menu, changing modes or tools, and losing focus cancel held
 clicks. Relaunching never starts in Remove mode.
+
+Build shows its fixed **1–9 material bar** while you play: planks, logs, stone,
+glass, door, torch, fence, gate, and bed. Press a number to select immediately.
+Use **E** for the full material grid or scroll through all materials.
 
 Farm tools and seeds are free. Compost, sprinklers, and greenhouse kits need
 supplies from the Shop before use. Seeds, watering cans, and materials are also
@@ -98,7 +103,7 @@ blocks instantly, and building materials are unlimited:
 
 1. Choose **Remove** and click three tree-trunk blocks to collect logs.
 2. Make planks, then a workbench. It is equipped in Build mode; close the menu
-   and right-click the floor (or press V) to place it.
+   and left-click the floor (or press V) to place it.
 3. Stand within 3.5 blocks of the workbench and craft an axe with three planks.
 4. Collect three stone, then craft a pickaxe with that stone and two more planks.
 
@@ -167,10 +172,10 @@ share the same double-growth bonus rather than multiplying it.
 Open **P → Shop → Cows, horses & car**. Stand outside near a clear, level patch
 when buying or collecting a vehicle. Delivery never replaces your blocks or crops.
 
-- **Cow: 20 coins.** Aim at her and press **V** or right-click to collect a bottle
+- **Cow: 20 coins.** Aim at her and press **V** to collect a bottle
   of milk. More milk is ready after 60 seconds of play; sleeping advances this timer.
   **Sell basket** sells milk for **5 coins each**, along with your crops.
-- **Horse: 35 coins.** Aim at the horse and press **V** or right-click to ride.
+- **Horse: 35 coins.** Aim at the horse and press **V** to ride.
   Cows and horses wander near their home spot and rest at night. Up to eight can
   live on your farm, in addition to your chickens.
 - **Farm car: free.** Choose **Get my car**, then aim at it and press **V** to drive.
@@ -220,6 +225,9 @@ Typing in the name field never activates game shortcuts.
 Chickens walk, peck, cluck, and rest at night. Blocked hens pause before trying
 a new route, and turn gradually while walking. Left-clicking a chicken does not
 remove the ground or blocks behind it. A hen stays beside her warming egg.
+If a hen falls into a one-block hole, hold harvested wheat and walk away on the
+surrounding ground during daytime; she can step up and follow. Deeper holes need
+one-block steps. Chicks follow their mother.
 Gates refuse to close on you or a chicken, and fences contain both hens and chicks.
 Animals are friendly and take no damage. The flock supports **12 birds**, counting
 eggs already being incubated. Hatching waits for clear, loaded ground beside the
@@ -257,9 +265,10 @@ silently if none is available. No microphone access is used.
 | Arrow keys or WASD / mouse | Move / look |
 | Space | Jump |
 | Ctrl / Shift | Sprint / sneak; sneaking stops at ledges |
-| Left-click | Farm: use / harvest. Build and Remove: break instantly |
-| V / right-click | Use, place, or interact; holding tends a row |
-| Shift + right-click or Shift + V | Place against an interactive block without using it |
+| Left-click | Farm: use / harvest. Build: place / use. Remove: break instantly |
+| Right-click | Build: break instantly. Farm / Remove: use / interact |
+| V | Use, place, or interact in any mode; holding tends a row |
+| Shift + left-click in Build, or Shift + V | Place against an interactive block without using it |
 | E | Choose Farm, Build, or Remove and a labeled tool; optional Crafting tab |
 | F / B / X | Switch to Farm / Build / Remove |
 | Scroll / 1–9 | Cycle available tools / select a labeled choice in the current mode |

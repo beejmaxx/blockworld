@@ -57,7 +57,7 @@ void modeToolsAndRemoval() {
     world.set(wall,Block::Wood); world.crafting.wood=0; player.pose.flying=flying;
     check(tools.choose(item,world.crafting) && tools.mode==PlayMode::Build && tools.held()==item,"direct selection equips the chosen building material");
     auto target=useTarget(world,player,tools.held());
-    check(target.kind==UseKind::Place && target.cell==Cell{0,3,1},"right-use still places against the targeted block in Build mode");
+    check(target.kind==UseKind::Place && target.cell==Cell{0,3,1},"use places against the targeted block in Build mode");
     auto removed=removeSelectedBlock(world,player,tools);
     check(removed && removed->cell==wall && world.get(wall)==Block::Air && world.crafting.wood==1,
           "Build mode removes and collects a block immediately while walking or flying");

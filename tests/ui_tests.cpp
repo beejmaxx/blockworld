@@ -87,7 +87,7 @@ int main(int argc,char** argv) {
     hud.menu=Menu::None; hud.paused=true; hud.guide.enabled=true;
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"controls-small.ppm");
     hud.paused=false; hud.fps=60; hud.guide.enabled=false; hud.breaking=Cell{0,2,1}; hud.breakProgress=.6f;
-    hud.interaction="Build / Click removes / Right-click or V places"; hud.tools.choose(Item::Workbench,CraftState{0,0,0,127});
+    hud.interaction="Build / Left-click places / Right-click removes"; hud.tools.choose(Item::Workbench,CraftState{0,0,0,127});
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"building-small.ppm");
     hud.farming=true; hud.tools.choose(Item::Wheat,CraftState{0,0,0,127}); hud.breaking.reset(); hud.interaction="CHICKEN / RIGHT CLICK / V FEED WHEAT";
     hud.wheat=9999; hud.eggs=9999;
@@ -139,7 +139,7 @@ int main(int argc,char** argv) {
         snapshot(ui,hud,std::string(modeName(mode))+"-tools-"+std::to_string(size.x)+".ppm");
         auto menu=hud.menu; hud.menu=Menu::None; hud.tools.choose(choices[0],world.crafting);
         hud.interaction=mode==PlayMode::Remove ? "Remove mode / Click to remove one block" : mode==PlayMode::Build
-          ? "Build / Click removes / Right-click or V places" : "Click to use / E to choose tools";
+          ? "Build / Left-click places / Right-click removes" : "Click to use / E to choose tools";
         ui.build(hud); bounds(ui,size.x,size.y);
         snapshot(ui,hud,std::string(modeName(mode))+"-hud-"+std::to_string(size.x)+".ppm");
         hud.menu=menu;

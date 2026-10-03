@@ -24,10 +24,18 @@ bool blocked(const World& world,glm::vec3 at,float scale=1) {
   return false;
 }
 std::optional<glm::vec3> standing(const World& world,glm::vec3 at,float scale=1) {
-  int x=int(std::floor(at.x)),z=int(std::floor(at.z)),top=int(std::floor(at.y+.02f));
+  int top=int(std::floor(at.y+.02f));
+  float radius=.24f*scale;
   for(int y=top;y>=top-2;--y) {
-    auto floor=world.get({x,y,z});
-    if(!opaque(floor) && floor!=Block::Glass) continue;
+    // The leading edge of a foot reaches a step before the body's center does.
+    // Sampling only the center traps chickens against the lip of shallow holes.
+    bool supported=false;
+    for(int z=int(std::floor(at.z-radius+.001f));z<=int(std::floor(at.z+radius-.001f));++z)
+      for(int x=int(std::floor(at.x-radius+.001f));x<=int(std::floor(at.x+radius-.001f));++x) {
+        auto floor=world.get({x,y,z});
+        supported|=opaque(floor) || floor==Block::Glass;
+      }
+    if(!supported) continue;
     auto p=glm::vec3(at.x,float(y+1),at.z);
     if(p.y>at.y+1.01f || p.y<at.y-1.01f || blocked(world,p,scale)) continue;
     return p;
@@ -231,12 +239,12 @@ std::optional<std::size_t> targetChicken(const World& world,const Player& player
 std::string chickenPrompt(const World& world,std::size_t index) {
   if(index>=world.farm.chickens.size()) return {};
   const auto& c=world.farm.chickens[index];
-  if(isChick(c)) return "CHICK / RIGHT CLICK / V PET / P FARM";
-  if(c.eggReady) return world.farm.eggs>=9999 ? "EGG BASKET FULL" : "CHICKEN / RIGHT CLICK / V COLLECT EGG";
+  if(isChick(c)) return "CHICK / V PET / P FARM";
+  if(c.eggReady) return world.farm.eggs>=9999 ? "EGG BASKET FULL" : "CHICKEN / V COLLECT EGG";
   if(c.hatchTimer>=0) return c.hatchTimer>0 ? "EGG HATCHES IN "+std::to_string(int(std::ceil(c.hatchTimer)))+"S / P FARM" : "EGG READY / NEEDS CLEAR SPACE";
   if(c.eggTimer>=0) return "HAPPY CHICKEN / EGG IN "+std::to_string(int(std::ceil(c.eggTimer)))+"S";
   if(world.clock.sky().daylight<.12f) return "CHICKEN / SLEEPING UNTIL MORNING";
-  return world.farm.wheat>0 ? "CHICKEN / RIGHT CLICK / V FEED WHEAT" : "CHICKEN / GROW WHEAT TO FEED ME";
+  return world.farm.wheat>0 ? "CHICKEN / V FEED WHEAT" : "CHICKEN / GROW WHEAT TO FEED ME";
 }
 FarmUse useChicken(World& world,const Player& player,std::size_t index) {
   if(targetChicken(world,player)!=index) return FarmUse::None;
@@ -278,7 +286,7 @@ std::string cropPrompt(const World& world,Cell cell,bool wateringCan) {
   const auto* crop=world.cropAt(cell);
   if(!crop) return "HOE SOIL / THEN PLANT SEEDS";
   std::string name(cropName(crop->kind));
-  if(crop->age>=cropGrowSeconds(crop->kind)) return name+" RIPE / RIGHT CLICK / V PICK +"+std::to_string(cropYield(crop->kind)+(crop->composted ? 2 : 0));
+  if(crop->age>=cropGrowSeconds(crop->kind)) return name+" RIPE / V PICK +"+std::to_string(cropYield(crop->kind)+(crop->composted ? 2 : 0));
   int percent=int(crop->age/cropGrowSeconds(crop->kind)*100.f);
   return name+" / GROWTH "+std::to_string(percent)+" OF 100"+(crop->water>0 ? " / WATERED" : wateringCan ? " / V WATER" : " / P FOR TOOLS")+(crop->composted ? " / COMPOST +2" : "");
 }
@@ -328,9 +336,9 @@ GuideView farmGuide(const World& world,const Player& player) {
     case 2: view.title="03 / WATCH YOUR GARDEN GROW";
       view.lines={"P has a watering can to help it grow.","Click or V on golden wheat.","Plant new seeds after the harvest."}; break;
     case 3: view.title="04 / FEED YOUR CHICKENS";
-      view.lines={"Hold wheat. Nearby chickens follow.","Right-click or V opens the gate.","Click or V feeds one wheat."}; break;
+      view.lines={"Hold wheat. Nearby chickens follow.","V opens the gate.","Click or V feeds one wheat."}; break;
     case 4: view.title="05 / YOUR FIRST EGG";
-      view.lines={"A fed chicken lays an egg in 30 seconds.","Right-click or V collects its egg.","Right-click or V closes the gate."}; break;
+      view.lines={"A fed chicken lays an egg in 30 seconds.","V collects its egg.","V closes the gate."}; break;
     case 5: view.title="06 / HATCH A BABY CHICK";
       view.lines={"Press P to open your Farm page.","Choose a hen and click HATCH ONE EGG.","She keeps it warm for 60 play seconds."}; break;
     case 6: view.title="07 / A NEW LITTLE FRIEND";

@@ -39,7 +39,8 @@ See [Clang's language status](https://clang.llvm.org/cxx_status.html).
   collision, and ray-based editing.
 - Fixed Farm, Build, and Remove palettes with direct tool selection, visible held
   tools, a free removal hammer, and mode-specific click actions. Build uses
-  left-click to remove and right-click/V to place, on foot or in flight.
+  left-click to place and right-click to remove, on foot or in flight. V uses or
+  places in every mode.
 - Placement previews with collision feedback, instant block removal,
   controlled hold repetition, bounded debris particles, and swing animations.
 - An optional crafting lesson for planks, a workbench, an axe, and a pickaxe.
@@ -117,7 +118,8 @@ sequence, perennial berries, pumpkin spacing, placement costs and refunds, weath
 boundaries, roof changes, irrigation outside loaded chunks, safe starter placement,
 greenhouse preflight, version-8 migration, and atomic rejection of malformed garden data.
 Regression checks cover click repetition and cancellation, protected animal targets, blocked
-chicken turning, untouched starter cabins, safe home landings, and reachable beds.
+chicken turning, hens climbing out of one-block holes, untouched starter cabins,
+safe home landings, and reachable beds.
 The livestock/car suite covers purchases and rejected deliveries, milk production
 and sales, riding and safe exits, braking and reverse, wall collision, and version-9
 migration. CPU previews also show the new models and shop.
@@ -140,7 +142,7 @@ For disposable visual previews:
 
 The demo previews never read or write your worlds. Without `--frames`, demos
 support normal arrow-key/WASD movement and mouse look. The bed preview starts aimed at a
-usable bed; right-click or V to try sleeping. `--time HOURS` accepts
+usable bed; press V to try sleeping. `--time HOURS` accepts
 0 up to (but excluding) 24 and overrides the starting clock; `--mute` starts
 muted. `sound_tests` optionally writes a 20-second WAV preview of the mixer.
 The farm demo starts at the vegetable beds with the watering can held. Nearby

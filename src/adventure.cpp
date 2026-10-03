@@ -260,11 +260,11 @@ GuideView Adventure::view(const World& world,const Player& player) const {
       out.lines={"Use ARROWS or W A S D to walk.","Press SPACE to jump onto a block.","The sandy path leads to your cabin."}; break;
     case 2:
       out.title="03 / TRY BREAKING A BLOCK";
-      out.lines={"E / Build / choose Planks.","Aim at the stump and click once.","Hold to remove more blocks."};
+      out.lines={"E / Build / choose Planks.","Aim at the stump and right-click.","Hold to remove more blocks."};
       out.destination=glm::vec3(7.5f,25.f,3.5f); out.destinationName="PRACTICE STUMP"; break;
     case 3:
       out.title="04 / PLACE YOUR FIRST BLOCK";
-      out.lines={"E / Build / choose Planks.","Aim at the ground. Right-click or V.","The green outline shows what you build."}; break;
+      out.lines={"E / Build / choose Planks.","Aim at the ground. Left-click or V.","The green outline shows what you build."}; break;
     case 4: {
       out.title="05 / BUILD YOUR FIRST CABIN";
       auto next=nextPiece(world,player);
@@ -286,7 +286,7 @@ GuideView Adventure::view(const World& world,const Player& player) const {
     }
     case 5:
       out.title="06 / THE LANTERN CAVE";
-      out.lines={"Your cabin is ready. Make it yours.","Right-click or V opens the door.","Follow the path east to the cave."};
+      out.lines={"Your cabin is ready. Make it yours.","V opens the door.","Follow the path east to the cave."};
       out.destination=glm::vec3(27.f,25.f,-4.f); out.destinationName="LANTERN CAVE";
       if(player.pose.position.x>24 && std::abs(player.pose.position.z+4)<8 && player.pose.position.y<30) {
         out.title="06 / FOLLOW THE LANTERNS";
@@ -299,13 +299,13 @@ GuideView Adventure::view(const World& world,const Player& player) const {
       out.destination=middle(cabinBed.cell); out.destinationName="YOUR BED";
       if(!pieceComplete(world,cabinBed)) {
         out.preview=cabinBed.cell; out.previewBlock=cabinBed.block;
-        out.lines={"Hold G to add a bed inside the cabin.","A bed needs two clear floor spaces.","Right-click or V opens the door."};
+        out.lines={"Hold G to add a bed inside the cabin.","A bed needs two clear floor spaces.","V opens the door."};
         if(solid(world.get(cabinBed.cell)) || solid(world.get(bedOther(cabinBed.cell,cabinBed.block))))
           out.lines[0]="Clear the two glowing spaces for a bed.";
       } else if(world.clock.canSleep()) {
-        out.lines={"Your bed is ready for the night.","Right-click or V on the bed to sleep.","Wake up to birds and morning light."};
+        out.lines={"Your bed is ready for the night.","V on the bed to sleep.","Wake up to birds and morning light."};
       } else {
-        out.lines={"Explore until sunset, or keep building.","At dusk, right-click or V on your bed.","Sleep brings you straight to morning."};
+        out.lines={"Explore until sunset, or keep building.","At dusk, press V on your bed.","Sleep brings you straight to morning."};
       }
       break;
     default:

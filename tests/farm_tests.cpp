@@ -124,6 +124,23 @@ void chickenTurning() {
   for(int i=0;i<120;++i) tickFarm(world,player,dt,true);
   check(glm::length(world.farm.chickens[0].position-player.pose.position)<glm::length(start-player.pose.position),"smooth turning still lets hens follow wheat");
 }
+void chickenStepsOutOfHole() {
+  auto world=flatWorld(); Player player; player.pose.position={2.5f,2,.5f};
+  world.farm.wheat=1; world.clock.phase=.4;
+  world.set({0,1,0},Block::Air); world.chunks.at({0,0}).set(0,0,0,Block::Stone);
+  addChicken(world,{.5f,1,.5f});
+  for(int i=0;i<120;++i) tickFarm(world,player,.1f,true);
+  const auto& hen=world.farm.chickens.front();
+  check(hen.position.x>1.2f && std::abs(hen.position.y-2)<.01f,
+        "a hen follows wheat up the edge of a one-block hole");
+  check(world.get({0,1,0})==Block::Air && world.get({0,0,0})==Block::Stone && world.get({1,1,0})==Block::Farmland,
+        "climbing out preserves the player's terrain");
+
+  world.farm.chickens.front().position={.5f,0,.5f}; world.chunks.at({0,0}).set(0,0,0,Block::Air);
+  for(int i=0;i<120;++i) tickFarm(world,player,.1f,true);
+  check(world.farm.chickens.front().position.y<.01f,
+        "hens cannot climb a two-block wall without a step");
+}
 void gardening() {
   for(auto kind : cropKinds) {
     auto world=flatWorld(); Player player; player.pose.position={2.5f,2,3.2f}; Cell cell{2,2,0};
@@ -515,7 +532,8 @@ void preview(const std::filesystem::path& path,bool upgraded) {
 int main(int argc,char** argv) {
   try {
     for(auto [name,test] : {std::pair{"wheat planting and growth",&planting},{"flock containment and gates",flockAndGates},
-                           {"chickens do not spin when blocked",chickenTurning},{"mixed garden and watering",gardening},{"garden saves and migration",gardenPersistence},
+                           {"chickens do not spin when blocked",chickenTurning},{"chickens climb out of holes",chickenStepsOutOfHole},
+                           {"mixed garden and watering",gardening},{"garden saves and migration",gardenPersistence},
                            {"feeding and eggs",feedingAndEggs},{"complete farm guide",completeFarmGuide},{"names and baby chicks",namesAndChicks},{"farm persistence and migration",persistence},{"family save migration",chickPersistence}}) {
       test(); std::cout<<"PASS "<<name<<'\n';
     }

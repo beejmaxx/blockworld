@@ -84,10 +84,10 @@ CraftView craftView(const World& world,const Player& player) {
   CraftView view; view.bag=world.crafting; view.lesson=craftLesson(view.bag); view.benchNearby=nearbyWorkbench(world,player);
   for(int i=0;i<4;++i) view.problems[i]=craftProblem(world,player,Recipe(i));
   switch(view.lesson) {
-    case 0: view.title="1. Collect three logs"; view.lines={"Close inventory with E. Aim at a tree trunk.","Click to break a block and collect the wood."}; break;
+    case 0: view.title="1. Collect three logs"; view.lines={"Choose E / Remove / Hammer. Aim at a tree trunk.","Click to break a block and collect the wood."}; break;
     case 1: view.title="2. Turn logs into planks"; view.lines={"Click recipe 1 below. One log makes four planks.","Your building blocks stay unlimited."}; break;
     case 2: view.title="3. Make a workbench"; view.lines={"Use four planks to make your first workbench.","Click recipe 2 below."}; break;
-    case 3: view.title="4. Place your workbench"; view.lines={"E / Build / choose the Workbench.","Aim at the floor, then right-click or V."}; break;
+    case 3: view.title="4. Place your workbench"; view.lines={"E / Build / choose the Workbench.","Aim at the floor, then left-click or V."}; break;
     case 4: view.title="5. Make your first axe"; view.lines={"Stay near your workbench and make recipe 3.","Need more planks? Recipe 1 turns a log into four."}; break;
     case 5: view.title="6. Collect three stone"; view.lines={"Choose E / Remove, then click stone.","Collect three stone blocks for your pickaxe."}; break;
     case 6: view.title="7. Make a pickaxe"; view.lines={"Return to your workbench and make recipe 4.","It uses three stone and two planks."}; break;

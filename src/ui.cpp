@@ -421,11 +421,11 @@ void Ui::inventory(const HudState& h) {
   auto ink=modeColor(h.tools.mode);
   rectangle(0,0,float(h.width),float(h.height),{.025f,.055f,.05f,.60f});
   rectangle(x,y,workshopWidth,workshopHeight,{.07f,.115f,.105f,.98f}); rectangle(x,y,workshopWidth,3,ink);
-  label("Choose tools",x+24,y+15,28,cream);
+  label(h.tools.mode==PlayMode::Build ? "Build materials" : "Choose tools",x+24,y+15,28,cream);
   label("Choose a mode, then click a tool to start playing.",x+24,y+53,17,cream);
   modeButtons(h,x+24,y+76,632,50);
   label(h.tools.mode==PlayMode::Farm ? "Tend crops and animals. Your buildings stay safe."
-    : h.tools.mode==PlayMode::Build ? "Click removes. Right-click / V places your block."
+    : h.tools.mode==PlayMode::Build ? "Left-click builds. Right-click removes. V also places."
     : "Click to remove one block instantly. Animals stay safe.",x+24,y+136,17,ink);
   auto choices=modeTools(h.tools.mode); int columns=toolColumns(h.tools.mode); float stride=640.f/float(columns);
   for(int i=0;i<int(choices.size());++i) {
@@ -708,13 +708,26 @@ void Ui::build(const HudState& h) {
       rectangle(cx-55,height*.5f+13,110*std::clamp(h.breakProgress,0.f,1.f),5,accent);
     }
   }
-  labelCentered("E  Choose mode / tools",cx,height-159,18,cream);
-  modeButtons(h,cx-228,height-132,456,40);
-  rectangle(cx-228,height-84,456,59,panel);
   std::string selected=std::string(toolName(h.selectedItem()));
-  labelCentered(selected,cx,height-80,20,modeColor(h.tools.mode));
-  labelCentered(h.tools.mode==PlayMode::Remove ? "Click: remove one block     V: interact" : h.tools.mode==PlayMode::Build
-    ? "Click: remove   Right-click / V: place" : "Click: use tool / harvest     P: farm shop",cx,height-50,16,cream);
+  labelCentered(h.tools.mode==PlayMode::Build ? selected+" / E: more materials" : "E  Choose mode / tools",cx,height-159,18,cream);
+  modeButtons(h,cx-228,height-132,456,40);
+  if(h.tools.mode==PlayMode::Build) {
+    auto materials=modeTools(PlayMode::Build);
+    for(int i=0;i<9;++i) {
+      float x=cx-249+i*56,y=height-84;
+      bool active=materials[i]==h.selectedItem();
+      rectangle(x,y,50,50,active ? buildColor : panel);
+      itemIcon(materials[i],x+28,y+12,12);
+      label(std::to_string(i+1),x+4,y+2,14,active ? panel : cream);
+    }
+    rectangle(cx-249,height-30,498,25,panel);
+    labelCentered("Left-click: place    Right-click: remove",cx,height-29,16,cream);
+  } else {
+    rectangle(cx-228,height-84,456,59,panel);
+    labelCentered(selected,cx,height-80,20,modeColor(h.tools.mode));
+    labelCentered(h.tools.mode==PlayMode::Remove ? "Click: remove one block     V: interact"
+      : "Click: use tool / harvest     P: farm shop",cx,height-50,16,cream);
+  }
   if(!h.interaction.empty() && !h.paused) {
     float size=std::min(17.f,17.f*(w-48.f)/std::max(1.f,readableWidth(h.interaction,17)));
     float iw=readableWidth(h.interaction,size)+24;
@@ -745,8 +758,9 @@ void Ui::build(const HudState& h) {
       label(key,x+38,top+dy,17,accent); label(action,x+216,top+dy,17,cream);
     };
     row("WASD / arrows","Move",136); row("Mouse","Look around",166);
-    row("Click",h.tools.removesBlocks() ? "Remove a block" : "Use tool / harvest",196); row("E","Choose mode / tools",226);
-    row("P","Garden, shop, animals",256); row("V / right-click","Place / interact",286);
+    row("Left-click",h.tools.mode==PlayMode::Remove ? "Remove a block" : h.tools.mode==PlayMode::Build ? "Place / use (also V)" : "Use tool / harvest",196);
+    row("E","Choose mode / tools",226); row("P","Garden, shop, animals",256);
+    row(h.tools.mode==PlayMode::Build ? "Right-click" : "V / right-click",h.tools.mode==PlayMode::Build ? "Remove a block" : "Place / interact",286);
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);

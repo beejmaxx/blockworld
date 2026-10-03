@@ -281,7 +281,7 @@ int run(const Options& options) {
     trackedAnimal.reset(); hud.farming=false; hud.help=true;
     if(hud.menuOpen()) showMenu(Menu::None);
     stride=0; cancelEdits();
-    notice("HOME / RIGHT CLICK OR V ON YOUR BED TO SLEEP AT NIGHT");
+    notice("HOME / V ON YOUR BED TO SLEEP AT NIGHT");
   };
   auto farmAction=[&](FarmAction action) {
     if(action==FarmAction::RanchShop || action==FarmAction::GardenShop) { hud.farmRanch=action==FarmAction::RanchShop; return; }
@@ -337,7 +337,7 @@ int run(const Options& options) {
       chooseTool(item); hud.farming=true; hud.help=true; hud.farmGarden=isCrop(itemBlock(item)) || item==Item::WateringCan;
       showMenu(Menu::None);
       notice(item==Item::WateringCan ? "WATERING CAN READY / CLICK OR V ON A PLANT"
-             : isCrop(itemBlock(item)) ? "SEEDS READY / CLICK OR V ON PREPARED SOIL" : "RIGHT CLICK OR V TO BUILD / CLICK TO REMOVE / G HELPS BUILD THE PEN");
+             : isCrop(itemBlock(item)) ? "SEEDS READY / CLICK OR V ON PREPARED SOIL" : "LEFT CLICK TO BUILD / RIGHT CLICK TO REMOVE / G HELPS BUILD THE PEN");
     } else if(action==FarmAction::Hatch) {
       if(incubateEgg(world,std::size_t(hud.animalSelected))) {
         audio.play(Sound::Cluck); notice("EGG KEPT WARM / RETURN TO THE WORLD FOR 60 SECONDS");
@@ -545,10 +545,13 @@ int run(const Options& options) {
         else if(hud.paused) { hud.paused=false; cancelEdits(); capture(true); }
         else if(sleepRemaining>0 || !interactive) {}
         else if(event.button.button==SDL_BUTTON_LEFT) {
-          if(tools.removesBlocks() && !ride.active) pressRemove(mouseEditSource);
+          if(tools.mode==PlayMode::Remove && !ride.active) pressRemove(mouseEditSource);
           else pressPlace(mouseEditSource);
         }
-        else if(event.button.button==SDL_BUTTON_RIGHT) pressPlace(rightEditSource);
+        else if(event.button.button==SDL_BUTTON_RIGHT) {
+          if(tools.mode==PlayMode::Build && !ride.active) pressRemove(rightEditSource);
+          else pressPlace(rightEditSource);
+        }
         else if(event.button.button==SDL_BUTTON_MIDDLE) {
           if(auto hit=world.raycast(player.eye(),player.direction())) {
             auto item=itemFromBlock(world.get(hit->block));
@@ -560,7 +563,9 @@ int run(const Options& options) {
         if(event.button.button==SDL_BUTTON_LEFT) {
           releaseRemove(mouseEditSource); releasePlace(mouseEditSource);
         }
-        if(event.button.button==SDL_BUTTON_RIGHT) releasePlace(rightEditSource);
+        if(event.button.button==SDL_BUTTON_RIGHT) {
+          releaseRemove(rightEditSource); releasePlace(rightEditSource);
+        }
       }
       if(event.type==SDL_EVENT_KEY_UP) {
         if(event.key.scancode==SDL_SCANCODE_V) releasePlace(keyEditSource);
@@ -808,12 +813,12 @@ int run(const Options& options) {
         auto problem=greenhouseProblem(world,player,target.cell);
         hud.interaction=problem.empty() ? "V PLACE GREENHOUSE / DOOR HERE / EXTENDS NORTH" : problem; break;
       }
-      case UseKind::Door: hud.interaction=doorOpen(world.get(target.cell)) ? "RIGHT CLICK / V / CLOSE DOOR" : "RIGHT CLICK / V / OPEN DOOR"; break;
-      case UseKind::Gate: hud.interaction=gateOpen(world.get(target.cell)) ? "RIGHT CLICK / V / CLOSE GATE" : "RIGHT CLICK / V / OPEN GATE"; break;
-      case UseKind::Workbench: hud.interaction="RIGHT CLICK / V / CRAFT"; break;
+      case UseKind::Door: hud.interaction=doorOpen(world.get(target.cell)) ? "V / CLOSE DOOR" : "V / OPEN DOOR"; break;
+      case UseKind::Gate: hud.interaction=gateOpen(world.get(target.cell)) ? "V / CLOSE GATE" : "V / OPEN GATE"; break;
+      case UseKind::Workbench: hud.interaction="V / CRAFT"; break;
       case UseKind::Bed: {
         auto status=bedSleepStatus(world,player,target.cell);
-        hud.interaction=status==SleepResult::Ready ? "RIGHT CLICK / V / SLEEP" : status==SleepResult::Daytime ? "BED / SLEEP AT DUSK" : "RIGHT CLICK / V / USE BED";
+        hud.interaction=status==SleepResult::Ready ? "V / SLEEP" : status==SleepResult::Daytime ? "BED / SLEEP AT DUSK" : "V / USE BED";
         break;
       }
       case UseKind::Crop: case UseKind::Water:

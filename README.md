@@ -64,21 +64,22 @@ The tool goes straight into your hand. Each mode remembers its own selection;
 there are no slots to arrange. Your active mode stays visible at the bottom.
 
 - **Farm:** click to use the hoe, plant seeds, water, harvest, or tend animals.
-- **Build:** left-click removes a block instantly; **V or right-click** places your selected block.
+- **Build:** left-click places your selected block; right-click removes a block instantly.
 - **Remove:** hold the visible hammer and click to remove a block instantly.
 
-**V or right-click** remains an interaction shortcut in every mode.
+**V** places or interacts in every mode. In Build, press **E** to choose another material.
+The numbered bar in Build lets you select materials directly with **1–9**; no menu or slot setup needed.
 
 | Action | Input |
 | --- | --- |
 | Move / look | WASD or arrow keys / mouse |
 | Jump / sprint / sneak | Space / Ctrl / Shift |
-| Farm: use tool. Build / Remove: remove block | Left-click; hold to repeat |
-| Place a block in Build mode | V or right-click |
+| Farm: use tool. Build: place. Remove: remove block | Left-click; hold to repeat |
+| Remove a block in Build mode | Right-click; hold to repeat |
 | Choose mode and tools / optional crafting | E |
 | Quick mode shortcuts | F: Farm, B: Build, X: Remove |
 | Change tool within the current mode | Scroll; 1–9 are optional shortcuts |
-| Interact with doors, beds, or animals | V or right-click |
+| Place or interact with doors, beds, or animals | V |
 | Farm, shop, and animals | P |
 | Toggle flying | Tab or double-tap Space |
 | Fly up / down | Space / Shift |
