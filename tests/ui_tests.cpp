@@ -124,6 +124,27 @@ int main(int argc,char** argv) {
     hud.tools.choose(Item::Pickaxe,CraftState{0,0,0,127}); hud.toolSwing=0; ui.build(hud); snapshot(ui,hud,"pickaxe-in-hand.ppm");
     hud.tools.choose(Item::Planks,CraftState{0,0,0,127}); ui.build(hud); snapshot(ui,hud,"planks-in-hand.ppm");
     hud.tools.choose(Item::Wheat,CraftState{0,0,0,127}); ui.build(hud); snapshot(ui,hud,"wheat-in-hand.ppm");
+    hud.cityAvailable=true;hud.cityLife.bank=bankLimit;hud.farm.garden.coins=coinLimit;
+    hud.rentPerDay=2300;hud.serverPerDay=256;
+    hud.cityLife.statement={{BankKind::Rent,2300,999},{BankKind::Servers,256,999}};
+    for(auto size:{glm::ivec2(800,600),glm::ivec2(1280,800)}) {
+      hud.width=size.x;hud.height=size.y;float x=size.x*.5f-340,y=size.y*.5f-276;hud.menu=Menu::City;
+      for(int page=0;page<4;++page) {
+        hud.cityPage=CityPage(page);hud.cityMessage.clear();ui.build(hud);bounds(ui,size.x,size.y);
+        check(Ui::cityActionAt(hud,x+100+page*160,y+110).action==CityAction::Page,"city tabs have working targets");
+        snapshot(ui,hud,"city-"+std::to_string(page)+"-"+std::to_string(size.x)+".ppm");
+      }
+      hud.cityPage=CityPage::Garage;
+      for(int page=0;page<2;++page)for(int i=0;i<10;++i) {
+        hud.garagePage=page;auto target=Ui::cityActionAt(hud,x+80+(i%2)*328,y+198+(i/2)*54);
+        check(target.action==CityAction::Drive && target.index==page*10+i,"all twenty garage cars are selectable");
+      }
+      hud.cityPage=CityPage::Residents;hud.nearResident=false;
+      check(Ui::cityActionAt(hud,x+300,y+458).action==CityAction::None,"chat requires visiting the resident");
+      hud.nearResident=true;check(Ui::cityActionAt(hud,x+300,y+458).action==CityAction::Chat,"nearby resident enables chat");
+      hud.cityMessage="Mei: Yes, I'd love to go out with you! Come visit me again.";ui.build(hud);bounds(ui,size.x,size.y);
+    }
+    hud.cityMessage.clear();
     hud.menu=Menu::Inventory; hud.notice.clear();
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y;
@@ -154,9 +175,10 @@ int main(int argc,char** argv) {
         hud.menu=menu;
       }
       check(Ui::menuTabAt(size.x,size.y,float(size.x)/2,y+32)==Menu::Inventory
-            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+140,y+32)==Menu::Crafting
-            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+270,y+32)==Menu::Farm,
-            "tools, crafting, and farm menus remain accessible");
+            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+79,y+32)==Menu::Crafting
+            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+174,y+32)==Menu::Farm
+            && Ui::menuTabAt(size.x,size.y,float(size.x)/2+268,y+32)==Menu::City,
+            "tools, crafting, farm and city menus remain accessible");
     }
     hud.menu=Menu::Farm; hud.farmGarden=false; world.farm.chickens.clear(); world.farm.wheat=12; world.farm.eggs=3;
     for(std::size_t i=0;i<flockLimit;++i) {

@@ -3,6 +3,7 @@
 #include "city.hpp"
 #include "harbor.hpp"
 #include "countryside.hpp"
+#include "city_life.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -28,6 +29,7 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
     if(w.cityOrigin) {auto o=*w.cityOrigin;include({o.x,o.z});include({o.x+citySize,o.z+citySize});}
     if(w.castleOrigin) {auto o=*w.castleOrigin;include({o.x,o.z});include({o.x+50,o.z+50});}
     if(w.countrysideOrigin) {auto o=*w.countrysideOrigin;include({o.x,o.z});include({o.x+countrysideWidth,o.z+countrysideDepth});}
+    if(w.metroOrigin){auto o=*w.metroOrigin;include({o.x,o.z});include({o.x+metroWidth,o.z+metroDepth});}
     map.center=(lo+hi)*.5f;map.radius=std::max(120.f,std::max(hi.x-lo.x,hi.y-lo.y)*.5f+35.f);
   }
   for(int z=0;z<mapCells;++z)for(int x=0;x<mapCells;++x) {
@@ -51,6 +53,11 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
       if(wx>=o.x && wx<o.x+countrysideWidth && wz>=o.z && wz<o.z+countrysideDepth)
         color=(wz-o.z>=50 && std::abs(wx-o.x-56)>10) ? glm::vec3(.57f,.53f,.26f) : glm::vec3(.38f,.52f,.30f);
     }
+    if(w.metroOrigin && metroContains(*w.metroOrigin,p.x,p.y)) {
+      auto o=*w.metroOrigin;int dx=std::abs((wx-o.x+32)%64-32),dz=std::abs((wz-o.z+32)%64-32);
+      color=std::min(dx,dz)<7 ? glm::vec3(.23f,.28f,.30f) : glm::vec3(.30f,.42f,.30f);
+      for(auto b:metroBuildings())if(wx>=o.x+b.x && wx<o.x+b.x+b.width && wz>=o.z+b.z && wz<o.z+b.z+b.depth)color=blockColor(b.wall)*.85f;
+    }
     // Read loaded columns, including player construction, without generating
     // any extra chunks or keeping the whole city in memory for the map.
     if(auto chunk=w.chunks.find(chunkAt(wx,wz));chunk!=w.chunks.end()) {
@@ -64,14 +71,25 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
   }
   for(std::size_t i=1;i<w.road.size();++i)
     if(auto line=mapLine(map,{w.road[i-1].x,w.road[i-1].z},{w.road[i].x,w.road[i].z}))map.roads.push_back(*line);
+  if(w.metroOrigin) {
+    auto o=*w.metroOrigin;auto link=metroLink(w);
+    for(std::size_t i=1;i<link.size();++i)if(auto line=mapLine(map,{link[i-1].x,link[i-1].z},{link[i].x,link[i].z}))map.roads.push_back(*line);
+    for(int i=0;i<=metroColumns;++i)if(auto line=mapLine(map,{o.x+i*64.f,float(o.z)},{o.x+i*64.f,float(o.z+metroDepth)}))map.roads.push_back(*line);
+    for(int i=0;i<=metroRows;++i)if(auto line=mapLine(map,{float(o.x),o.z+i*64.f},{float(o.x+metroWidth),o.z+i*64.f}))map.roads.push_back(*line);
+    auto bank=bankTerminal(o),garage=garagePosition(o,5);
+    map.markers.push_back({{bank.x,bank.z},"Bank",{1,.80f,.40f}});
+    map.markers.push_back({{garage.x,garage.z},"Garage",{.94f,.40f,.30f}});
+    map.markers.push_back({{o.x+224.f,o.z+192.f},"Downtown",{.43f,.86f,1}});
+    map.markers.push_back({{o.x+380.f,o.z+288.f},"Servers",{.66f,.64f,.98f}});
+  }
   map.markers.push_back({w.terrain.adventure() ? glm::vec2(10.5f,-3.5f) : glm::vec2(w.farm.home.x,w.farm.home.z),"Home",{.98f,.83f,.40f}});
-  if(w.coastOrigin) {auto o=*w.coastOrigin;map.markers.push_back({{o.x+225.f,o.z+354.f},"City",{.43f,.86f,1.f}});}
+  if(w.coastOrigin) {auto o=*w.coastOrigin;map.markers.push_back({{o.x+225.f,o.z+354.f},"Waterfront",{.43f,.86f,1.f}});}
   if(w.castleOrigin) {auto o=*w.castleOrigin;map.markers.push_back({{o.x+25.f,o.z+25.f},"Castle",{.81f,.74f,.93f}});}
   if(w.countrysideOrigin) {
     auto o=*w.countrysideOrigin;map.markers.push_back({{o.x+56.f,o.z+44.f},"Farms",{.70f,.92f,.37f}});
     if(auto line=mapLine(map,{o.x+56.f,o.z-24.f},{o.x+56.f,o.z+95.f}))map.roads.push_back(*line);
   }
-  if(w.farm.car.owned && !driving)map.markers.push_back({{w.farm.car.position.x,w.farm.car.position.z},"GT2",{1,.39f,.27f}});
+  if(w.farm.car.owned && !driving)map.markers.push_back({{w.farm.car.position.x,w.farm.car.position.z},"Car",{1,.39f,.27f}});
   return map;
 }
 } // namespace bw

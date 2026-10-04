@@ -12,6 +12,7 @@ struct HarborBuilding {
 std::span<const HarborBuilding> harborBuildings();
 glm::vec3 harborPosition(Cell coast,const HarborBuilding&,glm::vec3 local);
 void generateHarbor(Chunk&,Cell coast,std::uint32_t lots);
+void generateHarborTower(Chunk&,Cell origin,const HarborBuilding&);
 bool harborGraded(Cell coast,std::uint32_t lots,int x,int z);
 bool initializeHarbor(World&,const Player&);
 bool visitHarbor(World&,Player&,bool penthouse=false);

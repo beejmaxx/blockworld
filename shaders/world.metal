@@ -15,6 +15,7 @@ struct Camera {
   float4 ambient; // rgb light tint/intensity, daylight blend
   float4 breaking; // block coordinates, damage progress
   float4 lights[8];
+  float4 metropolis;
 };
 struct Input {
   float3 position [[attribute(0)]];
@@ -113,6 +114,34 @@ float3 blockTexture(int material,float2 uv) {
     case 77: color=float3(.67,.71,.73); break;
     case 78: color=float3(.92,.98,1.0); break;
     case 79: color=float3(1.0,.045,.018); break;
+    case 80: color=float3(.83,.055,.035); break;
+    case 81: color=float3(.06,.48,.85); break;
+    case 82: color=float3(.09,.10,.13); break;
+    case 83: color=float3(.85,.89,.91); break;
+    case 84: color=float3(1,.65,.04); break;
+    case 85: color=float3(.12,.35,.23); break;
+    case 86: color=float3(.82,.04,.12); break;
+    case 87: color=float3(.61,.68,.72); break;
+    case 88: color=float3(.09,.16,.72); break;
+    case 89: color=float3(.47,.83,.10); break;
+    case 90: color=float3(.65,.29,.13); break;
+    case 91: color=float3(.45,.17,.69); break;
+    case 92: color=float3(.90,.87,.78); break;
+    case 93: color=float3(.67,.52,.30); break;
+    case 94: color=float3(.30,.79,.85); break;
+    case 95: color=float3(.15,.18,.25); break;
+    case 96: color=float3(.94,.30,.06); break;
+    case 97: color=float3(.05,.48,.30); break;
+    case 98: color=float3(.58,.04,.13); break;
+    case 99: color=float3(.73,.77,.80); break;
+    case 100: color=float3(.82,.84,.80); break;
+    case 101: color=float3(.30,.50,.56); break;
+    case 102: color=float3(.69,.61,.45); break;
+    case 103: color=float3(.65,.33,.23); break;
+    case 104: color=float3(.34,.45,.40); break;
+    case 105: color=float3(.76,.53,.36); break;
+    case 106: color=float3(.94,.74,.59); break;
+    case 107: color=float3(.42,.26,.18); break;
     default: {
       float ring=fmod(floor(max(abs(p.x-7.5),abs(p.y-7.5))),3.0);
       color=ring==0.0 ? float3(.45,.30,.16) : float3(.70,.52,.30); break;
@@ -132,7 +161,7 @@ float3 blockTexture(int material,float2 uv) {
   }
   if(material==72) color*=.92+.12*sin(p.x*.8+sin(p.y*.18));
   if(material==73) noise=.5+(noise-.5)*.16;
-  if(material>=74 && material<=79) noise=.5;
+  if(material>=74 && material<=107) noise=.5;
   if(material==67 && (p.x<1 || p.x>14 || p.y<1 || p.y>14)) color*=.28;
   if(material==35 && fmod(p.x+floor(p.y/4.0)*2.0,5.0)==0.0 && fmod(p.y,4.0)==1.0) color=float3(1.0,.81,.35);
   if(material==36 && fmod(p.x,4.0)==0.0) color*=.72;
@@ -172,7 +201,22 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     if(opacity<.08) discard_fragment();
   }
   float3 base=blockTexture(material,in.uv);
+  if(material==108) {
+    float2 p=in.world.xz-camera.metropolis.xy;
+    float2 d=abs(fract((p+32.0)/64.0)*64.0-32.0);
+    base=min(d.x,d.y)<=5.5 ? float3(.16,.19,.21) : min(d.x,d.y)<=8.5 ? float3(.78,.72,.55) : float3(.40,.59,.25);
+    if((d.x<.5 && fract(p.y/12.0)<.5) || (d.y<.5 && fract(p.x/12.0)<.5))base=float3(.88,.89,.84);
+  }
   float3 color=base*in.light*camera.ambient.rgb;
+  if(material>=100 && material<=104) {
+    float vertical=fract((in.world.x+in.world.z)/5.0),level=fract((in.world.y-23.0)/5.0);
+    bool window=vertical>.15 && vertical<.88 && level>.24 && level<.90;
+    if(window) {
+      float light=hash21(floor(in.world.xz/5.0)+floor(in.world.y/5.0));
+      color=mix(float3(.15,.28,.34)*camera.ambient.rgb,camera.horizon.rgb,.38);
+      if(light>.38)color=mix(color,float3(.96,.75,.43),(1-camera.ambient.w)*.85);
+    }
+  }
   if(material==66) {
     float depth=max(1.0,in.light);
     float2 waterPosition=in.world.xz;
@@ -206,7 +250,7 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
   if(material>=69 && material<=71 && edge<.014) color*=.85;
   if(material==67) color=base*.95;
   if(material==37) color=base*.95;
-  if(material>=74 && material<=77) {
+  if((material>=74 && material<=77) || (material>=80 && material<=99)) {
     float3 n=normalize(cross(dfdx(in.world),dfdy(in.world)));
     float3 view=normalize(camera.eye.xyz-in.world);
     if(dot(n,view)<0) n=-n;
@@ -236,6 +280,8 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
   }
   float distance=length(in.world.xz-camera.eye.xz);
   float fog=camera.eye.w>1.5 ? smoothstep(120.0,205.0,distance) : camera.eye.w>.5 ? smoothstep(78.0,138.0,distance) : smoothstep(52.0,91.0,distance);
+  bool downtown=camera.metropolis.z>0 && all(in.world.xz>=camera.metropolis.xy-8) && all(in.world.xz<camera.metropolis.xy+camera.metropolis.zw+8);
+  if(camera.metropolis.z>0 || in.block.x== -100006 || in.block.x== -100008 || downtown)fog=smoothstep(450.0,850.0,distance);
   float3 fogColor=camera.horizon.rgb;
   return float4(mix(color,fogColor,fog),opacity);
 }

@@ -4,6 +4,7 @@
 #include "city.hpp"
 #include "coast.hpp"
 #include "countryside.hpp"
+#include "city_life.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
@@ -21,8 +22,9 @@ struct alignas(16) Camera {
   glm::vec4 sun,horizon,zenith,ambient;
   glm::vec4 breaking;
   std::array<glm::vec4,8> lights{};
+  glm::vec4 metropolis{};
 };
-static_assert(sizeof(Camera)==368);
+static_assert(sizeof(Camera)==384);
 bool visible(ChunkPos p,const glm::mat4& m) {
   glm::vec3 center{p.x*chunkSize+8.f,worldHeight*.5f,p.z*chunkSize+8.f},extent{8.f,worldHeight*.5f,8.f};
   glm::vec4 rows[4];
@@ -54,7 +56,7 @@ Renderer::Renderer(SDL_Window* window) : window_(window) {
     bi.size=Uint32(DebrisCloud::capacity*6*sizeof(Vertex)); ti.size=bi.size;
     debrisBuffer_=SDL_CreateGPUBuffer(device_,&bi); debrisTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!debrisBuffer_ || !debrisTransfer_) fail("Create debris buffers");
-    bi.size=Uint32((chickenVertexLimit+ranchVertexLimit)*sizeof(Vertex)); ti.size=bi.size;
+    bi.size=Uint32((chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+10000)*sizeof(Vertex)); ti.size=bi.size;
     chickenBuffer_=SDL_CreateGPUBuffer(device_,&bi); chickenTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!chickenBuffer_ || !chickenTransfer_) fail("Create chicken buffers");
     const auto& font=readableFont();
@@ -240,9 +242,11 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   }
   auto right=glm::normalize(glm::cross(forward,glm::vec3(0,1,0))),up=glm::cross(right,forward);
   bool city=atCity(world,player),coast=atCoast(world,player)
-    || (world.countrysideOrigin && countrysideContains(*world.countrysideOrigin,eye.x,eye.z,64));
-  camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,coast ? 260.f : city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
+    || (world.countrysideOrigin && countrysideContains(*world.countrysideOrigin,eye.x,eye.z,64))
+    || (world.metroOrigin && metroContains(*world.metroOrigin,eye.x,eye.z,150));
+  camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,world.metroOrigin ? 900.f : coast ? 260.f : city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
   camera.eye=glm::vec4(eye,coast ? 2.f : city ? 1.f : 0.f); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);
+  if(world.metroOrigin){auto o=*world.metroOrigin;camera.metropolis={o.x,o.z,metroWidth,metroDepth};}
   camera.screen={float(w),float(h),std::tan(glm::radians(73.f)*.5f),time};
   auto sky=hud.clock.sky();
   if(world.farm.garden.raining()) {
@@ -279,6 +283,30 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
       if(screen.x<half || screen.x>float(w)-half || screen.y<114 || screen.y>float(h)-190) continue;
       hud.animalLabels.push_back({screen,std::move(name),isChick(c)});
     }
+  }
+  if(world.metroOrigin && !hud.paused && !hud.menuOpen())for(int i=0;i<residentCount;++i) {
+    auto point=metroResidentHome(*world.metroOrigin,i)+glm::vec3(0,2.1f,0),delta=point-eye;
+    float distance=glm::length(delta);if(distance>14 || distance<.1f)continue;
+    if(auto wall=world.raycast(eye,delta,distance);wall && wall->distance<distance-.1f)continue;
+    auto clip=camera.viewProjection*glm::vec4(point,1);if(clip.w<.1f)continue;
+    auto position=glm::vec2((clip.x/clip.w*.5f+.5f)*w,(.5f-clip.y/clip.w*.5f)*h);
+    hud.animalLabels.push_back({position,std::string(cityResidents()[i].name)+" / 18"+(world.cityLife.residents[i].dating ? " / Girlfriend" : ""),false});
+  }
+  if(world.metroOrigin && !hud.paused && !hud.menuOpen()) {
+    auto tag=[&](glm::vec3 point,std::string title,float reach) {
+      auto delta=point-eye;float distance=glm::length(delta);if(distance>reach || distance<.1f)return;
+      if(auto wall=world.raycast(eye,delta,distance);wall && wall->distance<distance-.15f)return;
+      auto clip=camera.viewProjection*glm::vec4(point,1);if(clip.w<.1f)return;
+      glm::vec2 position{(clip.x/clip.w*.5f+.5f)*w,(.5f-clip.y/clip.w*.5f)*h};
+      if(position.x<120 || position.x>w-120 || position.y<120 || position.y>h-190)return;
+      hud.animalLabels.push_back({position,std::move(title),false});
+    };
+    auto o=*world.metroOrigin;tag(bankTerminal(o)+glm::vec3(0,2,1),"Civic Bank / V to use",20);
+    for(int i=0;i<garageSize;++i) {
+      auto car=i==world.cityLife.activeCar ? world.farm.car : parkedCar(world,i);
+      if(car.owned)tag(car.position+glm::vec3(0,2.2f,0),std::string(garageCars()[i].name),12);
+    }
+    for(int i=0;i<2;++i)tag({o.x+(5+i)*64+31.f,29,o.z+4*64+7.f},i==0 ? "West data center" : "East data center",28);
   }
   if(!hud.hidden && !hud.menuOpen() && !hud.paused) {
     glm::vec2 position{player.pose.position.x,player.pose.position.z};
@@ -338,8 +366,13 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   }
   auto chickens=chickenMesh(world);
   auto ranch=ranchMesh(world); chickens.insert(chickens.end(),ranch.begin(),ranch.end());
+  auto residents=residentMesh(world,time);chickens.insert(chickens.end(),residents.begin(),residents.end());
+  if(time-skylineUpdated_>.3f || glm::length(eye-skylineEye_)>8 || (!skylineOrigin_ && world.metroOrigin)) {
+    skyline_=metropolisSkyline(world,eye);skylineEye_=eye;skylineUpdated_=time;skylineOrigin_=world.metroOrigin;
+  }
+  chickens.insert(chickens.end(),skyline_.begin(),skyline_.end());
   if(!chickens.empty()) {
-    if(chickens.size()>chickenVertexLimit+ranchVertexLimit) throw std::runtime_error("Farm mesh exceeds its buffer");
+    if(chickens.size()>chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+10000) throw std::runtime_error("Farm mesh exceeds its buffer");
     auto* memory=SDL_MapGPUTransferBuffer(device_,chickenTransfer_,true); if(!memory) fail("Map chickens");
     Uint32 size=Uint32(chickens.size()*sizeof(Vertex));
     std::memcpy(memory,chickens.data(),size); SDL_UnmapGPUTransferBuffer(device_,chickenTransfer_);

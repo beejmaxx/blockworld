@@ -1,4 +1,5 @@
 #include "player.hpp"
+#include "city_life.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -25,7 +26,7 @@ bool Player::collides(const World& world,glm::vec3 p) const {
     for (int z=int(std::floor(p.z-halfWidth+epsilon));z<=int(std::floor(p.z+halfWidth-epsilon));++z)
       for (int x=int(std::floor(p.x-halfWidth+epsilon));x<=int(std::floor(p.x+halfWidth-epsilon));++x)
         if (auto b=world.get({x,y,z}); collidable(b) && intersects(p,blockBounds({x,y,z},b))) return true;
-  return false;
+  return cityPeopleOverlap(world,{p+glm::vec3(-halfWidth,0,-halfWidth),p+glm::vec3(halfWidth,height,halfWidth)});
 }
 void Player::tick(const World& world,Movement move,float dt) {
   dt=std::clamp(dt,0.f,.1f);

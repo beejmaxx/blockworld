@@ -6,6 +6,7 @@
 #include "harbor.hpp"
 #include "road.hpp"
 #include "countryside.hpp"
+#include "metropolis.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -311,6 +312,7 @@ void World::generateStructures(Chunk& chunk) const {
   if(coastOrigin && harborLots) generateHarbor(chunk,*coastOrigin,*harborLots);
   generateRoad(chunk,road);
   if(countrysideOrigin)generateCountryside(chunk,*countrysideOrigin);
+  generateMetropolis(chunk,*this);
 }
 void World::insert(Chunk chunk) {
   const auto p = chunk.pos;
@@ -333,7 +335,8 @@ void World::ensure(ChunkPos p, int radius) {
 int World::streamingRadius(ChunkPos center) const {
   bool coast=coastOrigin && coastContains(*coastOrigin,float(center.x*chunkSize),float(center.z*chunkSize),32);
   bool country=countrysideOrigin && countrysideContains(*countrysideOrigin,float(center.x*chunkSize),float(center.z*chunkSize),64);
-  return coast || country ? coastViewRadius : viewRadius;
+  bool metro=metroOrigin && metroContains(*metroOrigin,float(center.x*chunkSize),float(center.z*chunkSize),64);
+  return coast || country || metro ? coastViewRadius : viewRadius;
 }
 void World::evict(ChunkPos center, int radius) {
   std::erase_if(chunks, [&](const auto& pair) {
@@ -383,7 +386,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 16 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 17 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -416,6 +419,12 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   for(auto point:road) file<<point.x<<' '<<point.y<<' '<<point.z<<'\n';
   auto country=countrysideOrigin.value_or(Cell{});
   file<<countrysideOrigin.has_value()<<' '<<country.x<<' '<<country.y<<' '<<country.z<<'\n';
+  auto metro=metroOrigin.value_or(Cell{});
+  file<<metroOrigin.has_value()<<' '<<metro.x<<' '<<metro.y<<' '<<metro.z<<' '<<cityLife.bank<<' '<<cityLife.activeCar<<' '<<cityLife.rentDay;
+  for(auto r:cityLife.residents)file<<' '<<r.conversations<<' '<<r.dating;
+  file<<' '<<cityLife.statement.size();
+  for(auto e:cityLife.statement)file<<' '<<int(e.kind)<<' '<<e.amount<<' '<<e.day;
+  file<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -441,10 +450,11 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   WorldClock savedClock;
   CraftState savedCrafting;
   FarmState savedFarm;
-  std::optional<Cell> savedCastle,savedCity,savedCoast,savedCountry;
+  std::optional<Cell> savedCastle,savedCity,savedCoast,savedCountry,savedMetro;
+  CityLifeState savedLife;
   std::optional<std::uint32_t> savedHarbor;
   std::vector<glm::vec3> savedRoad;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>16) corrupt();
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>17) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -593,6 +603,25 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       savedCountry=c;
     } else if(c!=Cell{})corrupt();
   }
+  if(version>=17) {
+    bool present=false;Cell c;
+    if(!(file>>present>>c.x>>c.y>>c.z>>savedLife.bank>>savedLife.activeCar>>savedLife.rentDay)
+       || savedLife.bank<0 || savedLife.bank>bankLimit || savedLife.activeCar<0 || savedLife.activeCar>=garageSize || savedLife.rentDay>savedClock.day)corrupt();
+    if(present) {
+      if(!validCell(c) || c.y!=harborGround || std::abs(c.x)>coordinateLimit-metroWidth-16
+          || std::abs(c.z)>coordinateLimit-metroDepth-16 || !savedCoast || savedRoad.empty() || savedLife.rentDay<1)corrupt();
+      savedMetro=c;
+    } else if(c!=Cell{})corrupt();
+    for(auto& r:savedLife.residents)
+      if(!(file>>r.conversations>>r.dating) || r.conversations<0 || r.conversations>3 || (r.dating && r.conversations<2))corrupt();
+    int entries=0;if(!(file>>entries) || entries<0 || entries>8)corrupt();
+    std::uint32_t previousDay=0;
+    for(int i=0;i<entries;++i) {
+      int kind=0;BankEntry e;
+      if(!(file>>kind>>e.amount>>e.day) || kind<0 || kind>3 || e.amount<=0 || e.amount>bankLimit || e.day<1 || e.day>savedClock.day || e.day<previousDay)corrupt();
+      e.kind=BankKind(kind);savedLife.statement.push_back(e);previousDay=e.day;
+    }
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
@@ -628,7 +657,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
   farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; harborLots=savedHarbor;
-  road=std::move(savedRoad); countrysideOrigin=savedCountry; edits_ = std::move(edits); chunks.clear();
+  road=std::move(savedRoad); countrysideOrigin=savedCountry;metroOrigin=savedMetro;cityLife=std::move(savedLife); edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -728,6 +757,7 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
       bool approach=wx>=o.x+51 && wx<=o.x+61 && wz>=o.z-24 && wz<o.z;
       if(site || approach)surface[z*chunkSize+x]=o.y-1;
     }
+    if(world.metroOrigin && metroContains(*world.metroOrigin,float(wx),float(wz)))surface[z*chunkSize+x]=harborGround-1;
   }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {
     Block block = chunk.get(x,y,z);

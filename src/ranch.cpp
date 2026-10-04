@@ -1,4 +1,5 @@
 #include "ranch.hpp"
+#include "city_life.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -79,6 +80,7 @@ bool carClear(const World& world,const FarmCar& car,bool driven) {
     }
   for(const auto& c : world.farm.chickens) if(carOverlaps(car,chickenBounds(c))) return false;
   for(const auto& a : world.farm.livestock) if(carOverlaps(car,livestockBounds(a))) return false;
+  if(cityPeopleOverlap(world,bounds))return false;
   Player occupant;
   return !driven || !occupant.collides(world,car.position+glm::vec3(0,.32f,0));
 }
@@ -153,7 +155,9 @@ Box carBounds(const FarmCar& car) {
   glm::vec3 half{c*carHalfWidth+s*carHalfLength,0,s*carHalfWidth+c*carHalfLength};
   return {car.position-half+glm::vec3(0,.02f,0),car.position+half+glm::vec3(0,1.5f,0)};
 }
+bool carFits(const World& w,const FarmCar& car) {return carClear(w,car,true);}
 bool ranchOverlap(const World& world,Box box) {
+  if(cityPeopleOverlap(world,box))return true;
   for(const auto& animal : world.farm.livestock) if(overlaps(box,livestockBounds(animal))) return true;
   return world.farm.car.owned && carOverlaps(world.farm.car,box);
 }
@@ -247,7 +251,7 @@ bool petLivestock(World& world,const Player& player,std::size_t index) {
   auto delta=player.pose.position-a.position; a.yaw=std::atan2(delta.x,-delta.z); return true;
 }
 std::string ranchPrompt(const World& world,RanchTarget target) {
-  if(target.car) return "Porsche 911 GT2 / V to drive";
+  if(target.car) return std::string(garageCars()[world.cityLife.activeCar].name)+" / V to drive";
   if(target.index>=world.farm.livestock.size()) return {};
   const auto& animal=world.farm.livestock[target.index];
   if(animal.kind==LivestockKind::Horse) return "Horse / V to ride";
@@ -428,8 +432,13 @@ std::vector<Vertex> ranchMesh(const World& world) {
       box({ear-.06f,earY,-.72f},{ear+.06f,earY+(horse ? .16f : .12f),-.58f},fur);
     }
   }
-  if(world.farm.car.owned) {
-    const auto& c=world.farm.car;
+  std::vector<std::pair<FarmCar,int>> vehicles;
+  if(world.farm.car.owned)vehicles.push_back({world.farm.car,world.cityLife.activeCar});
+  if(world.metroOrigin)for(int i=0;i<garageSize;++i)if(i!=world.cityLife.activeCar) {
+    auto car=parkedCar(world,i);
+    if(world.chunks.contains(chunkAt(int(car.position.x),int(car.position.z))))vehicles.push_back({car,i});
+  }
+  for(const auto& [c,model]:vehicles) {
     auto box=[&](glm::vec3 lo,glm::vec3 hi,float m){shape(c.position,c.yaw,99,lo,hi,m);};
     constexpr float paint=74,carbon=75,glass=76,alloy=77,headlamp=78,tail=79;
     auto quad=[&](glm::vec3 a,glm::vec3 b,glm::vec3 d,glm::vec3 e,float material,float light) {
@@ -440,6 +449,54 @@ std::vector<Vertex> ranchMesh(const World& world) {
         vertices.push_back({c.position+offset,uv[i],material,light,{-100003,0,99}});
       }
     };
+    if(model>0) {
+      int body=garageCars()[model].body;float color=80.f+model;
+      box({-.76f,.28f,-2.12f},{.76f,.42f,2.10f},carbon);
+      box({-.85f,.4f,-1.92f},{.85f,.76f,1.98f},color);
+      if(body==4) {
+        quad({-.82f,.5f,-2.16f},{-.83f,.81f,-.65f},{.83f,.81f,-.65f},{.82f,.5f,-2.16f},color,1);
+        box({-.82f,.42f,-2.16f},{.82f,.52f,-1.9f},color);
+      } else box({-.76f,.5f,-2.12f},{.76f,.71f,-1.86f},color);
+      float front=body==3 ? -1.03f : -.55f,back=body==2 || body==3 ? 1.34f : .64f;
+      quad({-.70f,.78f,front-.38f},{-.58f,1.36f,front},{.58f,1.36f,front},{.70f,.78f,front-.38f},glass,1);
+      if(body==1) {
+        box({-.61f,.77f,-.25f},{.61f,.82f,.91f},carbon);
+        for(float x:{-.31f,.31f})box({x-.19f,.82f,.34f},{x+.19f,1.17f,.54f},carbon);
+        box({-.63f,1.1f,.68f},{.63f,1.23f,.76f},alloy);
+      } else {
+        box({-.59f,1.34f,front},{.59f,1.43f,back},color);
+        box({-.66f,.8f,front},{.66f,1.34f,back},glass);
+        for(float x:{-.69f,.61f})box({x,.8f,front},{x+.08f,1.4f,front+.10f},color);
+        quad({.66f,.81f,back+.34f},{.59f,1.34f,back},{-.59f,1.34f,back},{-.66f,.81f,back+.34f},glass,.8f);
+      }
+      for(float x:{-.79f,.69f})box({x,.46f,-1.30f},{x+.10f,.72f,1.25f},color);
+      for(float x:{-.92f,.80f})box({x,.93f,front-.10f},{x+.12f,1.05f,front+.14f},color);
+      for(float x:{-.65f,.38f}) {
+        box({x,.55f,-2.14f},{x+.27f,.65f,-2.10f},headlamp);
+        box({x,.55f,1.98f},{x+.27f,.68f,2.03f},tail);
+      }
+      box({-.35f,.42f,-2.145f},{.35f,.51f,-2.11f},carbon);
+      if(body==5) {
+        box({-.83f,.36f,-2.20f},{.83f,.44f,-2.10f},alloy);
+        box({-.83f,.36f,2.05f},{.83f,.44f,2.17f},alloy);
+      }
+      if(body==3 || body==4) {
+        for(float x:{-.53f,.46f})box({x,.76f,1.55f},{x+.07f,1.18f,1.67f},carbon);
+        box({-.89f,1.15f,1.44f},{.89f,1.24f,1.86f},body==3 ? color : carbon);
+        for(float x:{-.09f,.08f})box({x,.77f,-1.8f},{x+.07f,.79f,-.95f},alloy);
+      }
+      for(float x:{-.81f,.81f})for(float z:{-1.32f,1.32f}) {
+        float outer=x<0 ? -.945f : .945f,inner=x<0 ? -.70f : .70f;
+        for(int i=0;i<12;++i) {
+          float a=2*pi*i/12,b=2*pi*(i+1)/12;
+          auto point=[&](float xx,float r,float t){return glm::vec3(xx,.38f+r*std::cos(t),z+r*std::sin(t));};
+          quad(point(inner,.36f,a),point(outer,.36f,a),point(outer,.36f,b),point(inner,.36f,b),carbon,.8f);
+          auto face=[&](float r,float m){glm::vec3 center{outer,.38f,z};if(x<0)quad(center,point(outer,r,b),point(outer,r,a),center,m,.9f);else quad(center,point(outer,r,a),point(outer,r,b),center,m,.9f);};
+          face(.35f,carbon);face(.24f,body==3 ? 71.f : alloy);
+        }
+      }
+      continue;
+    }
     // Low, wide 911 body: tapered nose, raised front wings, sloping roof and
     // broad rear haunches. Sections keep a faceted voxel-game silhouette.
     struct Section {float z,width,top;};

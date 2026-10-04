@@ -38,6 +38,10 @@ private:
   Uint32 uiCapacity_{};
   std::unordered_map<ChunkPos,Mesh,PositionHash> meshes_;
   Ui ui_;
+  std::vector<Vertex> skyline_;
+  glm::vec3 skylineEye_{};
+  float skylineUpdated_=-100;
+  std::optional<Cell> skylineOrigin_;
   MiniMap mapCache_;
   float mapUpdated_=-100;
   bool mapOverview_=false,mapDriving_=false;

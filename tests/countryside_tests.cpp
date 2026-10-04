@@ -111,7 +111,7 @@ void persistence() {
     try{loaded.load(path);}catch(const std::exception&){rejected=true;}
     check(rejected && loaded.countrysideOrigin==w.countrysideOrigin,"invalid countryside origin leaves the loaded save unchanged");
   }
-  lines[0]="BLOCKWORLD 15 7262026 0";lines.erase(lines.begin()+17);write(lines);
+  lines[0]="BLOCKWORLD 15 7262026 0";lines.erase(lines.begin()+17,lines.begin()+19);write(lines);
   check(loaded.load(path).has_value() && !loaded.countrysideOrigin && loaded.road==blank.road,"v15 highway saves load before countryside installation");
 }
 }

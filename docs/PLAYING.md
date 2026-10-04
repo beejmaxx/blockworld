@@ -346,8 +346,9 @@ silently if none is available. No microphone access is used.
 | Shift while driving | Boost to about 300 km/h; release to return to normal speed |
 | N | Switch the minimap between nearby terrain and the route overview |
 | K | Visit your castle |
-| T | Visit the coastal city street |
-| U | Visit the penthouse terrace |
+| T | Visit downtown |
+| L | City directory: bank, garage, residents, properties |
+| U | Visit the Civic Bank Tower rooftop |
 | Shift+T | Visit the original waterfront city |
 | J | Visit the coastal landscape |
 | H | Toggle the guide and movement hints |
@@ -381,7 +382,7 @@ The city uses an untouched parcel and leaves your farm and castle in place.
 Press **J** to visit the new terrain region. It has connected coves, a lagoon,
 a wooded island, sandy shelves, rocky hilltops, and a coastal driving loop.
 **C** brings your car. Follow the road, or use **Tab** to fly; **Space** climbs
-and **Shift** descends. **R** returns home; **T** visits the city on the southern shore.
+and **Shift** descends. **R** returns home; **T** visits downtown.
 The pier on the northern bay has half-height steps all the way into the water,
 so you can swim out and walk back up without jumping.
 
@@ -392,8 +393,8 @@ There are no water currents or flowing-water simulation.
 
 ## Coastal city and penthouses
 
-**T** takes you to the city street. **U** takes you straight to the outdoor terrace
-of Bay Terraces. The pool faces the bay; the glazed living room is behind it.
+**L → Bank → Visit waterfront** takes you to the coastal street. Walk upstairs
+in Bay Terraces to reach its outdoor terrace. The pool faces the bay; the glazed living room is behind it.
 The narrow outdoor staircase beside the living room leads to the upper terrace
 and bedroom. You can sleep in the bed at night. The pool has a shallow step to
 walk out. To explore on foot, enter a building lobby and take the stairs on the
@@ -413,9 +414,34 @@ When adding the city to an existing coastal save, a building plot containing you
 edits or animals is left alone. Buildings and their approaches are generated
 before saved edits, so demolished blocks stay removed after travelling or loading.
 
+## Your downtown, bank, and garage
+
+Press **T** for the new downtown, or **L** for its directory. This is the same
+world as your farm. A road connects downtown to the old coastal highway.
+The district has 36 towers, a park, a garage, and two data centers. The earlier
+12-building city and 10-building waterfront remain intact.
+
+- **Bank:** move 10, 100, or all available coins between your wallet and bank.
+  Rent pays 2,358 coins and server leases pay 256 coins at the start of each game
+  day. Sleep also advances rental income. Menus pause time. The first payment
+  comes on the day after the district is installed.
+- **Garage:** you own 20 cars. Click one to enter it in its parking bay, then
+  drive into the middle aisle and out the wide front entrance. Choose **Walk into
+  your garage** to visit on foot; this also parks your active car back in its bay.
+  **C** brings the selected car to you. All cars support Shift boost and engine sounds.
+- **Residents:** select a resident and **Visit apartment**. Aim at her and press
+  **V** to open the conversation. Chat twice, then ask on a date. Each of the eight
+  residents is 18 and has her own apartment and independent relationship state.
+  Pregnancy and children are not part of this version.
+- **Properties:** your 36 towers and two data centers are already owned. Click
+  a building to visit its lobby entrance; stairs on the left connect every floor.
+  Offices have desks and monitors; apartments have furniture and beds.
+  Rent is a fixed daily amount, not a tenant or vacancy simulation.
+
 ## Saved worlds
 
 World edits, named animals and families, crop types, watering and compost, produce and eggs,
+bank balances, rental payment day, relationships, selected car, downtown location,
 garden coins and supplies, cows, horses, sheep, foxes, milk, the parked car, castle, city, coastal region, weather, seed, day/time, crafting supplies,
 unlocked tools, the selected farm/build item, tutorial milestones, and player position
 save every 30 seconds of play, after sleeping, and on exit to
@@ -425,7 +451,8 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–14. Version 14 records the coastal city plots and new furniture/materials. Version 13 adds the coastal landscape location. Version 12 adds the city location and
+to open it. The loader accepts versions 1–17. Version 17 adds downtown, bank, cars and relationships.
+Version 16 adds countryside farms; version 15 adds the highway. Version 14 records the coastal city plots and new furniture/materials. Version 13 adds the coastal landscape location. Version 12 adds the city location and
 city materials. Version 11 adds the castle location and stone steps. Earlier terrain, edits, tutorial
 progress, clocks, crafting, and farm data are retained. Worlds from before the
 shared inventory receive a starter hotbar containing owned tools; version 6's

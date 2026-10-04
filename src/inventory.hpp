@@ -26,7 +26,7 @@ struct ToolSelection {
   void cycle(int direction,const CraftState& crafting);
   bool removesBlocks() const { return mode==PlayMode::Build || mode==PlayMode::Remove; }
 };
-enum class UseKind { None,Place,Door,Gate,Bed,Workbench,Chicken,Crop,Water,Till,Compost,Greenhouse,Ranch };
+enum class UseKind { None,Place,Door,Gate,Bed,Workbench,Chicken,Crop,Water,Till,Compost,Greenhouse,Ranch,City };
 struct UseTarget {
   UseKind kind=UseKind::None;
   Cell cell{};

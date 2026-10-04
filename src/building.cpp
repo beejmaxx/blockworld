@@ -2,6 +2,7 @@
 #include "farm.hpp"
 #include "ranch.hpp"
 #include "inventory.hpp"
+#include "city_life.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -25,7 +26,7 @@ std::optional<PlacementPreview> placementPreview(const World& world,const Player
 }
 std::optional<RayHit> miningTarget(const World& world,const Player& player) {
   // Animals intercept the click: never dig the floor or wall through a chicken.
-  if(targetChicken(world,player,7.f) || targetRanch(world,player,7.f)) return {};
+  if(targetChicken(world,player,7.f) || targetRanch(world,player,7.f) || targetCity(world,player,7.f)) return {};
   return world.raycast(player.eye(),player.direction(),7.f);
 }
 std::optional<BreakEvent> removeSelectedBlock(World& world,const Player& player,const ToolSelection& tools) {

@@ -249,9 +249,10 @@ std::optional<PlayMode> Ui::modeAt(int width,int height,float px,float py) {
 Menu Ui::menuTabAt(int width,int height,float px,float py) {
   float x=float(width)*.5f-workshopWidth*.5f,y=float(height)*.5f-workshopHeight*.5f;
   if(py<y+16 || py>=y+48) return Menu::None;
-  if(px>=x+304 && px<x+400) return Menu::Inventory;
-  if(px>=x+408 && px<x+558) return Menu::Crafting;
-  if(px>=x+566 && px<x+656) return Menu::Farm;
+  if(px>=x+280 && px<x+364) return Menu::Inventory;
+  if(px>=x+370 && px<x+468) return Menu::Crafting;
+  if(px>=x+474 && px<x+554) return Menu::Farm;
+  if(px>=x+560 && px<x+656) return Menu::City;
   return Menu::None;
 }
 void Ui::menuTabs(const HudState& h) {
@@ -260,7 +261,7 @@ void Ui::menuTabs(const HudState& h) {
     rectangle(x+offset,y+16,width,32,h.menu==menu ? accent : panel);
     labelCentered(label,x+offset+width*.5f,y+20,17,h.menu==menu ? panel : cream);
   };
-  tab(Menu::Inventory,304,96,"Tools"); tab(Menu::Crafting,408,150,"Crafting"); tab(Menu::Farm,566,90,"Farm");
+  tab(Menu::Inventory,280,84,"Tools"); tab(Menu::Crafting,370,98,"Crafting"); tab(Menu::Farm,474,80,"Farm"); tab(Menu::City,560,96,"City");
 }
 int Ui::farmAnimalAt(int width,int height,float px,float py,int page,int count) {
   float x=float(width)*.5f-workshopWidth*.5f,y=float(height)*.5f-workshopHeight*.5f;
@@ -343,7 +344,7 @@ void Ui::farmPage(const HudState& h) {
         label("On your farm: "+std::to_string(stocks[i]),x+bx+12,y+by+65,15,accent);
         button(bx+204,by+50,88,32,i==3 ? "Adopt" : "Buy",total<int(livestockLimit) && h.farm.garden.coins>=livestockPrice(LivestockKind(i)));
       }
-      button(24,449,632,26,h.farm.carOwned ? "Bring my Porsche GT2 here (C)" : "Get my free Porsche GT2 (C)");
+      button(24,449,632,26,h.farm.carOwned ? "Bring my selected car here (C)" : "Get my free Porsche GT2 (C)");
     } else {
     constexpr std::array items{Item::Compost,Item::Sprinkler,Item::Greenhouse};
     constexpr std::array names{"Compost - 3 coins","Sprinkler - 12 coins","Greenhouse - 40 coins"};
@@ -694,14 +695,14 @@ void Ui::build(const HudState& h) {
   vertices.clear();
   if(h.hidden) return;
   if(h.menuOpen()) {
-    if(h.menu==Menu::Crafting) workshop(h); else if(h.menu==Menu::Farm) farmPage(h); else inventory(h);
+    if(h.menu==Menu::Crafting) workshop(h); else if(h.menu==Menu::Farm) farmPage(h); else if(h.menu==Menu::City) cityPage(h); else inventory(h);
     menuTabs(h); return;
   }
   if(!h.paused && !h.sleeping) {
     for(const auto& label : h.animalLabels) {
-      float width=float(label.name.size())*7.2f+16;
+      float width=readableWidth(label.name,15)+16;
       rectangle(label.position.x-width*.5f,label.position.y-4,width,20,panel);
-      centered(label.name,label.position.x,label.position.y+1,1.2f,label.baby ? accent : cream);
+      labelCentered(label.name,label.position.x,label.position.y-3,15,label.baby ? accent : cream);
     }
     if(!h.riding) heldTool(h);
   }
@@ -786,7 +787,7 @@ void Ui::build(const HudState& h) {
     float panelX=h.driving ? 20.f : cx-270,panelWidth=h.driving ? 330.f : 540.f;
     float panelCenter=panelX+panelWidth*.5f;
     rectangle(panelX,height-140,panelWidth,115,panel);
-    auto driving="Porsche 911 GT2   /   "+std::to_string(int(std::round(std::abs(h.carSpeed)*3.6f)))+" km/h";
+    auto driving=h.carName+"   /   "+std::to_string(int(std::round(std::abs(h.carSpeed)*3.6f)))+" km/h";
     labelCentered(h.driving ? driving : "Riding your horse",panelCenter,height-131,h.driving ? 19 : 23,accent);
     labelCentered("W / Up: gas    S / Down: reverse",panelCenter,height-96,16,cream);
     labelCentered("A D / arrows: steer    Space: brake",panelCenter,height-72,16,cream);
@@ -827,7 +828,7 @@ void Ui::build(const HudState& h) {
   }
   if(h.help && !h.paused) {
     label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
-    label("Shift+C: road    T: city    U: penthouse    C: car    R: home    H: help",24,height-194,14,muted);
+    label("L: city menu    T: downtown    U: rooftop    C: car    R: home    H: help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -853,7 +854,7 @@ void Ui::build(const HudState& h) {
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
-    labelCentered("Shift+C: road    T: city    C: car    K: castle",cx,top+421,17,accent);
+    labelCentered("L: city menu    T: downtown    C: car    K: castle",cx,top+421,17,accent);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

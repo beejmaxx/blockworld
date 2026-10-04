@@ -3,12 +3,16 @@
 #include "farm.hpp"
 #include "inventory.hpp"
 #include "minimap.hpp"
+#include "city_life.hpp"
 #include <span>
 #include <string>
 
 namespace bw {
 struct UiVertex { glm::vec2 position; glm::vec4 color; glm::vec2 uv{-1,-1}; };
-enum class Menu { None,Inventory,Crafting,Farm };
+enum class Menu { None,Inventory,Crafting,Farm,City };
+enum class CityPage { Bank,Garage,Residents,Properties };
+enum class CityAction { None,Page,Deposit,Withdraw,Drive,Garage,Resident,VisitResident,Chat,Date,Property,Previous,Next,Bank,Downtown,Servers,Harbor };
+struct CityClick { CityAction action=CityAction::None; int index=0; };
 enum class FarmAction { None,Seeds,Carrots,Strawberries,Pumpkins,WateringCan,Fences,Gates,Name,SaveName,Hatch,Find,Previous,Next,Cabin,Garden,Animals,Shop,Hoe,Compost,Sprinkler,Greenhouse,Visit,Sell,BuyCompost,BuySprinkler,BuyGreenhouse,RanchShop,GardenShop,BuyCow,BuyHorse,Car,BuySheep,BuyFox };
 struct AnimalLabel { glm::vec2 position; std::string name; bool baby=false; };
 struct HudState {
@@ -36,6 +40,11 @@ struct HudState {
   float carSpeed=0;
   bool boosting=false,mapOverview=false;
   MiniMap map;
+  CityLifeState cityLife;
+  CityPage cityPage=CityPage::Bank;
+  int garagePage=0,propertyPage=0,residentSelected=0,rentPerDay=0,serverPerDay=0;
+  bool cityAvailable=false,nearResident=false;
+  std::string cityMessage,carName="Porsche 911 GT2";
   std::string roadGuide;
   bool naming=false,nameSelectedAll=false;
   std::string nameDraft;
@@ -61,6 +70,7 @@ public:
   static int toolPageAt(int width,int height,float x,float y);
   static std::optional<PlayMode> modeAt(int width,int height,float x,float y);
   static Menu menuTabAt(int width,int height,float x,float y);
+  static CityClick cityActionAt(const HudState&,float x,float y);
   static int farmAnimalAt(int width,int height,float x,float y,int page,int count);
   static FarmAction farmActionAt(int width,int height,float x,float y,bool garden=false,bool shop=false,bool ranch=false);
 private:
@@ -78,6 +88,7 @@ private:
   void hammerIcon(float x,float y,float size);
   void workshop(const HudState& hud);
   void farmPage(const HudState& hud);
+  void cityPage(const HudState& hud);
   void heldTool(const HudState& hud);
   void minimap(const HudState& hud);
 };

@@ -87,7 +87,7 @@ void persistence(World& w,Player p) {
     check(rejected && loaded.road==w.road,"invalid road metadata rejects atomically");};
   lines[14]="999999";write();reject();
   lines=original;lines[14]="2";lines.insert(lines.begin()+15,{"0 23 0","10 100 0"});write();reject();
-  lines=original;lines[0]="BLOCKWORLD 14 7262026 0";lines.erase(lines.begin()+14,lines.begin()+16);write();
+  lines=original;lines[0]="BLOCKWORLD 14 7262026 0";lines.erase(lines.begin()+14,lines.begin()+17);write();
   check(loaded.load(path).has_value() && loaded.road.empty() && loaded.coastOrigin==blank.coastOrigin,"v14 worlds load unchanged before road installation");
 }
 void protection() {

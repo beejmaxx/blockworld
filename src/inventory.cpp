@@ -1,4 +1,5 @@
 #include "inventory.hpp"
+#include "city_life.hpp"
 #include "ranch.hpp"
 #include "farm.hpp"
 #include <algorithm>
@@ -101,6 +102,7 @@ void ToolSelection::cycle(int direction,const CraftState& crafting) {
   }
 }
 UseTarget useTarget(const World& world,const Player& player,Item item,bool sneaking) {
+  if(auto city=targetCity(world,player))return {UseKind::City,{},city->distance,std::size_t(city->index)};
   if(auto ranch=targetRanch(world,player)) return {UseKind::Ranch,{},ranch->distance,ranch->index};
   if(!sneaking) if(auto chicken=targetChicken(world,player)) return {UseKind::Chicken,{},0,*chicken};
   auto hit=world.raycast(player.eye(),player.direction());

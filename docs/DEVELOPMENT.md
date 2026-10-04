@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 16. Building tests exercise the
+headroom, day rollover, and save compatibility through version 17. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -303,3 +303,43 @@ floor, reaches the duplex bedroom and checks sleeping, swims in the roof pool an
 walks out. It also checks both travel shortcuts, high-altitude edits, furniture
 persistence, protected plots, demolition after streaming, v13 migration and
 atomic rejection of invalid parcel metadata.
+
+
+## Downtown and city life (0.17)
+
+`metropolis.*` generates 36 named towers across a 448 × 384 road grid, two
+server buildings, a park, and a 20-bay garage. New sites reserve existing edits,
+animals, landmarks, and their highway connection. `city_life.*` handles bank
+transfers, once-per-day rent, resident dialogue, and independent dating state.
+All new towers are owned; their fixed rents are an arcade economy.
+
+Twenty cars use six body styles and the existing GT2 physics, engine audio,
+boost, and collision system. Unselected cars occupy fixed garage bays. The active
+car remains wherever the player drives it until recalled or parked.
+
+The City menu (L) has Bank, Garage, Residents, and Properties pages. Native font
+text is used throughout. T and U now visit downtown and its bank-tower rooftop;
+the previous coastal city is accessible through L → Bank → Visit waterfront.
+
+Save version 17 adds one city-state record after the countryside origin. It stores
+bank balance, selected vehicle, last rental day, eight relationship records, and
+up to eight transactions. Older saves receive no retroactive income. A new district
+adds no saved block edits. Invalid metadata is rejected before mutating the world.
+
+Full editable chunks are supplemented by distant tower meshes and coarse terrain
+out to 850 blocks. This keeps the skyline visible without loading every interior.
+Far geometry has no collision; nearby movement and editing use real voxel chunks.
+
+The downtown suite walks all 36 buildings up and down, drives each of 20 cars out
+of the garage, follows the highway connection, tests bank boundaries, daily income,
+relationship persistence, wall-obstructed interactions, map coverage, and v16 migration.
+Pass `city_life_tests INPUT.bw OUTPUT.bw` to install the district into a copy of a save.
+
+```sh
+./build/blockworld.app/Contents/MacOS/blockworld --downtown --play
+./build/blockworld.app/Contents/MacOS/blockworld --garage --play
+./build/blockworld.app/Contents/MacOS/blockworld --demo-metropolis --metro-view skyline --hide-ui --mute --frames 120 --screenshot artifacts/downtown.bmp
+./build/blockworld.app/Contents/MacOS/blockworld --demo-metropolis --metro-view apartment --city-menu bank --mute --frames 2 --screenshot artifacts/bank.bmp
+```
+
+Other metro preview views: street, roof, garage, collection, bank, apartment, servers.

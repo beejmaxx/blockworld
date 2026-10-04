@@ -254,6 +254,10 @@ float pathDistance(glm::vec2 p,Approach a) {
 }
 }
 std::span<const HarborBuilding> harborBuildings() { return buildings; }
+void generateHarborTower(Chunk& chunk,Cell o,const HarborBuilding& b) {
+  int bx=chunk.pos.x*chunkSize-o.x,bz=chunk.pos.z*chunkSize-o.z;auto r=parcel(b);
+  if(r.x0<bx+chunkSize && r.x1>=bx && r.z0<bz+chunkSize && r.z1>=bz)Builder{chunk,o,b}.build();
+}
 glm::vec3 harborPosition(Cell o,const HarborBuilding& b,glm::vec3 p) {
   float x=p.x,z=p.z;
   if(b.turn==1) { x=b.depth-p.z; z=p.x; }

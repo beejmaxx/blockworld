@@ -1,8 +1,20 @@
 # Blockworld
 
-Grow a garden, sell your harvest, and build a home in a block world.
+Grow a garden, drive to the city, own apartment towers, and collect rent.
 A free, open-source game for **macOS**, built with a custom **C++26** engine,
 **SDL3**, and **Metal**.
+
+![The new downtown district with 36 walkable towers](docs/images/downtown.png)
+
+**Press L for your city:** bank, 20-car garage, residents, and owned properties.
+**T** visits downtown; **U** visits the bank tower rooftop. Your farm, coast, and
+castle are in the same world, linked by roads.
+
+| Your bank account | Your car collection |
+| :---: | :---: |
+| ![Bank transfers and daily rental income](docs/images/bank.png) | ![Ten of the twenty selectable cars](docs/images/car-collection.png) |
+
+*Actual Metal captures from version 0.17.0.*
 
 ![A wooden cabin in the meadow after sunrise](docs/images/cabin.png)
 
@@ -35,9 +47,18 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   castle, and parked car. Press **N** to switch between nearby terrain and the route overview.
 - **Your castle:** press **K** to visit a four-tower stone castle. Walk up the
   courtyard staircase and along the walls to the tower roof, or furnish the hall.
-- **Coastal city:** press **T** for ten buildings along curved coves and beaches.
+- **Own downtown:** 36 new towers with furnished apartments and offices,
+  stairs to every floor, balconies, and rooftop terraces. Building rent and two
+  data centers pay **2,614 coins per game day** into your bank account.
+- **Bank:** **L → Bank** lets you deposit farm earnings and withdraw spending money.
+- **Garage:** **L → Garage** holds 20 drivable cars across six body styles.
+  Click a car to drive out, or walk among the collection. **C** brings your selected car.
+- **Residents:** meet eight adult women in separate apartments. Visit, chat,
+  and optionally date them. Relationships persist independently. This is a simple
+  dialogue system; pregnancy and children are not implemented.
+- **Coastal city:** **L → Bank → Visit waterfront** visits ten buildings along curved coves and beaches.
   Walk from the street to the rooftops, explore furnished apartments, and visit
-  the fourteen-floor tower. **U** takes you to the main penthouse terrace, with
+  the fourteen-floor tower. The main penthouse terrace has
   a pool, pergola, skylights, a living room, and an upstairs bedroom.
 - **Explore the bay:** press **J** for the northern shore. Follow the coastal road
   around the island, lagoon, and wooded hills, or bring your car with **C**.
@@ -137,12 +158,13 @@ Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, 
 | Bring your free car nearby / visit the castle | C / K |
 | Start beside the GT2 on the road to the city | Shift+C |
 | Boost while driving / change minimap zoom | Shift / N |
-| Coastal city street / penthouse terrace | T / U |
+| Downtown street / bank tower rooftop | T / U |
+| Bank, garage, residents, and owned buildings | L |
 | Northern coast / original city | J / Shift+T |
 | Pause and release the mouse | Esc |
 | Mute / unmute | M |
 
-Press **C** outside to bring your free GT2 nearby. Aim at it and press **V** to enter.
+Press **C** outside to bring your selected car nearby (the GT2 initially). Aim at it and press **V** to enter.
 Hold **W / Up** to accelerate, use **A-D / Left-Right** to steer, and **Space** to brake.
 Hold **Shift** with the accelerator for boost; release Shift to slow back to normal speed.
 **S / Down** brakes and then reverses; **V** gets you out.
