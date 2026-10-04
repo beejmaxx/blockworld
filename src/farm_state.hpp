@@ -64,6 +64,7 @@ struct Livestock {
   float think=0,heading=0,walk=0,happy=0; // Transient animation and steering.
   bool moving=false;
 };
+inline constexpr float carTopSpeed=42.f; // Blocks/second; HUD uses 1 block = 1 metre.
 struct FarmCar {
   bool owned=false;
   glm::vec3 position{};

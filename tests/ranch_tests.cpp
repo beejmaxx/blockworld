@@ -54,7 +54,7 @@ void drivingAndRiding() {
   check(mountRanch(w,p,ride,*targetRanch(w,p)) && ride.active && ride.car && !p.pose.flying,"V mounts a car and stops flight");
   auto before=w.farm.car.position; Movement drive; drive.forward=1;
   for(int i=0;i<60;++i) tickRanch(w,p,ride,drive,1.f/60.f);
-  check(glm::length(w.farm.car.position-before)>8.8f && glm::length(p.pose.position-w.farm.car.position)<.4f,"driving moves car and player together");
+  check(glm::length(w.farm.car.position-before)>5.8f && w.farm.car.speed>11.8f && glm::length(p.pose.position-w.farm.car.position)<.4f,"GT2 accelerates smoothly and carries the driver with it");
   drive.jump=true; before=w.farm.car.position; tickRanch(w,p,ride,drive,.1f);
   check(w.farm.car.position==before && w.farm.car.speed==0,"space brakes immediately");
   drive.jump=false; drive.forward=-1; tickRanch(w,p,ride,drive,.1f);
@@ -70,7 +70,7 @@ void drivingAndRiding() {
   for(int x=-15;x<=15;++x) for(int y=2;y<8;++y) w.set({x,y,0},Block::Stone);
   drive={}; drive.forward=1;
   for(int i=0;i<100;++i) tickRanch(w,p,ride,drive,.1f);
-  check(w.farm.car.position.z>=2.36f && w.farm.car.speed==0,"car stops at its bumper before a wall without tunneling");
+  check(w.farm.car.position.z>=3.22f && w.farm.car.speed==0,"GT2 stops at its longer bumper before a wall without tunneling");
   check(leaveRide(w,p,ride),"car can be exited beside a wall");
 
   // The leading wheels reach a rise before the center of the car does.
@@ -93,7 +93,7 @@ void drivingAndRiding() {
   for(int i=0;i<30;++i) tickRanch(w,p,ride,drive,1.f/60.f);
   check(glm::length(w.farm.livestock[0].position-horse)>2.9f,"horse carries the rider forward");
   check(leaveRide(w,p,ride),"rider can safely dismount");
-  auto mesh=ranchMesh(w); check(!mesh.empty() && mesh.size()<=ranchVertexLimit && mesh.size()%36==0,"ranch geometry fits its GPU buffer");
+  auto mesh=ranchMesh(w); check(!mesh.empty() && mesh.size()<=ranchVertexLimit && mesh.size()%3==0,"ranch geometry fits its GPU buffer");
   for(const auto& v : mesh) check(std::isfinite(v.position.x) && std::isfinite(v.position.y) && std::isfinite(v.position.z),"ranch mesh has finite vertices");
 }
 void persistence() {
@@ -112,11 +112,11 @@ void persistence() {
   lines[8]="4 999"; { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   bool rejected=false; try { loaded.load(path); } catch(const std::exception&) { rejected=true; }
   check(rejected && loaded.farm.livestock.size()==2 && loaded.farm.milk==4,"invalid ranch saves reject atomically");
-  lines=original; lines[0].replace(0,13,"BLOCKWORLD 10 "); lines.erase(lines.begin()+12,lines.begin()+16);
+  lines=original; lines[0].replace(0,13,"BLOCKWORLD 10 "); lines.erase(lines.begin()+12,lines.begin()+17);
   { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   World previous; check(previous.load(path).has_value() && !previous.castleOrigin && previous.farm.car.owned
     && previous.farm.livestock.size()==2 && previous.editCount()==w.editCount(),"version-ten worlds retain cars, animals, and buildings");
-  lines=original; lines[0].replace(0,13,"BLOCKWORLD 9 "); lines.erase(lines.begin()+8,lines.begin()+16);
+  lines=original; lines[0].replace(0,13,"BLOCKWORLD 9 "); lines.erase(lines.begin()+8,lines.begin()+17);
   { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   World old; check(old.load(path).has_value() && old.farm.livestock.empty() && !old.farm.car.owned && old.editCount()==w.editCount(),"version-nine worlds migrate without changing their existing builds");
 }
@@ -131,12 +131,12 @@ void tightTrees() {
       check(!ranchOverlap(w,blockBounds({x,y,z},Block::Wood)),"car cannot rotate or slide into tree trunks");
   };
   Movement drive; drive.forward=1;
-  for(int i=0;i<35;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
+  for(int i=0;i<60;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
   check(w.farm.car.position.z<1,"the visible car fits through a two-block-wide gap between trees");
-  drive.forward=0; drive.right=1;
+  drive.forward=0; drive.right=1; drive.jump=true;
   for(int i=0;i<60;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
   check(std::abs(w.farm.car.yaw)<.15f,"steering stops before wedging the car sideways into the trees");
-  drive.right=0; drive.forward=-1;
+  drive.right=0; drive.forward=-1; drive.jump=false;
   for(int i=0;i<120;++i) { tickRanch(w,p,ride,drive,1.f/60.f); clear(); }
   check(w.farm.car.position.z>6,"reverse and sliding let a car back out of a tight gap");
   auto before=w.farm.car.position; auto edits=w.editCount();

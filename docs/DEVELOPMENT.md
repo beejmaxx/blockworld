@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 14. Building tests exercise the
+headroom, day rollover, and save compatibility through version 15. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -237,6 +237,30 @@ new stable material/furniture IDs. Parcels with existing edits or animals are
 excluded on initialization. Version 13 saves load with no city mask; visiting with
 T or U initializes the city. Geometry is generated before player edits and is not
 stored as thousands of edited blocks. The original city generator is unchanged.
+
+`road.*` plans a two-lane connector from the farm outskirts to the southern coastal
+loop. An A* search reserves clearance around saved edits, farms, animals and
+landmark parcels. Visibility simplification and checked corner smoothing make
+the route easier to drive. The road has a gentle grade, white markings, gravel
+verges and reflector posts. Generation occurs before saved block edits.
+Version 15 stores the stable centerline after the harbor record: a bounded count
+followed by XYZ points, where Y is the driving surface. Versions 1–14 remain readable.
+
+The stylized GT2 uses a faceted coupe mesh with oval headlights, rear wing and
+spoked wheels. Its oriented collision body matches the longer model. Acceleration
+is 12 blocks/s², forward speed is capped at 42 blocks/s (about 151 km/h), and
+reverse at 8 blocks/s. Space is an immediate arcade brake; steering slows at speed.
+Collision motion is substepped to at most 0.08 blocks, and road steps test the
+entire rotated footprint. Fast driving preloads collision chunks ahead. Rendering
+uses a collision-aware chase camera; engine pitch includes automatic gear changes.
+
+`highway_and_gt2` drives the complete road in both directions using normal vehicle
+physics and streamed chunks, including a detour around an existing wall. It checks
+top speed, emergency braking, full-speed wall collision, model bounds, preserved
+road edits, alternative coast locations and atomic save validation. Pass a save
+copy to `road_tests INPUT.bw OUTPUT.bw` to verify a real world's route while keeping
+its farm state intact. `--demo-road --road-view car|rear|highway|drive` captures
+disposable previews; `--road` opens a saved world beside the GT2 at the road entrance.
 
 Sofas, tables, chairs and planters use small box meshes and matching collision
 bounds. Furniture and additional materials live on the second Build picker page;

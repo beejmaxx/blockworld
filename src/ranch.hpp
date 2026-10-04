@@ -19,5 +19,5 @@ bool petLivestock(World& world,const Player& player,std::size_t index);
 void initializeCastlePets(World& world);
 std::string ranchPrompt(const World& world,RanchTarget target);
 std::vector<Vertex> ranchMesh(const World& world);
-inline constexpr std::size_t ranchVertexLimit=(livestockLimit*32+32)*36;
+inline constexpr std::size_t ranchVertexLimit=(livestockLimit*32+180)*36;
 } // namespace bw

@@ -229,7 +229,15 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   if(!swapchain) { SDL_CancelGPUCommandBuffer(command); return; }
   targets(w,h);
   Camera camera{};
-  auto eye=player.eye(),forward=player.direction(),right=glm::normalize(glm::cross(forward,glm::vec3(0,1,0))),up=glm::cross(right,forward);
+  auto eye=player.eye(),forward=player.direction();
+  if(hud.driving) {
+    auto target=eye+forward*5.f;
+    auto offset=-forward*6.5f+glm::vec3(0,2.3f,0);
+    float distance=glm::length(offset); auto direction=offset/distance;
+    if(auto obstacle=world.raycast(eye,direction,distance)) distance=std::max(.2f,obstacle->distance-.3f);
+    eye+=direction*distance; forward=glm::normalize(target-eye);
+  }
+  auto right=glm::normalize(glm::cross(forward,glm::vec3(0,1,0))),up=glm::cross(right,forward);
   bool city=atCity(world,player),coast=atCoast(world,player);
   camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,coast ? 260.f : city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
   camera.eye=glm::vec4(eye,coast ? 2.f : city ? 1.f : 0.f); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);

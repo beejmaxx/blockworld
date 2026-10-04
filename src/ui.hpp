@@ -32,6 +32,8 @@ struct HudState {
   bool farmGarden=true;
   bool farmShop=false,farmRanch=false;
   bool riding=false,driving=false;
+  float carSpeed=0;
+  std::string roadGuide;
   bool naming=false,nameSelectedAll=false;
   std::string nameDraft;
   std::vector<AnimalLabel> animalLabels;

@@ -22,8 +22,11 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   and pet sheep and friendly foxes.
 - **Build:** place and remove blocks, make a house, and furnish it with windows,
   doors, torches, and a bed. Building materials are unlimited.
-- **Explore:** walk, fly, or drive your farm car. Follow the path to the lantern
+- **Explore:** walk, fly, or drive your Porsche 911 GT2. Follow the path to the lantern
   cave, watch the sunset, and sleep until morning.
+- **Drive to the city:** a marked two-lane road connects the farm outskirts to
+  the coastal streets. The red GT2 has a rear wing, engine sounds, a chase camera,
+  a speedometer, and an arcade top speed of about **150 km/h**. Press **C** to bring it nearby.
 - **Your castle:** press **K** to visit a four-tower stone castle. Walk up the
   courtyard staircase and along the walls to the tower roof, or furnish the hall.
 - **Coastal city:** press **T** for ten buildings along curved coves and beaches.
@@ -36,6 +39,13 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   and changes there remain saved.
 
 ![The coastal city's towers, coves and beaches](docs/images/harbor.png)
+
+![The red Porsche 911 GT2 at the home end of the highway](docs/images/gt2.png)
+
+![Driving the GT2 along the road to the coastal city](docs/images/driving.png)
+
+*Actual Metal framebuffer capture from version 0.15.0. The car is a stylized model
+built for this block world.*
 
 ![The penthouse's stepped terraces, pool and skylights](docs/images/penthouse.png)
 
@@ -113,13 +123,16 @@ Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, 
 | Fly up / down | Space / Shift |
 | Return home | R |
 | Bring your free car nearby / visit the castle | C / K |
+| Start beside the GT2 on the road to the city | Shift+C |
 | Coastal city street / penthouse terrace | T / U |
 | Northern coast / original city | J / Shift+T |
 | Pause and release the mouse | Esc |
 | Mute / unmute | M |
 
-Press **C** outside to bring your free car nearby. Use **V** to enter or leave a horse or car; steer with WASD or arrow keys and
-brake with Space. [All controls →](docs/PLAYING.md#controls)
+Press **C** outside to bring your free GT2 nearby. Aim at it and press **V** to enter.
+Hold **W / Up** to accelerate, use **A-D / Left-Right** to steer, and **Space** to brake.
+**S / Down** brakes and then reverses; **V** gets you out.
+[All controls →](docs/PLAYING.md#controls)
 
 ## Your world
 

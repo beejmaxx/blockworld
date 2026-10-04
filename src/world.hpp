@@ -143,6 +143,7 @@ public:
   std::optional<Cell> cityOrigin;
   std::optional<Cell> coastOrigin;
   std::optional<std::uint32_t> harborLots;
+  std::vector<glm::vec3> road; // Saved highway centerline; y is the driving surface.
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;
   bool set(Cell cell, Block block);

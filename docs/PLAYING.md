@@ -169,7 +169,7 @@ share the same double-growth bonus rather than multiplying it.
 
 ## Cows, horses, and your car
 
-Press **C** to bring your free car nearby. For animals, open **P → Shop → Animals & car**. Stand outside near a clear, level patch
+Press **C** to bring your free Porsche 911 GT2 nearby. For animals, open **P → Shop → Animals & car**. Stand outside near a clear, level patch
 when buying or collecting a vehicle. Delivery never replaces your blocks or crops.
 
 - **Cow: 20 coins.** Aim at her and press **V** to collect a bottle
@@ -181,11 +181,15 @@ when buying or collecting a vehicle. Delivery never replaces your blocks or crop
 - **Sheep: 12 coins.** A woolly companion; aim and press **V** to pet it.
 - **Friendly fox: 15 coins.** Press **V** to pet it and watch its tail wag.
   Foxes leave chickens and eggs alone. Your pasture can hold twelve animals.
-- **Farm car: free.** Choose **Get my car**, then aim at it and press **V** to drive.
+- **Porsche 911 GT2: free.** Choose **Get my free Porsche GT2**, then aim at it and press **V** to drive.
   **Bring car here** brings the same car to a clear spot nearby if you lose it.
 
-While riding or driving, **W / Up** goes forward, **S / Down** reverses,
+While riding or driving, **W / Up** goes forward, **S / Down** brakes then reverses,
 **A-D / Left-Right** steers, and **Space** brakes. The mouse looks around.
+The GT2 accelerates to about **150 km/h** on a long straight. Release the accelerator
+to slow down; Space stops it immediately. Slow down for tight corners.
+The camera follows behind the car, so you can see its body and the road ahead.
+The dashboard shows your speed and the distance to the city or home while on the highway.
 The car idles while you sit in it and revs as you drive. Getting out stops the
 engine; **M** mutes all sounds, and menus and pause silence it too.
 The car fits through two-block-wide gaps when lined up straight. If you get wedged,
@@ -199,6 +203,16 @@ while riding. Clicking animals or the car on foot never digs through them.
 
 Your livestock, milk, milk timers, and car position are saved with the world.
 Existing worlds load without a reset; cars load parked.
+
+A marked two-lane highway now joins the farm outskirts to the southern coastal
+city streets, in the same world. **Shift+C** puts you beside the GT2 at the road
+entrance near the farm. Follow the white markings until you reach the apartments.
+Existing construction can make the route take a detour. You can also launch
+directly at the road with `--road`:
+
+```sh
+open build/blockworld.app --args --road
+```
 
 ## Your castle
 
@@ -306,6 +320,7 @@ silently if none is available. No microphone access is used.
 | Hold G in Build mode | Place the next guided cabin or pen piece within reach |
 | R | Go home; use P → Garden → Visit garden to return to the beds |
 | C | Bring your free car nearby; while driving, move it to clear ground |
+| Shift+C | Start beside the GT2 on the road from the farm to the city |
 | K | Visit your castle |
 | T | Visit the coastal city street |
 | U | Visit the penthouse terrace |

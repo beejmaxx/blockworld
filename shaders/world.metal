@@ -107,6 +107,12 @@ float3 blockTexture(int material,float2 uv) {
     case 71: color=float3(.96,.71,.20); break;
     case 72: color=float3(.36,.23,.14); break;
     case 73: color=float3(.85,.82,.73); break;
+    case 74: color=float3(.83,.055,.035); break; // GT2 red paint.
+    case 75: color=float3(.045,.052,.060); break;
+    case 76: color=float3(.10,.20,.25); break;
+    case 77: color=float3(.67,.71,.73); break;
+    case 78: color=float3(.92,.98,1.0); break;
+    case 79: color=float3(1.0,.045,.018); break;
     default: {
       float ring=fmod(floor(max(abs(p.x-7.5),abs(p.y-7.5))),3.0);
       color=ring==0.0 ? float3(.45,.30,.16) : float3(.70,.52,.30); break;
@@ -126,6 +132,7 @@ float3 blockTexture(int material,float2 uv) {
   }
   if(material==72) color*=.92+.12*sin(p.x*.8+sin(p.y*.18));
   if(material==73) noise=.5+(noise-.5)*.16;
+  if(material>=74 && material<=79) noise=.5;
   if(material==67 && (p.x<1 || p.x>14 || p.y<1 || p.y>14)) color*=.28;
   if(material==35 && fmod(p.x+floor(p.y/4.0)*2.0,5.0)==0.0 && fmod(p.y,4.0)==1.0) color=float3(1.0,.81,.35);
   if(material==36 && fmod(p.x,4.0)==0.0) color*=.72;
@@ -199,6 +206,15 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
   if(material>=69 && material<=71 && edge<.014) color*=.85;
   if(material==67) color=base*.95;
   if(material==37) color=base*.95;
+  if(material>=74 && material<=77) {
+    float3 n=normalize(cross(dfdx(in.world),dfdy(in.world)));
+    float3 view=normalize(camera.eye.xyz-in.world);
+    if(dot(n,view)<0) n=-n;
+    float fresnel=pow(1-saturate(dot(n,view)),3.0);
+    color=mix(color,camera.horizon.rgb,fresnel*(material==76 ? .65 : .18));
+    color+=pow(saturate(dot(reflect(-camera.sun.xyz,n),view)),56.0)*camera.ambient.w*(material==75 ? .12 : .5);
+  }
+  if(material==78 || material==79) color=base;
   for(int i=0;i<8;++i) if(camera.lights[i].w>0) {
     float falloff=saturate(1.0-length(in.world-camera.lights[i].xyz)/camera.lights[i].w);
     color+=base*float3(1.35,.73,.26)*falloff*falloff*mix(1.0,.18,camera.ambient.w);

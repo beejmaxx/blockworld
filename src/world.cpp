@@ -4,6 +4,7 @@
 #include "city.hpp"
 #include "coast.hpp"
 #include "harbor.hpp"
+#include "road.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -308,6 +309,7 @@ void World::insert(Chunk chunk) {
   if(cityOrigin) generateCity(chunk,*cityOrigin);
   if(coastOrigin) generateCoast(chunk,terrain,*coastOrigin);
   if(coastOrigin && harborLots) generateHarbor(chunk,*coastOrigin,*harborLots);
+  generateRoad(chunk,road);
   for (const auto& [cell, block] : edits_) if (chunkAt(cell.x,cell.z) == p)
     chunk.set(localCoord(cell.x),cell.y,localCoord(cell.z),block);
   chunks.insert_or_assign(p, std::move(chunk));
@@ -374,7 +376,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 14 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 15 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -403,6 +405,8 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto coast=coastOrigin.value_or(Cell{});
   file<<coastOrigin.has_value()<<' '<<coast.x<<' '<<coast.y<<' '<<coast.z<<'\n';
   file<<harborLots.has_value()<<' '<<harborLots.value_or(0)<<'\n';
+  file<<road.size()<<'\n';
+  for(auto point:road) file<<point.x<<' '<<point.y<<' '<<point.z<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -430,7 +434,8 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   FarmState savedFarm;
   std::optional<Cell> savedCastle,savedCity,savedCoast;
   std::optional<std::uint32_t> savedHarbor;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>14) corrupt();
+  std::vector<glm::vec3> savedRoad;
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>15) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -554,6 +559,22 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     if(!(file>>present>>mask) || mask>=(1u<<harborBuildings().size()) || (present && !savedCoast) || (!present && mask)) corrupt();
     if(present) savedHarbor=mask;
   }
+  if(version>=15) {
+    std::size_t points=0;
+    if(!(file>>points) || points>roadPointLimit || points==1 || (points && !savedCoast)) corrupt();
+    float length=0;
+    for(std::size_t i=0;i<points;++i) {
+      glm::vec3 p;
+      if(!(file>>p.x>>p.y>>p.z) || !std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)
+          || std::abs(p.x)>coordinateLimit-16 || std::abs(p.z)>coordinateLimit-16 || p.y<4 || p.y>worldHeight-8) corrupt();
+      if(i) {
+        auto d=p-savedRoad.back(); float segment=glm::length(glm::vec2(d.x,d.z));
+        if(segment<.09f || segment>128 || std::abs(d.y)>segment*.14f) corrupt();
+        length+=segment; if(length>8192) corrupt();
+      }
+      savedRoad.push_back(p);
+    }
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
@@ -588,7 +609,8 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   file >> std::ws;
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
-  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; harborLots=savedHarbor; edits_ = std::move(edits); chunks.clear();
+  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; harborLots=savedHarbor;
+  road=std::move(savedRoad); edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -681,6 +703,8 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
     // The city is graded below some original hills; its streets aren't caves.
     surface[z*chunkSize+x]=world.coastOrigin && world.harborLots && harborGraded(*world.coastOrigin,*world.harborLots,wx,wz) ? harborGround-1 : world.coastOrigin && coastContains(*world.coastOrigin,float(wx),float(wz))
       ? coastColumn(world.terrain,*world.coastOrigin,wx,wz).ground : inCity ? city->y-1 : world.terrain.height(wx,wz);
+    auto road=sampleRoad(world.road,wx+.5f,wz+.5f);
+    if(road.distance<=roadHalfWidth+1) surface[z*chunkSize+x]=int(std::round(road.height)) - 1;
   }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {
     Block block = chunk.get(x,y,z);

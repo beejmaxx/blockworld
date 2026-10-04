@@ -343,7 +343,7 @@ void Ui::farmPage(const HudState& h) {
         label("On your farm: "+std::to_string(stocks[i]),x+bx+12,y+by+65,15,accent);
         button(bx+204,by+50,88,32,i==3 ? "Adopt" : "Buy",total<int(livestockLimit) && h.farm.garden.coins>=livestockPrice(LivestockKind(i)));
       }
-      button(24,449,632,26,h.farm.carOwned ? "Bring my car here (C)" : "Get my free car (C)");
+      button(24,449,632,26,h.farm.carOwned ? "Bring my Porsche GT2 here (C)" : "Get my free Porsche GT2 (C)");
     } else {
     constexpr std::array items{Item::Compost,Item::Sprinkler,Item::Greenhouse};
     constexpr std::array names{"Compost - 3 coins","Sprinkler - 12 coins","Greenhouse - 40 coins"};
@@ -741,11 +741,18 @@ void Ui::build(const HudState& h) {
   }
   std::string selected=std::string(toolName(h.selectedItem()));
   if(h.riding) {
-    rectangle(cx-270,height-140,540,115,panel);
-    labelCentered(h.driving ? "Driving your farm car" : "Riding your horse",cx,height-131,23,accent);
-    labelCentered("W / Up: forward    S / Down: reverse",cx,height-96,18,cream);
-    labelCentered("A D / Left Right: steer    Space: brake",cx,height-72,18,cream);
-    labelCentered(h.driving ? "V: get out    C: move to clear ground" : "V: get off",cx,height-47,18,accent);
+    float panelX=h.driving ? 20.f : cx-270,panelWidth=h.driving ? 330.f : 540.f;
+    float panelCenter=panelX+panelWidth*.5f;
+    rectangle(panelX,height-140,panelWidth,115,panel);
+    auto driving="Porsche 911 GT2   /   "+std::to_string(int(std::round(std::abs(h.carSpeed)*3.6f)))+" km/h";
+    labelCentered(h.driving ? driving : "Riding your horse",panelCenter,height-131,h.driving ? 19 : 23,accent);
+    labelCentered("W / Up: gas    S / Down: reverse",panelCenter,height-96,16,cream);
+    labelCentered("A D / arrows: steer    Space: brake",panelCenter,height-72,16,cream);
+    labelCentered(h.driving ? "V: get out    C: recover car" : "V: get off",panelCenter,height-47,17,accent);
+    if(h.driving && !h.roadGuide.empty()) {
+      rectangle(panelX,height-183,panelWidth,34,panel);
+      labelCentered(h.roadGuide,panelCenter,height-179,19,cream);
+    }
   } else {
   labelCentered(h.tools.mode==PlayMode::Build ? selected+" / E: more materials" : "E  Choose mode / tools",cx,height-159,18,cream);
   modeButtons(h,cx-228,height-132,456,40);
@@ -777,7 +784,7 @@ void Ui::build(const HudState& h) {
   }
   if(h.help && !h.paused) {
     label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
-    label("T: city    U: penthouse    J: coast    C: car    R: home    H: help",24,height-194,14,muted);
+    label("Shift+C: road    T: city    U: penthouse    C: car    R: home    H: help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -803,7 +810,7 @@ void Ui::build(const HudState& h) {
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
-    labelCentered("J: coast    T: city    C: car    K: castle",cx,top+421,17,accent);
+    labelCentered("Shift+C: road    T: city    C: car    K: castle",cx,top+421,17,accent);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

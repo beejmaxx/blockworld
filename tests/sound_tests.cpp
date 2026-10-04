@@ -45,7 +45,7 @@ void enginePreview(const std::filesystem::path& path) {
   Soundscape sound; sound.environment(1,.15f,true,false);
   std::vector<float> result,block(Soundscape::sampleRate/5);
   for(int i=0;i<140;++i) {
-    float speed=i<30 ? 0 : i<70 ? 9.f*(i-30)/40 : i<95 ? 9.f : i<115 ? -4.05f : 0;
+    float speed=i<30 ? 0 : i<70 ? carTopSpeed*(i-30)/40 : i<95 ? carTopSpeed : i<115 ? -8.f : 0;
     sound.engine(i<130,speed); sound.render(block);
     result.insert(result.end(),block.begin(),block.end());
   }
@@ -66,9 +66,9 @@ void engineSounds() {
   sound.engine(true,0); sound.render(buffer); sound.render(buffer);
   double idle=energy(buffer); int idlePitch=crossings();
   check(idle>1e-4,"a running parked car has an audible idle");
-  sound.engine(true,9); sound.render(buffer); sound.render(buffer);
+  sound.engine(true,carTopSpeed); sound.render(buffer); sound.render(buffer);
   check(energy(buffer)>idle*1.5 && crossings()>idlePitch*2,"driving produces louder, higher engine revs");
-  sound.engine(true,-4.05f); sound.render(buffer); sound.render(buffer);
+  sound.engine(true,-8.f); sound.render(buffer); sound.render(buffer);
   check(energy(buffer)>idle && crossings()>idlePitch,"reverse also revs the engine");
   sound.engine(true,0); sound.render(buffer); sound.render(buffer);
   check(crossings()<idlePitch+4,"braking returns the engine to idle");

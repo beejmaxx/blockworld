@@ -82,7 +82,7 @@ void persistence() {
   check(initializeHarbor(protectedWorld,p) && !(*protectedWorld.harborLots&1) && protectedWorld.get(build)==Block::Brick,"a player build reserves the entire building parcel");
   World legacy; legacy.coastOrigin=c; legacy.save(path,p.pose);
   std::ifstream in(path); std::vector<std::string> lines; for(std::string s;std::getline(in,s);) lines.push_back(s);
-  lines[0]="BLOCKWORLD 13 7262026 0"; lines.erase(lines.begin()+13);
+  lines[0]="BLOCKWORLD 13 7262026 0"; lines.erase(lines.begin()+13,lines.begin()+15);
   auto write=[&] {std::ofstream out(path);for(auto& s:lines) out<<s<<'\n';}; write();
   check(loaded.load(path).has_value() && loaded.coastOrigin==c && !loaded.harborLots,"v13 terrain-only saves migrate without silently adding buildings");
   lines[0]="BLOCKWORLD 14 7262026 0"; lines.insert(lines.begin()+13,"1 1024"); write();

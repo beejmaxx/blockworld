@@ -69,7 +69,7 @@ void driveAndSwim(World& world) {
     world.farm.car={true,{o.x+leg.from.x,float(o.y),o.z+leg.from.y},std::atan2(delta.x,-delta.y),0};
     RideState ride{true,true,0}; Movement drive; drive.forward=1;
     auto start=world.farm.car.position;
-    for(int i=0;i<int(length/9*60);++i) tickRanch(world,p,ride,drive,1.f/60.f);
+    for(int i=0;i<600 && glm::length(world.farm.car.position-start)<length-1;++i) tickRanch(world,p,ride,drive,1.f/60.f);
     check(glm::length(world.farm.car.position-start)>length-2,"car can drive each side of the waterfront loop without obstacles");
     check(std::abs(world.farm.car.position.y-o.y)<.01f,"city streets remain level under the wheels");
   }
@@ -114,7 +114,7 @@ void persistenceAndProtection() {
   // A v11 save has a castle record but no city record or new block/item IDs.
   World legacy(123,true); legacy.ensure({0,0},0); legacy.save(path,p.pose);
   std::ifstream input(path); std::vector<std::string> lines; for(std::string line;std::getline(input,line);) lines.push_back(line);
-  lines[0]="BLOCKWORLD 11 123 1"; lines.erase(lines.begin()+11,lines.begin()+14);
+  lines[0]="BLOCKWORLD 11 123 1"; lines.erase(lines.begin()+11,lines.begin()+15);
   { std::ofstream output(path); for(const auto& line : lines) output<<line<<'\n'; }
   check(loaded.load(path).has_value() && !loaded.cityOrigin && loaded.terrain.seed()==123,"version-eleven worlds load without a city or lost state");
   auto saved=loaded.editCount(); lines[0]="BLOCKWORLD 12 123 1"; lines.insert(lines.begin()+11,"1 160 60 -96");

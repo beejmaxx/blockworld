@@ -5,7 +5,7 @@
 namespace bw {
 namespace {
 constexpr float pi=3.14159265f;
-constexpr float carHalfWidth=.95f,carHalfLength=1.37f;
+constexpr float carHalfWidth=.95f,carHalfLength=2.23f;
 float animalRadius(LivestockKind kind) { return kind==LivestockKind::Fox ? .64f : kind==LivestockKind::Sheep ? .85f : 1.12f; }
 float animalHeight(LivestockKind kind) { return kind==LivestockKind::Fox ? .95f : kind==LivestockKind::Sheep ? 1.45f : kind==LivestockKind::Horse ? 2.25f : 1.8f; }
 glm::vec3 carOffset(float yaw,float x,float z) {
@@ -90,12 +90,17 @@ std::optional<glm::vec3> carGround(const World& world,glm::vec3 at,float yaw,boo
   int top=std::min(worldHeight-2,int(std::floor(at.y+.05f)));
   for(int y=top;y>=std::max(0,top-drop);--y) {
     bool floor=floorAt(at,y);
-    // The bumper encounters a step before the center or the wheels do.
-    for(float x : {-carHalfWidth,0.f,carHalfWidth}) for(float z : {-carHalfLength,0.f,carHalfLength})
-      floor|=floorAt(at+carOffset(yaw,x,z),y);
+    // Test the entire oriented footprint: a diagonal bumper can hit the corner
+    // of a road step between any fixed set of point samples.
+    FarmCar footprint{true,{at.x,float(y),at.z},yaw,0}; auto bounds=carBounds(footprint);
+    for(int z=int(std::floor(bounds.min.z));!floor && z<=int(std::floor(bounds.max.z));++z)
+      for(int x=int(std::floor(bounds.min.x));!floor && x<=int(std::floor(bounds.max.x));++x) {
+        auto b=world.get({x,y,z});
+        floor=opaque(b) && b!=Block::Leaves && carOverlaps(footprint,blockBounds({x,y,z},b));
+      }
     if(!floor) continue;
     bool supported=true;
-    for(float x : {-.8f,.8f}) for(float z : {-.85f,.85f}) {
+    for(float x : {-.8f,.8f}) for(float z : {-1.3f,1.3f}) {
       auto wheel=at+carOffset(yaw,x,z);
       if(!floorAt(wheel,y) && !floorAt(wheel,y-1)) supported=false;
     }
@@ -242,7 +247,7 @@ bool petLivestock(World& world,const Player& player,std::size_t index) {
   auto delta=player.pose.position-a.position; a.yaw=std::atan2(delta.x,-delta.z); return true;
 }
 std::string ranchPrompt(const World& world,RanchTarget target) {
-  if(target.car) return "Farm car / V to drive";
+  if(target.car) return "Porsche 911 GT2 / V to drive";
   if(target.index>=world.farm.livestock.size()) return {};
   const auto& animal=world.farm.livestock[target.index];
   if(animal.kind==LivestockKind::Horse) return "Horse / V to ride";
@@ -258,10 +263,21 @@ void tickRanch(World& world,Player& player,RideState& ride,Movement movement,flo
   if(ride.active) {
     auto& position=ride.car ? world.farm.car.position : world.farm.livestock[ride.index].position;
     auto& yaw=ride.car ? world.farm.car.yaw : world.farm.livestock[ride.index].yaw;
-    float speed=movement.forward*(ride.car ? 9.f : 6.f);
-    if(movement.forward<0) speed*=.45f;
+    float throttle=std::clamp(movement.forward,-1.f,1.f);
+    float turnInput=std::clamp(movement.right,-1.f,1.f);
+    float speed=throttle*6.f;
+    if(ride.car) {
+      speed=world.farm.car.speed;
+      float target=throttle>=0 ? throttle*carTopSpeed : throttle*8.f;
+      // Lift slightly in tight turns. Steering is gentler at high speed, and
+      // S first brakes forward motion before engaging reverse.
+      if(target>0) target=std::min(target,std::lerp(carTopSpeed,18.f,std::abs(turnInput)));
+      float rate=throttle==0 ? 14.f : speed*throttle<0 || std::abs(target)<std::abs(speed) ? 32.f : 12.f;
+      speed+=std::clamp(target-speed,-rate*dt,rate*dt);
+    } else if(throttle<0) speed*=.45f;
     if(movement.jump) speed=0;
-    float steering=movement.right*1.6f*dt;
+    float turnRate=ride.car ? std::lerp(1.7f,.65f,std::clamp(std::abs(speed)/carTopSpeed,0.f,1.f)) : 1.6f;
+    float steering=turnInput*turnRate*dt;
     const int turns=std::max(1,int(std::ceil(std::abs(steering)/.025f)));
     for(int turn=0;turn<turns;++turn) {
       float candidate=std::remainder(yaw+steering/turns,2*pi);
@@ -289,7 +305,7 @@ void tickRanch(World& world,Player& player,RideState& ride,Movement movement,flo
       travelled+=glm::length(glm::vec2(next->x-position.x,next->z-position.z));
       position=*next;
     }
-    if(ride.car) world.farm.car.speed=std::copysign(travelled/dt,movement.forward);
+    if(ride.car) world.farm.car.speed=std::copysign(travelled/dt,speed);
     else { auto& horse=world.farm.livestock[ride.index]; horse.home=position; horse.moving=speed!=0; horse.walk+=std::abs(speed)*dt*4; }
     player.stopFlying(); player.grounded=false; player.pose.position=seat(world,ride);
   }
@@ -413,25 +429,108 @@ std::vector<Vertex> ranchMesh(const World& world) {
   if(world.farm.car.owned) {
     const auto& c=world.farm.car;
     auto box=[&](glm::vec3 lo,glm::vec3 hi,float m){shape(c.position,c.yaw,99,lo,hi,m);};
-    box({-.78f,.36f,-1.25f},{.78f,.72f,1.25f},42);
-    box({-.73f,.7f,-1.23f},{.73f,1.05f,-.48f},42);
-    box({-.78f,.72f,.62f},{.78f,1.f,1.22f},42);
-    for(float x : {-.78f,.65f}) box({x,.7f,-.4f},{x+.13f,1.f,.65f},42);
-    for(float x : {-.46f,.2f}) {
-      box({x,.73f,.0f},{x+.27f,.86f,.54f},33);
-      box({x,.82f,.44f},{x+.27f,1.39f,.6f},33);
+    constexpr float paint=74,carbon=75,glass=76,alloy=77,headlamp=78,tail=79;
+    auto quad=[&](glm::vec3 a,glm::vec3 b,glm::vec3 d,glm::vec3 e,float material,float light) {
+      std::array<glm::vec3,4> ps{a,b,d,e};
+      constexpr std::array<glm::vec2,4> uv{{{0,0},{1,0},{1,1},{0,1}}};
+      for(int i:{0,1,2,0,2,3}) {
+        auto p=ps[i]; auto offset=carOffset(c.yaw,p.x,p.z); offset.y=p.y;
+        vertices.push_back({c.position+offset,uv[i],material,light,{-100003,0,99}});
+      }
+    };
+    // Low, wide 911 body: tapered nose, raised front wings, sloping roof and
+    // broad rear haunches. Sections keep a faceted voxel-game silhouette.
+    struct Section {float z,width,top;};
+    constexpr std::array<Section,8> body{{
+      {-2.18f,.71f,.60f},{-1.88f,.84f,.78f},{-1.35f,.88f,.91f},
+      {-.68f,.83f,.83f},{.58f,.86f,.87f},{1.32f,.91f,.96f},{1.92f,.87f,.84f},{2.12f,.75f,.72f}}};
+    box({-.72f,.26f,-2.16f},{.72f,.42f,2.12f},carbon);
+    for(std::size_t i=1;i<body.size();++i) {
+      auto a=body[i-1],b=body[i];
+      quad({-a.width,.40f,a.z},{-b.width,.40f,b.z},{-b.width,b.top,b.z},{-a.width,a.top,a.z},paint,.82f);
+      quad({a.width,a.top,a.z},{b.width,b.top,b.z},{b.width,.40f,b.z},{a.width,.40f,a.z},paint,.75f);
+      float ay=a.top-(a.z<-.68f ? .10f : 0),by=b.top-(b.z<-.68f ? .10f : 0);
+      quad({-.49f,ay,a.z},{-.49f,by,b.z},{.49f,by,b.z},{.49f,ay,a.z},paint,1);
+      quad({-a.width,a.top,a.z},{-b.width,b.top,b.z},{-.49f,by,b.z},{-.49f,ay,a.z},paint,.96f);
+      quad({.49f,ay,a.z},{.49f,by,b.z},{b.width,b.top,b.z},{a.width,a.top,a.z},paint,.94f);
     }
-    box({-.3f,1.12f,-.46f},{.3f,1.18f,-.38f},29);
-    for(float x : {-.94f,.7f}) for(float z : {-.93f,.63f}) {
-      box({x,.02f,z-.23f},{x+.24f,.57f,z+.23f},29);
-      box({x-.005f,.19f,z-.1f},{x+.245f,.4f,z+.1f},3);
+    quad({-.71f,.4f,-2.18f},{-.71f,.60f,-2.18f},{.71f,.60f,-2.18f},{.71f,.4f,-2.18f},paint,.9f);
+    quad({.75f,.4f,2.12f},{.75f,.72f,2.12f},{-.75f,.72f,2.12f},{-.75f,.4f,2.12f},paint,.74f);
+    box({-.84f,.24f,-2.23f},{.84f,.31f,-1.88f},carbon); // Front splitter.
+    for(float side:{-1.f,1.f}) {
+      float lo=side<0 ? -.91f : .78f,hi=side<0 ? -.78f : .91f;
+      box({lo,.26f,-1.35f},{hi,.37f,1.4f},carbon);
+      float x=side*.81f;
+      box({x-.06f,.61f,.57f},{x+.06f,.79f,1.02f},carbon); // Rear brake intakes.
+      box({side<0 ? -.82f : .70f,.96f,-.57f},{side<0 ? -.70f : .82f,1.03f,-.48f},carbon);
+      box({side<0 ? -.95f : .79f,1.02f,-.67f},{side<0 ? -.79f : .95f,1.12f,-.44f},paint);
     }
-    for(float x : {-.61f,.38f}) {
-      box({x,.72f,-1.27f},{x+.23f,.9f,-1.24f},31);
-      box({x,.73f,1.245f},{x+.23f,.87f,1.27f},28);
+    // Dark windscreen and side glass, with a red roof and C-pillars.
+    quad({-.66f,.86f,-.94f},{-.55f,1.36f,-.27f},{.55f,1.36f,-.27f},{.66f,.86f,-.94f},glass,.95f);
+    quad({-.55f,1.36f,-.27f},{-.57f,1.43f,.02f},{.57f,1.43f,.02f},{.55f,1.36f,-.27f},paint,1);
+    quad({-.57f,1.43f,.02f},{-.57f,1.40f,.37f},{.57f,1.40f,.37f},{.57f,1.43f,.02f},paint,1);
+    quad({-.57f,1.40f,.37f},{-.64f,1.16f,.87f},{.64f,1.16f,.87f},{.57f,1.40f,.37f},glass,.93f);
+    quad({-.64f,1.16f,.87f},{-.73f,.91f,1.28f},{.73f,.91f,1.28f},{.64f,1.16f,.87f},paint,1);
+    for(float side:{-1.f,1.f}) {
+      auto sideQuad=[&](glm::vec3 a,glm::vec3 b,glm::vec3 d,glm::vec3 e,float m) {
+        a.x*=side;b.x*=side;d.x*=side;e.x*=side;
+        if(side<0)quad(e,d,b,a,m,.82f);else quad(a,b,d,e,m,.82f);
+      };
+      sideQuad({.67f,.87f,-.9f},{.57f,1.33f,-.25f},{.59f,1.35f,.35f},{.74f,.91f,.86f},glass);
+      sideQuad({.59f,1.35f,.35f},{.64f,1.16f,.87f},{.73f,.91f,1.28f},{.74f,.91f,.86f},paint);
+      sideQuad({.68f,.88f,-.98f},{.56f,1.38f,-.3f},{.57f,1.33f,-.20f},{.67f,.87f,-.83f},paint);
+      sideQuad({.57f,1.33f,-.25f},{.57f,1.43f,.02f},{.59f,1.35f,.35f},{.59f,1.31f,.35f},paint);
+      box({side<0 ? -.84f : .81f,.72f,-.12f},{side<0 ? -.81f : .84f,.77f,.10f},carbon);
     }
-    box({-.8f,.38f,-1.36f},{.8f,.51f,-1.25f},3);
-    box({-.8f,.38f,1.25f},{.8f,.51f,1.36f},3);
+    // Faceted tyres, rotating five-spoke alloys and yellow brake calipers.
+    for(float x:{-.81f,.81f}) for(float z:{-1.35f,1.34f}) {
+      float outside=x<0 ? -.947f : .947f,inside=x<0 ? -.69f : .69f;
+      float spin=(c.position.x*std::sin(c.yaw)-c.position.z*std::cos(c.yaw))/.36f;
+      for(int i=0;i<12;++i) {
+        float a=2*pi*i/12,b=2*pi*(i+1)/12;
+        auto rim=[&](float xx,float r,float angle){return glm::vec3(xx,.38f+r*std::cos(angle),z+r*std::sin(angle));};
+        quad(rim(inside,.36f,a),rim(outside,.36f,a),rim(outside,.36f,b),rim(inside,.36f,b),carbon,.8f);
+        // Both windings cover left and right wheels without backface holes.
+        auto disc=[&](float r,float mat){auto center=glm::vec3(outside,.38f,z);
+          if(x<0)quad(center,rim(outside,r,b),rim(outside,r,a),center,mat,.9f);
+          else quad(center,rim(outside,r,a),rim(outside,r,b),center,mat,.9f);};
+        disc(.35f,carbon); // Visible sidewall.
+      }
+      float xx=outside+(x<0 ? -.001f : .001f);
+      auto wheelQuad=[&](glm::vec3 a,glm::vec3 b,glm::vec3 d,glm::vec3 e,float material) {
+        if(x<0)quad(e,d,b,a,material,.98f);else quad(a,b,d,e,material,.98f);
+      };
+      for(int i=0;i<12;++i) {
+        float a=2*pi*i/12,b=2*pi*(i+1)/12;
+        auto p=[&](float r,float angle){return glm::vec3(xx,.38f+r*std::cos(angle),z+r*std::sin(angle));};
+        wheelQuad(p(.28f,a),p(.30f,a),p(.30f,b),p(.28f,b),alloy);
+      }
+      wheelQuad({xx,.25f,z+.11f},{xx,.25f,z+.22f},{xx,.5f,z+.22f},{xx,.5f,z+.11f},71);
+      for(int i=0;i<5;++i) {
+        float a=spin+2*pi*i/5;
+        auto p=[&](float r,float angle){return glm::vec3(xx,.38f+r*std::cos(angle),z+r*std::sin(angle));};
+        wheelQuad(p(.03f,a-.5f),p(.28f,a-.15f),p(.28f,a+.15f),p(.03f,a+.5f),alloy);
+      }
+    }
+    // Oval 911 headlights lie flush along the swept front wings.
+    for(float x:{-.61f,.61f}) {
+      for(int ring=0;ring<2;++ring) {
+        float radius=ring ? .155f : .185f;
+        glm::vec3 center{x,.86f+ring*.003f,-1.76f-ring*.003f};
+        auto point=[&](float angle){return center+glm::vec3(radius*std::cos(angle),radius*.76f*std::sin(angle),radius*.85f*std::sin(angle));};
+        for(int i=0;i<12;++i)quad(center,point(2*pi*(i+1)/12),point(2*pi*i/12),center,ring ? headlamp : carbon,1);
+      }
+      box({x-.18f,.63f,2.095f},{x+.18f,.74f,2.135f},tail);
+      box({x-.21f,.40f,-2.185f},{x+.20f,.52f,-2.16f},carbon);
+    }
+    box({-.31f,.37f,-2.19f},{.31f,.50f,-2.16f},carbon);
+    box({-.24f,.46f,2.125f},{.24f,.59f,2.14f},alloy);
+    for(float x:{-.48f,.32f})box({x,.29f,2.06f},{x+.16f,.43f,2.22f},alloy);
+    // Tall fixed GT2 rear wing, uprights and endplates.
+    for(float x:{-.55f,.47f})box({x,.88f,1.47f},{x+.08f,1.31f,1.68f},carbon);
+    box({-.93f,1.27f,1.40f},{.93f,1.37f,1.91f},carbon);
+    for(float x:{-.94f,.88f})box({x,1.23f,1.39f},{x+.06f,1.46f,1.92f},paint);
+    for(int i=0;i<5;++i)box({-.42f,.975f,1.12f+i*.09f},{.42f,.998f,1.15f+i*.09f},carbon);
   }
   return vertices;
 }
