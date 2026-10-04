@@ -258,7 +258,7 @@ std::vector<Vertex> residentMesh(const World& w,float time) {
   }
   for(int i=0;i<cityWorkerCount;++i) {
     auto at=cityWorkerPosition(w,i);if(!workerVisible(w,at))continue;
-    std::size_t start=mesh.size();float skin=105+float(i%3),shirt=80+float((i*7+2)%20);
+    std::size_t start=mesh.size();float skin=106,shirt=80+float((i*7+2)%20);
     float stride=std::sin(float(w.clock.phase*WorldClock::daySeconds)*7+i)*.10f;
     auto box=[&](glm::vec3 a,glm::vec3 b,float m){appendBox(mesh,{a,b},{-100009,0,i},m,.92f);};
     for(float side:{-1.f,1.f}) {

@@ -20,7 +20,7 @@ castle are in the same world, linked by roads.
 | :---: | :---: |
 | ![Residents walking on downtown sidewalks](docs/images/population.png) | ![An adult resident and her child in their apartment](docs/images/family.png) |
 
-*Actual Metal captures from version 0.18.0. The family preview uses a temporary world.*
+*Actual Metal captures: streets in 0.19.1 and the earlier family preview in 0.18.0, using temporary worlds.*
 
 | Furnished apartment | Family care |
 | :---: | :---: |

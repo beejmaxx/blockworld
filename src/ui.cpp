@@ -535,7 +535,7 @@ void Ui::heldTool(const HudState& h) {
       faces.push_back(face);
     }
   };
-  const glm::vec3 shaft{.52f,.29f,.13f},grain{.70f,.44f,.22f},skin{.83f,.62f,.43f},sleeve{.28f,.48f,.36f};
+  const glm::vec3 shaft{.52f,.29f,.13f},grain{.70f,.44f,.22f},skin{.94f,.74f,.59f},sleeve{.28f,.48f,.36f};
   auto block=h.selectedBlock();
   if(h.tools.removesBlocks() && h.selectedItem()==Item::Empty) {
     box({-.10f,-.10f,-.10f},{.10f,1.90f,.10f},shaft);
