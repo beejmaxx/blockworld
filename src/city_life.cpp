@@ -34,11 +34,6 @@ constexpr std::array<ResidentSpec,residentCount> residents{{
   {"Nora","technology and game design"},{"Iris","painting and quiet parks"},
   {"Zoe","horses and countryside walks"},{"Maya","coffee shops and books"}
 }};
-void record(World& w,BankKind kind,int amount) {
-  if(amount<=0)return;
-  auto& entries=w.cityLife.statement;entries.push_back({kind,amount,w.clock.day});
-  if(entries.size()>8)entries.erase(entries.begin());
-}
 std::optional<float> ray(glm::vec3 origin,glm::vec3 direction,Box box,float reach) {
   float lo=0,hi=reach;
   for(int axis=0;axis<3;++axis) {
@@ -58,10 +53,17 @@ bool workerVisible(const World& w,glm::vec3 at) {
     && collidable(w.get({int(at.x),22,int(at.z)})) && !collidable(w.get({int(at.x),23,int(at.z)}));
 }
 }
+void recordCityTransaction(World& w,BankKind kind,int amount) {
+  if(amount<=0)return;
+  auto& entries=w.cityLife.statement;entries.push_back({kind,amount,w.clock.day});
+  if(entries.size()>8)entries.erase(entries.begin());
+}
 std::span<const CarSpec> garageCars(){return cars;}
 std::span<const ResidentSpec> cityResidents(){return residents;}
 FarmCar parkedCar(const World& w,int i) {
   if(!w.metroOrigin || i<0 || i>=garageSize)return {};
+  for(int home=0;home<3;++home)if(w.estateOrigin && w.cityLife.homeCars[home]==i)
+    return {true,mansionPosition(w,home,{10.5f,0,-15.5f}),0};
   return {true,garagePosition(*w.metroOrigin,i),i<10 ? 3.14159265f : 0.f};
 }
 glm::vec3 cityWorkerPosition(const World& w,int i) {
@@ -80,10 +82,10 @@ bool cityChildFeeding(const World& w,int resident,int child) {
   return r.children[child] && r.lastFed[child]>0 && elapsed>=0 && elapsed<8;
 }
 glm::vec3 cityChildPosition(const World& w,int resident,int child) {
-  auto home=metroResidentHome(*w.metroOrigin,resident);
+  auto home=cityResidentHome(w,resident);
   if(infant(w,resident,child)) {
     if(cityChildFeeding(w,resident,child))return home+glm::vec3(0,1.04f,-.39f);
-    auto crib=home+glm::vec3(6,0,-4);
+    auto crib=cityCribPosition(w,resident,child);
     if(w.get({int(crib.x),int(crib.y),int(crib.z)})==Block::Table)return crib+glm::vec3(0,.69f,0);
   }
   constexpr std::array<glm::vec3,3> offsets{{{1.5f,0,.5f},{-1.5f,0,.5f},{0,0,-1.25f}}};
@@ -120,21 +122,25 @@ bool bankTransfer(World& w,int amount,bool deposit) {
   if(amount<=0)return false;
   if(deposit) {if(amount>wallet || amount>bankLimit-balance)return false;wallet-=amount;balance+=amount;}
   else {if(amount>balance || amount>coinLimit-wallet)return false;balance-=amount;wallet+=amount;}
-  record(w,deposit ? BankKind::Deposit : BankKind::Withdrawal,amount);return true;
+  recordCityTransaction(w,deposit ? BankKind::Deposit : BankKind::Withdrawal,amount);return true;
 }
 int propertyRentPerDay(const World& w) {
   if(!w.metroOrigin)return 0;int rent=0;
   for(std::size_t i=0;i<metroBuildings().size();++i)rent+=metroBuildings()[i].floors*(metroOffice(i) ? 6 : 4);
   return rent;
 }
-int serverIncomePerDay(const World& w){return w.metroOrigin ? 256 : 0;}
+int serverIncomePerDay(const World& w){
+  if(!w.metroOrigin)return 0;int total=0;
+  for(const auto& site:w.cityLife.dataCenters)total+=dataCenterReport(site).profit;
+  return total;
+}
 void collectCityIncome(World& w) {
   auto& city=w.cityLife;
   if(!w.metroOrigin || w.clock.day<=city.rentDay)return;
   auto days=std::uint64_t(w.clock.day-city.rentDay);
   auto credit=[&](BankKind kind,int daily) {
     int amount=int(std::min<std::uint64_t>(bankLimit-city.bank,days*std::uint64_t(daily)));
-    city.bank+=amount;record(w,kind,amount);
+    city.bank+=amount;recordCityTransaction(w,kind,amount);
   };
   credit(BankKind::Rent,propertyRentPerDay(w));credit(BankKind::Servers,serverIncomePerDay(w));city.rentDay=w.clock.day;
 }
@@ -153,7 +159,7 @@ std::string talkToResident(World& w,int index,bool askOut) {
 }
 bool visitResident(World& w,Player& p,int index) {
   if(index<0 || index>=residentCount || !initializeMetropolis(w,p))return false;
-  auto home=metroResidentHome(*w.metroOrigin,index);auto at=home+glm::vec3(0,0,-2.5f);
+  auto home=cityResidentHome(w,index);auto at=home+glm::vec3(0,0,-2.5f);
   w.ensure(chunkAt(int(at.x),int(at.z)),2);
   if(p.collides(w,at))return false;
   p.pose.position=at;p.pose.yaw=3.14159265f;p.pose.pitch=-.05f;p.stopFlying();p.velocity={};return true;
@@ -161,10 +167,13 @@ bool visitResident(World& w,Player& p,int index) {
 std::optional<std::string> partnerNightProblem(const World& w,const Player& p,int index) {
   if(!w.metroOrigin || index<0 || index>=residentCount || residents[index].age<18 || !w.cityLife.residents[index].dating)
     return "Get to know each other and start dating first.";
-  if(glm::length(metroResidentHome(*w.metroOrigin,index)-p.pose.position)>=4)return "Visit your partner's apartment first.";
+  if(glm::length(cityResidentHome(w,index)-p.pose.position)>=4)return "Visit your partner's home first.";
   if(w.clock.day==std::numeric_limits<std::uint32_t>::max() && w.clock.phase>=WorldClock::morning)return "The calendar cannot advance further.";
   auto b=metroBuildings()[index];auto origin=harborPosition(*w.metroOrigin,b,{0,float(1+index%4)*harborFloorHeight,0});
-  for(int z=2;z<b.depth-1;++z)for(int x=15;x<b.width-1;++x) {
+  int home=w.cityLife.residents[index].home;
+  int width=b.width,depth=b.depth;
+  if(home>=0){origin=mansionPosition(w,home,{0,6,0});width=home==0 ? 56 : home==1 ? 64 : 60;depth=home==1 ? 44 : 40;}
+  for(int z=2;z<depth-1;++z)for(int x=home>=0 ? 9 : 15;x<width-1;++x) {
     Cell bed{int(origin.x)+x,int(origin.y),int(origin.z)+z};auto block=w.get(bed);
     if(!isBed(block) || bedHead(block))continue;
     Player atBed=p;atBed.pose.position=glm::vec3(bed.x+.5f,bed.y,bed.z+.5f);
@@ -194,15 +203,17 @@ std::optional<CityTarget> targetCity(const World& w,const Player& p,float reach)
   std::optional<CityTarget> found;
   auto test=[&](Box box,CityTargetKind kind,int index){if(auto distance=ray(p.eye(),p.direction(),box,nearest)){nearest=*distance;found=CityTarget{kind,index,nearest};}};
   for(int i=0;i<residentCount;++i) {
-    test(personBox(metroResidentHome(*w.metroOrigin,i)),CityTargetKind::Resident,i);
+    test(personBox(cityResidentHome(w,i)),CityTargetKind::Resident,i);
     for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c])test(childBox(w,i,c),CityTargetKind::Child,i*3+c);
   }
   for(int i=0;i<cityWorkerCount;++i) {auto at=cityWorkerPosition(w,i);if(workerVisible(w,at))test(personBox(at),CityTargetKind::Worker,i);}
   for(int i=0;i<garageSize;++i)if(i!=w.cityLife.activeCar)test(carBounds(parkedCar(w,i)),CityTargetKind::Car,i);
   auto b=bankTerminal(*w.metroOrigin);test({b-glm::vec3(1.5f,1.5f,.65f),b+glm::vec3(1.5f,1.5f,.65f)},CityTargetKind::Bank,0);
+  for(int i=0;i<2;++i){auto t=dataCenterTerminal(*w.metroOrigin,i);test({t-glm::vec3(1.5f,1.5f,.7f),t+glm::vec3(1.5f,1.5f,.7f)},CityTargetKind::DataCenter,i);}
   return found;
 }
 std::string cityPrompt(const World& w,CityTarget target) {
+  if(target.kind==CityTargetKind::DataCenter)return "Data center / V to manage racks and contracts";
   if(target.kind==CityTargetKind::Worker)return "City resident / V to say hello";
   if(target.kind==CityTargetKind::Child)return "Your child with "+std::string(residents[target.index/3].name)+" / V to visit your family";
   if(target.kind==CityTargetKind::Bank)return "Civic Bank / V to open your account";
@@ -212,7 +223,7 @@ std::string cityPrompt(const World& w,CityTarget target) {
 bool cityPeopleOverlap(const World& w,Box box) {
   if(!w.metroOrigin)return false;
   for(int i=0;i<residentCount;++i) {
-    if(overlap(box,personBox(metroResidentHome(*w.metroOrigin,i))))return true;
+    if(overlap(box,personBox(cityResidentHome(w,i))))return true;
     for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c] && overlap(box,childBox(w,i,c)))return true;
   }
   for(int i=0;i<garageSize;++i)if(i!=w.cityLife.activeCar && overlap(box,carBounds(parkedCar(w,i))))return true;
@@ -221,9 +232,9 @@ bool cityPeopleOverlap(const World& w,Box box) {
 std::vector<Vertex> residentMesh(const World& w,float time) {
   std::vector<Vertex> mesh;if(!w.metroOrigin)return mesh;
   for(int i=0;i<residentCount;++i) {
-    auto home=metroResidentHome(*w.metroOrigin,i);
-    if(!w.chunks.contains(chunkAt(int(home.x),int(home.z))))continue;
     appendApartmentDecor(mesh,w,i);
+    auto home=cityResidentHome(w,i);
+    if(!w.chunks.contains(chunkAt(int(home.x),int(home.z))))continue;
     float sway=std::sin(time*1.8f+i)*.014f;
     auto box=[&](glm::vec3 a,glm::vec3 b,float m){appendBox(mesh,{home+a,home+b},{-100007,0,i},m,.92f);};
     constexpr std::array<float,8> hairColors{72,71,75,62,71,72,62,75};
@@ -279,6 +290,7 @@ std::vector<Vertex> residentMesh(const World& w,float time) {
       }
     }
   }
+  for(int house=0;house<3;++house)appendMansionNursery(mesh,w,house);
   for(int i=0;i<cityWorkerCount;++i) {
     auto at=cityWorkerPosition(w,i);if(!workerVisible(w,at))continue;
     std::size_t start=mesh.size();float skin=106,shirt=80+float((i*7+2)%20);

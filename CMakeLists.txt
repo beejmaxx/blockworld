@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
-project(Blockworld VERSION 0.21.0 LANGUAGES C CXX)
+project(Blockworld VERSION 0.22.0 LANGUAGES C CXX)
 
 if(NOT APPLE)
   message(FATAL_ERROR "Blockworld currently requires macOS (Metal and CoreText).")
@@ -17,7 +17,7 @@ find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(glm REQUIRED CONFIG)
 find_package(Threads REQUIRED)
 
-add_library(voxel_core src/estate.cpp src/diagnostics.cpp src/world.cpp src/player.cpp src/adventure.cpp src/castle.cpp src/city.cpp src/coast.cpp src/harbor.cpp src/road.cpp src/countryside.cpp src/metropolis.cpp src/city_life.cpp src/minimap.cpp src/daylight.cpp src/sound.cpp src/crafting.cpp src/building.cpp src/farm.cpp src/inventory.cpp src/garden.cpp src/ranch.cpp)
+add_library(voxel_core src/city_management.cpp src/estate.cpp src/diagnostics.cpp src/world.cpp src/player.cpp src/adventure.cpp src/castle.cpp src/city.cpp src/coast.cpp src/harbor.cpp src/road.cpp src/countryside.cpp src/metropolis.cpp src/city_life.cpp src/minimap.cpp src/daylight.cpp src/sound.cpp src/crafting.cpp src/building.cpp src/farm.cpp src/inventory.cpp src/garden.cpp src/ranch.cpp)
 target_include_directories(voxel_core PUBLIC src)
 target_link_libraries(voxel_core PUBLIC glm::glm Threads::Threads)
 target_compile_definitions(voxel_core PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
@@ -39,6 +39,10 @@ set_source_files_properties(${shader_sources} PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(city_management_tests tests/city_management_tests.cpp)
+  target_link_libraries(city_management_tests PRIVATE voxel_core)
+  target_compile_options(city_management_tests PRIVATE -Wall -Wextra -Wpedantic)
+  add_test(NAME homes_and_data_center_business COMMAND city_management_tests)
   add_executable(estate_tests tests/estate_tests.cpp)
   target_link_libraries(estate_tests PRIVATE voxel_core)
   target_compile_options(estate_tests PRIVATE -Wall -Wextra -Wpedantic)

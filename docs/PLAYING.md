@@ -422,12 +422,13 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
 12-building city and 10-building waterfront remain intact.
 
 - **Bank:** move 10, 100, or all available coins between your wallet and bank.
-  Rent pays 2,358 coins and server leases pay 256 coins at the start of each game
-  day. Sleep also advances rental income. Menus pause time. The first payment
+  Rent pays 2,358 coins and the initial server contracts pay 256 coins at the start of each game
+  day. Server profit changes as you expand the business. Sleep also advances income. Menus pause time. The first payment
   comes on the day after the district is installed.
 - **Garage:** you own 20 cars. Click one to enter it in its parking bay, then
   drive into the middle aisle and out the wide front entrance. Choose **Walk into
-  your garage** to visit on foot; this also parks your active car back in its bay.
+  your garage** to visit on foot; cars assigned to mansions stay there, while an
+  unassigned active car returns to its downtown bay.
   **C** brings the selected car to you. All cars support Shift boost and engine sounds.
 - **Residents:** select a resident and **Visit apartment**. Aim at her and press
   **V** to open the conversation. Chat twice, then ask on a date. Each of the eight
@@ -437,7 +438,7 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
   bedroom needs a complete, unobstructed bed. Crops, rent, and existing pregnancies
   advance with the day. Starting a pregnancy still uses **Start a family**.
   Once dating, choose **Start a family** while visiting. She agrees, and a baby
-  arrives in her apartment two game days later. The Residents page shows the due
+  arrives at her current home two game days later. The Residents page shows the due
   day. Menus pause time; playing or sleeping advances it. Children appear at home
   and become larger after their first day. Each household can have three children.
   Relationships, pregnancies, and children survive saving and reloading.
@@ -454,6 +455,45 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
   a building to visit its lobby entrance; stairs on the left connect every floor.
   Offices have desks and monitors; apartments have furniture and beds.
   Rent is a fixed daily amount, not a tenant or vacancy simulation.
+
+## Move into a mansion
+
+Open **L → Home**, select one of the three mansions, and choose **Make my home**.
+**R** and the minimap Home marker now point there. **Visit farm cabin** keeps the
+original home accessible; **Use cabin as home** restores it as the R destination.
+
+Choose a partner and **Move household here** to move her and her children together.
+Dating is required. Each mansion holds one household; other families stay where
+they live. Use **Return to original apartment** to reverse a move. Pregnancy,
+birthdays, feeding, visits and sleeping continue at the new home. Family members
+are upstairs beside the study, with three cribs in the nursery behind them.
+Beds are across the upper hall. **B** enters Build mode and **E** opens furniture
+and materials so you can decorate; your edits persist.
+
+Choose a car in **L → Garage**, then use **L → Home → Park current car here**.
+Walk to the bay beside the driveway and press **V** to drive. Each mansion has one
+favorite-car bay. Replacing its car returns the previous one to the downtown garage.
+
+## Run a data center
+
+Open **L → Business** and select West or East. Each starts with two racks and a
+Local websites customer: 160 coins revenue minus 16 electricity and 16 cooling,
+for **128 coins profit per day**. The existing two-site income is preserved.
+
+1. Buy **two racks at 300 coins each** from your bank balance.
+2. Sign **Shop network**, which needs two free racks. That site's profit becomes
+   **320 coins per day**, after electricity and cooling.
+3. Upgrade **Power** and **Cooling** to expand beyond four racks. Each level
+   supports four more racks, up to sixteen; both must support the installed hardware.
+4. Add racks for **Research lab** and **Cloud gaming** customers. The page shows
+   revenue, each operating cost, capacity and net profit before you expand.
+
+Installed racks consume electricity even while idle. Cooling costs depend on the
+number of racks used by customers. Contracts continue automatically; payments
+arrive once per game day, including days skipped by sleeping. Menus pause time.
+Purchases appear in the bank statement; upgrades never pay income retroactively.
+**Visit server room** takes you to the building. Purchased racks and capacity
+equipment appear there; the management terminal also opens the Business page with **V**.
 
 ## Waterfront estates and airport
 
@@ -502,7 +542,8 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–20. Version 20 adds the estate district location.
+to open it. The loader accepts versions 1–21. Version 21 adds the chosen home,
+household locations, favorite-car parking and data center operations.
 Version 19 adds feeding status.
 Version 18 adds pregnancies and children.
 Version 17 adds downtown, bank, cars and relationships.

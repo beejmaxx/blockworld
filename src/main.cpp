@@ -27,6 +27,7 @@ struct Options {
   bool city=false,demoCity=false,coast=false,demoCoast=false,harbor=false,demoHarbor=false,hideUi=false;
   bool road=false,demoRoad=false,demoBoost=false,country=false,demoCountry=false,mapOverview=false;
   bool debug=false,noclip=false,demoEstate=false;
+  bool demoHousehold=false,demoBusiness=false;
   int estate=-1;std::string estateView="villa";
   bool downtown=false,garage=false,bank=false,demoMetro=false,demoFamily=false,demoPopulation=false,demoFeeding=false,demoHome=false,demoNight=false;
   std::string metroView="skyline",cityMenu;
@@ -48,6 +49,8 @@ Options parse(int argc,char** argv) {
     else if(arg=="--airport")result.estate=4;
     else if(arg=="--yacht")result.estate=3;
     else if(arg=="--demo-estate") {result.demoEstate=true;result.save=false;result.paused=false;result.estate=0;}
+    else if(arg=="--demo-household") {result.demoHousehold=true;result.save=false;result.paused=false;result.estate=0;}
+    else if(arg=="--demo-business") {result.demoBusiness=true;result.demoMetro=true;result.metroView="servers";result.save=false;result.paused=false;}
     else if(arg=="--estate-view") {
       result.estateView=value();
       if(result.estateView!="villa" && result.estateView!="interior" && result.estateView!="marina" && result.estateView!="yacht" && result.estateView!="airport" && result.estateView!="terminal")throw std::runtime_error("Unknown estate view");
@@ -73,7 +76,7 @@ Options parse(int argc,char** argv) {
     }
     else if(arg=="--city-menu") {
       result.cityMenu=value();
-      if(result.cityMenu!="bank" && result.cityMenu!="garage" && result.cityMenu!="residents" && result.cityMenu!="properties" && result.cityMenu!="places")throw std::runtime_error("Unknown city menu page");
+      if(result.cityMenu!="bank" && result.cityMenu!="garage" && result.cityMenu!="residents" && result.cityMenu!="properties" && result.cityMenu!="places" && result.cityMenu!="home" && result.cityMenu!="business")throw std::runtime_error("Unknown city menu page");
     }
     else if(arg=="--road") result.road=true;
     else if(arg=="--demo-road") { result.demoRoad=true; result.save=false; result.paused=false; }
@@ -144,7 +147,9 @@ Options parse(int argc,char** argv) {
         <<"  --demo-feeding / --demo-home  Preview feeding or the decorated apartment\n"
         <<"  --demo-night           Preview an adult date and morning transition without saves\n"
         <<"  --metro-view VIEW      skyline, street, roof, garage, collection, bank, apartment, servers\n"
-        <<"  --city-menu PAGE       bank, garage, residents, properties, places\n"
+        <<"  --city-menu PAGE       bank, garage, residents, properties, places, home, business\n"
+        <<"  --demo-household       Temporary mansion family preview (no save)\n"
+        <<"  --demo-business        Temporary upgraded server business (no save)\n"
         <<"  --road                 Start beside your GT2 at the home end of the city road\n"
         <<"  --demo-road            Preview the GT2 and highway without touching saves\n"
         <<"  --demo-boost           Preview Shift boost driving without touching saves\n"
@@ -201,7 +206,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.21.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.22.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -414,6 +419,17 @@ int run(const Options& options) {
     }
     center=chunkAt(int(player.pose.position.x),int(player.pose.position.z));world.ensure(center,world.streamingRadius(center));
   }
+  if(options.demoHousehold) {
+    auto& r=world.cityLife.residents[0];r.conversations=3;r.dating=true;r.children[0]=world.clock.day;
+    chooseCityHome(world,player,0);moveCityHousehold(world,player,0,0);parkHomeCar(world,player,0);visitResident(world,player,0);
+  }
+  if(options.demoBusiness) {
+    world.cityLife.bank=5000;
+    upgradeDataCenter(world,player,0,ServerUpgrade::Rack);upgradeDataCenter(world,player,0,ServerUpgrade::Rack);signServerContract(world,0,1);
+    auto o=*world.metroOrigin;player.pose.position={o.x+357.f,23,o.z+282.f};
+    auto d=glm::normalize(glm::vec3(o.x+334.f,25,o.z+283.f)-player.eye());player.pose.yaw=std::atan2(d.x,-d.z);player.pose.pitch=std::asin(d.y);
+  }
+  center=chunkAt(int(player.pose.position.x),int(player.pose.position.z));world.ensure(center,world.streamingRadius(center));
   // Recover gracefully if the saved player is inside a newly placed block.
   while(player.collides(world,player.pose.position) && player.pose.position.y<worldHeight+2) player.pose.position.y+=1;
   Renderer renderer(window.get());
@@ -427,8 +443,9 @@ int run(const Options& options) {
   hud.mapOverview=options.mapOverview;
   if(!options.cityMenu.empty()) {
     hud.menu=Menu::City;
-    hud.cityPage=options.cityMenu=="garage" ? CityPage::Garage : options.cityMenu=="residents" ? CityPage::Residents : options.cityMenu=="properties" ? CityPage::Properties : options.cityMenu=="places" ? CityPage::Places : CityPage::Bank;
+    hud.cityPage=options.cityMenu=="garage" ? CityPage::Garage : options.cityMenu=="residents" ? CityPage::Residents : options.cityMenu=="properties" ? CityPage::Properties : options.cityMenu=="places" ? CityPage::Places : options.cityMenu=="home" ? CityPage::Home : options.cityMenu=="business" ? CityPage::Business : CityPage::Bank;
   }
+  hud.homeSelected=std::max(0,world.cityLife.home);
   if(options.demoEstate || options.demoCastle || options.demoCity || options.demoCoast || options.demoHarbor || options.demoRoad || options.demoCountry || options.demoMetro) hud.help=false;
   hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.demoCity && !options.demoCoast && !options.demoHarbor && !options.smoke);
   ToolSelection tools;
@@ -519,6 +536,21 @@ int run(const Options& options) {
     cancelEdits(); player.velocity={}; capture(menu==Menu::None);
   };
   auto cityAction=[&](CityClick click) {
+    if(click.action==CityAction::SelectHome){hud.homeSelected=click.index;hud.cityMessage.clear();return;}
+    if(click.action==CityAction::SelectBusiness){hud.businessSelected=click.index;hud.cityMessage.clear();return;}
+    if(click.action==CityAction::MoveHousehold || click.action==CityAction::ReturnApartment) {
+      hud.cityMessage=moveCityHousehold(world,player,click.index,click.action==CityAction::ReturnApartment ? -1 : hud.homeSelected);save();return;
+    }
+    if(click.action==CityAction::ParkHome) {
+      auto position=world.farm.car.position;hud.cityMessage=parkHomeCar(world,player,click.index);
+      if(world.farm.car.position!=position)ride.active=false;
+      save();return;
+    }
+    if(click.action==CityAction::BuyRack || click.action==CityAction::BuyPower || click.action==CityAction::BuyCooling) {
+      hud.cityMessage=upgradeDataCenter(world,player,click.index,click.action==CityAction::BuyRack ? ServerUpgrade::Rack : click.action==CityAction::BuyPower ? ServerUpgrade::Power : ServerUpgrade::Cooling);
+      save();return;
+    }
+    if(click.action==CityAction::SignContract){hud.cityMessage=signServerContract(world,hud.businessSelected,click.index);save();return;}
     if(click.action==CityAction::SpendNight) {
       if(auto problem=partnerNightProblem(world,player,click.index)){hud.cityMessage=*problem;return;}
       showMenu(Menu::None);nightPartner=click.index;sleepingBed.reset();sleepRemaining=3.2f;sleepApplied=false;
@@ -540,12 +572,12 @@ int run(const Options& options) {
       return;
     }
     if(click.action==CityAction::Chat || click.action==CityAction::Date || click.action==CityAction::StartFamily || click.action==CityAction::FeedFamily) {
-      if(click.action==CityAction::FeedFamily && world.metroOrigin && glm::length(metroResidentHome(*world.metroOrigin,click.index)-player.pose.position)<4) {
+      if(click.action==CityAction::FeedFamily && world.metroOrigin && glm::length(cityResidentHome(world,click.index)-player.pose.position)<4) {
         auto message=feedCityFamily(world,click.index);showMenu(Menu::None);notice(message);return;
       }
-      if(world.metroOrigin && glm::length(metroResidentHome(*world.metroOrigin,click.index)-player.pose.position)<4)
+      if(world.metroOrigin && glm::length(cityResidentHome(world,click.index)-player.pose.position)<4)
         hud.cityMessage=click.action==CityAction::StartFamily ? startCityFamily(world,click.index) : talkToResident(world,click.index,click.action==CityAction::Date);
-      else hud.cityMessage="Visit her apartment first.";
+      else hud.cityMessage="Visit her home first.";
       return;
     }
     if(click.action==CityAction::None)return;
@@ -559,13 +591,15 @@ int run(const Options& options) {
       case CityAction::Downtown:ok=visitMetropolis(world,player);break;
       case CityAction::Servers:ok=visitDataCenter(world,player,click.index);break;
       case CityAction::Place:ok=visitEstate(world,player,click.index);break;
+      case CityAction::MakeHome:ok=chooseCityHome(world,player,click.index);if(ok)save();break;
+      case CityAction::VisitCabin:ok=visitHome(world,player);break;
       case CityAction::Harbor:ok=visitHarbor(world,player);break;
       default:break;
     }
     if(!ok){hud.cityMessage="The arrival is blocked. Clear some space first.";notice(hud.cityMessage);return;}
     if(!driving){ride.active=false;world.farm.car.speed=0;}
     trackedAnimal.reset();stride=0;showMenu(Menu::None);hud.help=false;
-    notice(driving ? "Drive into the center aisle, then out the wide front entrance / Shift: boost" : click.action==CityAction::VisitResident ? "V: talk / L: city directory" : "L: city directory / V: interact / R: home");
+    notice(driving ? "V: get out / Shift: boost" : click.action==CityAction::MakeHome ? "This is now your home / R: return here / L > Home: move in your family" : click.action==CityAction::VisitResident ? "V: talk / L: city directory" : "L: city directory / V: interact / R: home");
   };
   auto beginNaming=[&] {
     if(hud.naming) return;
@@ -601,8 +635,8 @@ int run(const Options& options) {
   auto changeMode=[&](PlayMode mode) {
     tools.mode=mode; hud.inventoryHover=-1; rememberTool();
   };
-  auto goHome=[&] {
-    if(!visitHome(world,player)) { notice("HOME LANDING IS BLOCKED / CLEAR SOME SPACE"); return; }
+  auto goHome=[&](bool cabin=false) {
+    if(!(cabin ? visitHome(world,player) : visitCityHome(world,player))) { notice("HOME LANDING IS BLOCKED / CLEAR SOME SPACE"); return; }
     ride.active=false; world.farm.car.speed=0;
     trackedAnimal.reset(); hud.farming=false; hud.help=true;
     if(hud.menuOpen()) showMenu(Menu::None);
@@ -676,7 +710,7 @@ int run(const Options& options) {
       showMenu(Menu::None); notice("FOLLOW THE ANIMAL MARKER / R RETURNS TO THE MEADOW");
     } else if(action==FarmAction::Previous && hud.farmPage>0) { --hud.farmPage; hud.animalSelected=hud.farmPage*6; }
     else if(action==FarmAction::Next && (hud.farmPage+1)*6<int(world.farm.chickens.size())) { ++hud.farmPage; hud.animalSelected=hud.farmPage*6; }
-    else if(action==FarmAction::Cabin) goHome();
+    else if(action==FarmAction::Cabin) goHome(true);
   };
   auto makeRecipe=[&](int index) {
     hud.recipeSelected=index;
@@ -752,7 +786,8 @@ int run(const Options& options) {
           else if(city->kind==CityTargetKind::Car)cityAction({CityAction::Drive,city->index});
           else {
             hud.cityMessage.clear();
-            hud.cityPage=city->kind==CityTargetKind::Bank ? CityPage::Bank : CityPage::Residents;
+            hud.cityPage=city->kind==CityTargetKind::Bank ? CityPage::Bank : city->kind==CityTargetKind::DataCenter ? CityPage::Business : CityPage::Residents;
+            if(city->kind==CityTargetKind::DataCenter)hud.businessSelected=city->index;
             if(city->kind==CityTargetKind::Resident)hud.residentSelected=city->index;
             if(city->kind==CityTargetKind::Child)hud.residentSelected=city->index/3;
             showMenu(Menu::City);
@@ -1187,11 +1222,11 @@ int run(const Options& options) {
     int childrenBefore=0;for(const auto& r:world.cityLife.residents)childrenBefore+=cityChildCount(r);
     updateCityFamilies(world);
     int childrenAfter=0;for(const auto& r:world.cityLife.residents)childrenAfter+=cityChildCount(r);
-    if(childrenAfter>childrenBefore)notice("Your baby has arrived! L / Residents / Visit apartment to meet your family.");
+    if(childrenAfter>childrenBefore)notice("Your baby has arrived! L / Residents / Visit to meet your family.");
     hud.cityAvailable=world.metroOrigin.has_value();hud.cityLife=world.cityLife;
     hud.rentPerDay=propertyRentPerDay(world);hud.serverPerDay=serverIncomePerDay(world);
     hud.carName=garageCars()[world.cityLife.activeCar].name;
-    hud.nearResident=world.metroOrigin && glm::length(metroResidentHome(*world.metroOrigin,hud.residentSelected)-player.pose.position)<4;
+    hud.nearResident=world.metroOrigin && glm::length(cityResidentHome(world,hud.residentSelected)-player.pose.position)<4;
     hud.farm=farmView(world);
     hud.flying=player.pose.flying;
     if(hud.menuOpen()) hud.craft=craftView(world,player);

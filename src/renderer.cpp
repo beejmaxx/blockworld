@@ -286,7 +286,7 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
     }
   }
   if(world.metroOrigin && !hud.paused && !hud.menuOpen())for(int i=0;i<residentCount;++i) {
-    auto point=metroResidentHome(*world.metroOrigin,i)+glm::vec3(0,2.1f,0),delta=point-eye;
+    auto point=cityResidentHome(world,i)+glm::vec3(0,2.1f,0),delta=point-eye;
     float distance=glm::length(delta);if(distance>14 || distance<.1f)continue;
     if(auto wall=world.raycast(eye,delta,distance);wall && wall->distance<distance-.1f)continue;
     auto clip=camera.viewProjection*glm::vec4(point,1);if(clip.w<.1f)continue;

@@ -8,6 +8,7 @@
 #include "road.hpp"
 #include "countryside.hpp"
 #include "metropolis.hpp"
+#include "city_life.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -389,7 +390,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 20 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 21 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -430,6 +431,10 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   for(auto r:cityLife.residents){file<<' '<<r.pregnancyDue;for(auto birth:r.children)file<<' '<<birth;}
   for(auto r:cityLife.residents)for(auto fed:r.lastFed)file<<' '<<fed;
   auto estate=estateOrigin.value_or(Cell{});file<<' '<<estateOrigin.has_value()<<' '<<estate.x<<' '<<estate.y<<' '<<estate.z;
+  file<<' '<<cityLife.home;
+  for(auto car:cityLife.homeCars)file<<' '<<car;
+  for(auto r:cityLife.residents)file<<' '<<r.home;
+  for(auto s:cityLife.dataCenters)file<<' '<<s.racks<<' '<<s.power<<' '<<s.cooling<<' '<<s.contracts;
   file<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
@@ -460,7 +465,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   CityLifeState savedLife;
   std::optional<std::uint32_t> savedHarbor;
   std::vector<glm::vec3> savedRoad;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>20) corrupt();
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>21) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -624,7 +629,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     std::uint32_t previousDay=0;
     for(int i=0;i<entries;++i) {
       int kind=0;BankEntry e;
-      if(!(file>>kind>>e.amount>>e.day) || kind<0 || kind>3 || e.amount<=0 || e.amount>bankLimit || e.day<1 || e.day>savedClock.day || e.day<previousDay)corrupt();
+      if(!(file>>kind>>e.amount>>e.day) || kind<0 || kind>(version>=21 ? 4 : 3) || e.amount<=0 || e.amount>bankLimit || e.day<1 || e.day>savedClock.day || e.day<previousDay)corrupt();
       e.kind=BankKind(kind);savedLife.statement.push_back(e);previousDay=e.day;
     }
   }
@@ -645,6 +650,25 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     bool present=false;Cell c{};if(!(file>>present>>c.x>>c.y>>c.z))corrupt();
     if(present) {if(!savedMetro || c.y!=23 || !validCell(c) || std::abs(c.x)>coordinateLimit-estateWidth-32 || std::abs(c.z)>coordinateLimit-estateDepth-32 || c.x<savedMetro->x+metroWidth+32 || c.z!=savedMetro->z)corrupt();savedEstate=c;}
     else if(c!=Cell{})corrupt();
+  }
+  if(version>=21) {
+    auto validHome=[&](int h){return h>=-1 && h<=2 && (h<0 || savedEstate.has_value());};
+    if(!(file>>savedLife.home) || !validHome(savedLife.home))corrupt();
+    std::array<bool,garageSize> parked{};
+    for(auto& car:savedLife.homeCars) {
+      if(!(file>>car) || car<-1 || car>=garageSize || (car>=0 && (!savedEstate || parked[car])))corrupt();
+      if(car>=0)parked[car]=true;
+    }
+    std::array<bool,3> occupied{};
+    for(auto& r:savedLife.residents) {
+      if(!(file>>r.home) || !validHome(r.home) || (r.home>=0 && (!r.dating || occupied[r.home])))corrupt();
+      if(r.home>=0)occupied[r.home]=true;
+    }
+    for(auto& s:savedLife.dataCenters) {
+      if(!(file>>s.racks>>s.power>>s.cooling>>s.contracts) || s.racks<2 || s.racks>16 || s.power<1 || s.power>4
+        || s.cooling<1 || s.cooling>4 || s.contracts<1 || s.contracts>15 || !(s.contracts&1))corrupt();
+      auto r=dataCenterReport(s);if(r.used>s.racks || s.racks>r.capacity)corrupt();
+    }
   }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {

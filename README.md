@@ -6,7 +6,19 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
 
 ![Seabreeze villa, its pool and the downtown skyline](docs/images/estates.png)
 
-**New in 0.21: L → Places** opens three furnished waterfront mansions, your
+**New in 0.22: move in and run your business.** Open **L → Home** to choose your
+main home, move a partner and their children into a mansion, and park your selected
+car outside. **R** returns to your chosen home. **L → Business** lets you buy server
+racks, expand power and cooling, and sign customers. Net profit goes to your bank
+each game day. Your existing bank balance, relationships and construction are preserved.
+
+| Make a mansion your home | Run your data center |
+| :---: | :---: |
+| ![Main home, household and car parking controls](docs/images/home-management.png) | ![Server contracts, capacity, operating costs and daily profit](docs/images/business.png) |
+
+*Actual Metal framebuffer captures from 0.22.0 preview worlds.*
+
+**L → Places** opens three furnished waterfront mansions, your
 walkable yacht, and the airport. The houses have pools, kitchens, bedrooms,
 bathrooms, studies, and stairs to roof gardens. The airport has a terminal,
 runway, control tower and two hangars. Roads connect this district to downtown.
@@ -23,7 +35,7 @@ The yacht is docked and the aircraft are parked; sailing and piloting are not im
 
 ![The new downtown district with 36 walkable towers](docs/images/downtown.png)
 
-**Press L for your city:** bank, 20-car garage, residents, owned properties, and places.
+**Press L for your city:** bank, 20-car garage, residents, properties, places, home, and business.
 **T** visits downtown; **U** visits the bank tower rooftop. Your farm, coast, and
 castle are in the same world, linked by roads.
 
@@ -78,17 +90,19 @@ castle are in the same world, linked by roads.
   courtyard staircase and along the walls to the tower roof, or furnish the hall.
 - **Own downtown:** 36 new towers with furnished apartments and offices,
   stairs to every floor, balconies, and rooftop terraces. Building rent and two
-  data centers pay **2,614 coins per game day** into your bank account.
+  data centers initially pay **2,614 coins per game day** into your bank account.
+  Expand the data centers to increase that income: two extra racks cost 600 coins;
+  the Shop network contract raises one site's daily net profit from 128 to 320.
 - **Bank:** **L → Bank** lets you deposit farm earnings and withdraw spending money.
 - **Garage:** **L → Garage** holds 20 drivable cars across six body styles.
   Click a car to drive out, or walk among the collection. **C** brings your selected car.
 - **City life:** 84 neighbors walk downtown sidewalks. Meet eight adult women
   in their apartments, chat, and optionally date them. Relationships persist independently.
 - **Spend the night:** visit an adult partner and choose **Spend the night**.
-  She agrees, the scene fades to black, and you wake up at the apartment in the
+  She agrees, the scene fades to black, and you wake up at her current home in the
   morning. The day advances crops, rent, and existing pregnancies.
 - **Start a family:** while visiting your girlfriend, choose **Start a family**.
-  A baby arrives in her apartment two game days later. Households can have up to
+  A baby arrives at her current home two game days later. Households can have up to
   three children; pregnancy and children are saved. This is a simple, non-explicit
   family simulation.
 - **Make a home:** each resident's apartment has a coordinated kitchen, dining
@@ -196,7 +210,9 @@ Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, 
 | Pass through walls (noclip) | Ctrl+N or F4; exit in open space |
 | Performance display: FPS, CPU, memory | Ctrl+D or F3 |
 | Mansions, yacht and airport | L → Places |
-| Return home | R |
+| Choose main home, move a family, park a car | L → Home |
+| Server racks, contracts, power and cooling | L → Business |
+| Return to your chosen home | R |
 | Bring your free car nearby / visit the castle | C / K |
 | Start beside the GT2 on the road to the city | Shift+C |
 | Boost while driving / change minimap zoom | Shift / N |

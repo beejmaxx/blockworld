@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 20. Building tests exercise the
+headroom, day rollover, and save compatibility through version 21. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -438,7 +438,42 @@ crossing, rejected unsafe exit, safe saving, descending and frame statistics.
 Use `--demo-estate --estate-view villa|interior|marina|yacht|airport|terminal`
 for captures in a temporary world. Demos never read or write the player's save.
 
-The next design phase should connect the existing farms, adult relationships,
-families, property income and data centers through city-life goals. Current rent
-and server income are fixed daily payments; tenant demand, business management,
-marriage, moving households and a stock market are not implemented.
+## Homes and data center operations (0.22)
+
+`city_management.cpp` connects the three estates to a persisted main-home choice,
+one household and one favorite car per mansion. `cityResidentHome` is shared by
+rendering, targeting, collision, visits, labels, child care and partner nights.
+Household moves keep pregnancies, children and feeding timestamps; blocked arrivals
+and occupied homes are rejected. R and the map follow the chosen home, and the farm
+cabin remains accessible. Nursery props respect their editable table anchors.
+
+Two `DataCenterState` values track racks, power/cooling levels and a contract bitset.
+Each starts with two racks and a 160/day contract, preserving its former 128/day
+net income after 16 electricity and 16 cooling. Electricity costs 8 per installed
+rack; cooling costs 8 per contracted rack. Capacity is four times the lower of
+power and cooling levels. Racks cost 300; power upgrades cost 600 times the current
+level, cooling 450 times the current level. Contracts require 2, 2, 4 and 8 racks,
+paying 160, 224, 512 and 1152 per day. There are sixteen rack bays per site.
+
+Purchases settle pending days before changing state, debit the bank, and regenerate
+only affected loaded chunks. Non-air construction and the player's body block new
+equipment; explicitly cleared cells can receive purchased hardware. Net profit
+uses the existing once-per-day settlement, bounded ledger and saturating balance.
+All managed state saves immediately from menu actions and on ordinary world saves.
+
+Save version 21 appends 20 fields after the estate origin: main home, three parked
+car IDs, eight resident home IDs, and four integers per data center. Loading validates
+house/car uniqueness, relationship prerequisites, capacities and contracts before
+committing any world state. Versions 1–20 get the legacy cabin/apartments and starter
+contracts without changing money, family history or edited blocks.
+
+`city_management_tests` covers moves, care and nights, collision rejection,
+reversible homes, parking and driving to the road, contract capacity, expenses,
+purchase conservation, skipped days, old-save migration and corrupt-load atomicity.
+UI tests cover every new action at 800×600 and 1280×800. Real Metal previews use
+`--demo-household --city-menu home` and `--demo-business --city-menu business`;
+both use disposable worlds and never read or write the player's save.
+
+Tenant demand, resident work schedules, marriage, yacht driving and a stock market
+remain future work. Property rent is still a fixed portfolio income; server profits
+now depend on the player's business decisions.

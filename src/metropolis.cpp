@@ -65,21 +65,26 @@ public:
     fill(x+51,-1,z-8,x+68,-1,z+7,Block::Asphalt);
     fill(x+54,5,z-1,x+64,5,z-1,Block::GoldTile);
   }
-  void dataCenter(int index) {
+  void dataCenter(int index,const DataCenterState& state) {
     int x=(5+index)*64+9,z=4*64+9;
     fill(x,-1,z,x+45,-1,z+45,Block::Concrete);
     fill(x,0,z,x+45,7,z+45,Block::Charcoal);fill(x+1,0,z+1,x+44,6,z+44,Block::Air);
     fill(x+2,2,z,x+43,5,z,Block::BlueGlass);
     fill(x+19,0,z,x+25,3,z,Block::Air);
     fill(x+2,2,z+45,x+43,5,z+45,Block::Glass);
-    for(int xx=5;xx<=35;xx+=10)for(int zz=7;zz<=31;zz+=8) {
+    for(int bay=0;bay<16;++bay) {
+      int xx=5+(bay%4)*10,zz=7+(bay/4)*8;
+      fill(x+xx,-1,z+zz-1,x+xx+3,-1,z+zz+3,Block::BlueTile);
+      if(bay>=state.racks)continue;
       fill(x+xx,0,z+zz,x+xx+3,3,z+zz+3,Block::Charcoal);
       for(int yy=0;yy<4;++yy) {
         fill(x+xx,yy,z+zz-1,x+xx+3,yy,z+zz-1,Block::BlueTile);
         put(x+xx+1,yy,z+zz-1,yy%2 ? Block::Lamp : Block::Sage);
       }
     }
-    for(int xx=4;xx<40;xx+=8) {fill(x+xx,8,z+5,x+xx+4,9,z+11,Block::Concrete);fill(x+xx+1,10,z+6,x+xx+3,10,z+10,Block::Charcoal);}
+    for(int n=0;n<state.cooling;++n) {int xx=4+n*8;fill(x+xx,8,z+5,x+xx+4,9,z+11,Block::Concrete);fill(x+xx+1,10,z+6,x+xx+3,10,z+10,Block::Charcoal);}
+    for(int n=0;n<state.power;++n){fill(x+4+n*5,0,z+42,x+6+n*5,3,z+43,Block::Charcoal);put(x+5+n*5,2,z+41,Block::GoldTile);}
+    fill(x+30,0,z+3,x+33,1,z+3,Block::Charcoal);fill(x+30,2,z+3,x+33,2,z+3,Block::BlueTile);
     for(int zz:{4,20,38})for(int xx:{3,42})put(x+xx,6,z+zz,Block::Lamp);
     fill(x+18,4,z-1,x+26,4,z-1,Block::BlueTile);put(x+22,5,z-1,Block::Lamp);
   }
@@ -238,7 +243,7 @@ void generateMetropolis(Chunk& chunk,const World& w) {
       b.put(x+tower.width-3,y,z+tower.depth-3,Block::Planter);
     }
   }
-  b.park();b.garage();b.dataCenter(0);b.dataCenter(1);
+  b.park();b.garage();b.dataCenter(0,w.cityLife.dataCenters[0]);b.dataCenter(1,w.cityLife.dataCenters[1]);
   // A recognizable ATM/counter inside the bank's tall street-level lobby.
   auto t=towers[3];b.fill(t.x+17,0,t.z+28,t.x+27,0,t.z+28,Block::Limestone);
   b.fill(t.x+20,0,t.z+25,t.x+23,2,t.z+25,Block::Charcoal);
@@ -285,10 +290,13 @@ glm::vec3 garagePosition(Cell o,int car) {
 }
 bool visitGarage(World& w,Player& p) {
   if(!initializeMetropolis(w,p))return false;
-  auto car=parkedCar(w,w.cityLife.activeCar);w.ensure(chunkAt(int(car.position.x),int(car.position.z)),1);
+  // Visiting the downtown garage does not recall a car assigned to a mansion.
+  bool atHome=std::ranges::find(w.cityLife.homeCars,w.cityLife.activeCar)!=w.cityLife.homeCars.end();
+  FarmCar car{true,garagePosition(*w.metroOrigin,w.cityLife.activeCar),w.cityLife.activeCar<10 ? 3.14159265f : 0.f};
+  w.ensure(chunkAt(int(car.position.x),int(car.position.z)),1);
   auto at=car.position+glm::vec3(4,0,w.cityLife.activeCar<10 ? 5 : -5);
   if(!land(w,p,at,car.position+glm::vec3(0,.7f,0)))return false;
-  if(carFits(w,car))w.farm.car=car;
+  if(!atHome && carFits(w,car))w.farm.car=car;
   return true;
 }
 bool visitMetroProperty(World& w,Player& p,int index) {

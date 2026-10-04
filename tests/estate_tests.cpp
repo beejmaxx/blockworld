@@ -79,10 +79,10 @@ int main(int argc,char** argv) {
     int record=16+int(w.farm.chickens.size()+w.farm.crops.size()+w.farm.livestock.size()+w.road.size());
     std::vector<std::string> fields;std::istringstream tokens(lines.at(record));for(std::string value;tokens>>value;)fields.push_back(value);
     auto rewrite=[&](int version,const std::vector<std::string>& values){auto data=lines;data[0]="BLOCKWORLD "+std::to_string(version)+" 7262026 1";data[record].clear();for(auto& v:values)data[record]+=v+" ";std::ofstream out(path);for(auto& line:data)out<<line<<'\n';};
-    auto invalid=fields;invalid[invalid.size()-2]="100";rewrite(20,invalid);
+    auto invalid=fields;invalid[invalid.size()-22]="100";rewrite(21,invalid);
     bool rejected=false;try{saved.load(path);}catch(const std::exception&){rejected=true;}
     check(rejected && saved.estateOrigin==w.estateOrigin && saved.get(edit)==Block::Brick,"bad estate record rejected without changing the live world");
-    auto legacy=fields;legacy.resize(legacy.size()-4);rewrite(19,legacy);
+    auto legacy=fields;legacy.resize(legacy.size()-24);rewrite(19,legacy);
     World old;check(old.load(path).has_value() && !old.estateOrigin && old.editCount()==w.editCount(),"v19 migrates with its edits and no invented estate origin");
     // Older saves upgrade only on free land, even when the first parcel was edited.
     World blocked{7262026,true};Player home;home.pose.position={10.5f,24,7.5f};initializeFarm(blocked);initializeHome(blocked);initializeGarden(blocked);

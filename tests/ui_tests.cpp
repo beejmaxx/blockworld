@@ -129,11 +129,21 @@ int main(int argc,char** argv) {
     hud.cityLife.statement={{BankKind::Rent,2300,999},{BankKind::Servers,256,999}};
     for(auto size:{glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x;hud.height=size.y;float x=size.x*.5f-340,y=size.y*.5f-276;hud.menu=Menu::City;
-      for(int page=0;page<5;++page) {
+      for(int page=0;page<7;++page) {
         hud.cityPage=CityPage(page);hud.cityMessage.clear();ui.build(hud);bounds(ui,size.x,size.y);
-        check(Ui::cityActionAt(hud,x+80+page*128,y+110).action==CityAction::Page,"city tabs have working targets");
+        check(Ui::cityActionAt(hud,x+60+page*91,y+110).action==CityAction::Page,"city tabs have working targets");
         snapshot(ui,hud,"city-"+std::to_string(page)+"-"+std::to_string(size.x)+".ppm");
       }
+      hud.cityPage=CityPage::Home;
+      for(int i=0;i<3;++i){auto c=Ui::cityActionAt(hud,x+100+i*214,y+171);check(c.action==CityAction::SelectHome && c.index==i,"all three mansion selectors work");}
+      check(Ui::cityActionAt(hud,x+100,y+262).action==CityAction::MakeHome,"home destination action is reachable");
+      check(Ui::cityActionAt(hud,x+580,y+225).index==-1,"cabin can be restored as main home");
+      for(int i=0;i<residentCount;++i){auto c=Ui::cityActionAt(hud,x+100+(i%4)*160,y+329+(i/4)*38);check(c.action==CityAction::Resident && c.index==i,"all household choices are reachable");}
+      check(Ui::cityActionAt(hud,x+100,y+419).action==CityAction::MoveHousehold && Ui::cityActionAt(hud,x+500,y+464).action==CityAction::ParkHome,"household and car actions are reachable");
+      hud.cityPage=CityPage::Business;
+      for(int i=0;i<2;++i){auto c=Ui::cityActionAt(hud,x+100+i*214,y+155);check(c.action==CityAction::SelectBusiness && c.index==i,"each data center is independently selectable");}
+      for(int i=0;i<4;++i){auto c=Ui::cityActionAt(hud,x+550,y+361+i*32);check(c.action==CityAction::SignContract && c.index==i,"all contract actions are reachable");}
+      check(Ui::cityActionAt(hud,x+100,y+315).action==CityAction::BuyRack && Ui::cityActionAt(hud,x+300,y+315).action==CityAction::BuyPower && Ui::cityActionAt(hud,x+550,y+315).action==CityAction::BuyCooling,"rack, power and cooling upgrades have separate targets");
       hud.cityPage=CityPage::Places;
       for(int i=0;i<6;++i){auto click=Ui::cityActionAt(hud,x+100+(i%2)*328,y+205+(i/2)*110);check(click.action==CityAction::Place && click.index==i,"every destination selects the correct place");}
       hud.cityPage=CityPage::Garage;

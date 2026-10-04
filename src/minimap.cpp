@@ -90,7 +90,12 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
     map.markers.push_back({{o.x+224.f,o.z+192.f},"Downtown",{.43f,.86f,1}});
     map.markers.push_back({{o.x+380.f,o.z+288.f},"Servers",{.66f,.64f,.98f}});
   }
-  map.markers.push_back({w.terrain.adventure() ? glm::vec2(10.5f,-3.5f) : glm::vec2(w.farm.home.x,w.farm.home.z),"Home",{.98f,.83f,.40f}});
+  auto home=w.terrain.adventure() ? glm::vec2(10.5f,-3.5f) : glm::vec2(w.farm.home.x,w.farm.home.z);
+  if(w.estateOrigin && w.cityLife.home>=0) {
+    map.markers.push_back({home,"Cabin",{.98f,.83f,.40f}});
+    auto at=estatePlaces()[w.cityLife.home].arrival;home={w.estateOrigin->x+at.x,w.estateOrigin->z+at.z};
+  }
+  map.markers.push_back({home,"Home",{.98f,.83f,.40f}});
   if(w.coastOrigin) {auto o=*w.coastOrigin;map.markers.push_back({{o.x+225.f,o.z+354.f},"Waterfront",{.43f,.86f,1.f}});}
   if(w.castleOrigin) {auto o=*w.castleOrigin;map.markers.push_back({{o.x+25.f,o.z+25.f},"Castle",{.81f,.74f,.93f}});}
   if(w.countrysideOrigin) {

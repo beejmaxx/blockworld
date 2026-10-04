@@ -38,6 +38,9 @@ public:
     auto put=[&](int a,int b,int c,Block block){q(a,b,c,a,b,c,block);};
     q(-5,-1,-5,w+5,-1,d+30,Block::Limestone);
     q(23,-1,-28,35,-1,-1,Block::Asphalt);
+    q(3,-1,-28,20,-1,-6,Block::Charcoal);
+    q(3,-1,-28,35,-1,-23,Block::Asphalt);
+    for(int a:{7,14})q(a,-1,-21,a,-1,-10,Block::Limestone);
     q(0,-1,0,w-1,-1,d-1,Block::Planks);
     // A grounded podium, recessed glass and projecting upper volumes.
     q(0,0,0,w-1,4,0,wall);q(0,0,d-1,w-1,4,d-1,Block::Glass);
@@ -99,6 +102,9 @@ public:
     for(int a:{12,18}){put(a,6,8,Block::Table);put(a,7,8,Block::Lamp);}
     q(39,6,32,45,6,32,Block::Table);put(42,7,32,Block::Charcoal);put(42,6,30,Block::Chair);
     q(39,6,20,47,6,20,Block::Sofa);
+    // Nursery with three separate cribs; keep the study and stair hall accessible.
+    for(int a:{39,42,45})q(a,6,36,a+1,6,36,Block::Table);
+    put(48,6,36,Block::Planter);put(48,9,36,Block::Lamp);
     // Roof garden, shaded pergola and outdoor seating.
     q(7,12,1,w+1,12,1,Block::Glass);q(7,12,d+1,w+1,12,d+1,Block::Glass);
     q(7,12,1,7,12,d+1,Block::Glass);q(w+1,12,1,w+1,12,d+1,Block::Glass);
