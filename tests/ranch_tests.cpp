@@ -112,11 +112,11 @@ void persistence() {
   lines[8]="4 999"; { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   bool rejected=false; try { loaded.load(path); } catch(const std::exception&) { rejected=true; }
   check(rejected && loaded.farm.livestock.size()==2 && loaded.farm.milk==4,"invalid ranch saves reject atomically");
-  lines=original; lines[0].replace(0,13,"BLOCKWORLD 10 "); lines.erase(lines.begin()+12,lines.begin()+14);
+  lines=original; lines[0].replace(0,13,"BLOCKWORLD 10 "); lines.erase(lines.begin()+12,lines.begin()+15);
   { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   World previous; check(previous.load(path).has_value() && !previous.castleOrigin && previous.farm.car.owned
     && previous.farm.livestock.size()==2 && previous.editCount()==w.editCount(),"version-ten worlds retain cars, animals, and buildings");
-  lines=original; lines[0].replace(0,13,"BLOCKWORLD 9 "); lines.erase(lines.begin()+8,lines.begin()+14);
+  lines=original; lines[0].replace(0,13,"BLOCKWORLD 9 "); lines.erase(lines.begin()+8,lines.begin()+15);
   { std::ofstream out(path); for(const auto& line : lines) out<<line<<'\n'; }
   World old; check(old.load(path).has_value() && old.farm.livestock.empty() && !old.farm.car.owned && old.editCount()==w.editCount(),"version-nine worlds migrate without changing their existing builds");
 }

@@ -43,6 +43,12 @@ float hash21(float2 p) {
   n=(n^(n>>16))*2246822519u; n^=n>>13;
   return float(n&65535u)/65535.0;
 }
+float waterNoise(float2 p) {
+  float2 cell=floor(p),f=fract(p);
+  f=f*f*(3.0-2.0*f);
+  return mix(mix(hash21(cell),hash21(cell+float2(1,0)),f.x),
+             mix(hash21(cell+float2(0,1)),hash21(cell+1),f.x),f.y);
+}
 float3 blockTexture(int material,float2 uv) {
   float2 p=floor(clamp(uv,0.0,0.9999)*16.0);
   float noise=hash21(p+float2(material*31,material*17));
@@ -149,9 +155,24 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
   float3 base=blockTexture(material,in.uv);
   float3 color=base*in.light*camera.ambient.rgb;
   if(material==66) {
-    float waves=sin(in.world.x*1.8+camera.screen.w*.9)+sin(in.world.z*2.1-camera.screen.w*.7);
-    float sparkle=smoothstep(1.75,1.95,waves)*.13;
-    color=mix(base*camera.ambient.rgb,camera.horizon.rgb,.22)+float3(sparkle);
+    float depth=max(1.0,in.light);
+    float2 waterPosition=in.world.xz;
+    float time=camera.screen.w;
+    float rippleFade=1.0/(1.0+length(fwidth(waterPosition))*.8);
+    float2 wave=(float2(waterNoise(waterPosition*.8+float2(time*.13,0)),
+                             waterNoise(waterPosition*.7+float2(29,-time*.11)))-.5)*.055*rippleFade;
+    wave+=float2(sin(dot(waterPosition,float2(.43,.19))+time*.65),
+                 sin(dot(waterPosition,float2(-.17,.51))-time*.48))*.008;
+    float3 normal=normalize(float3(wave.x,1,wave.y));
+    float3 view=normalize(camera.eye.xyz-in.world);
+    float fresnel=.10+.60*pow(1.0-saturate(dot(normal,view)),4.0);
+    float3 reflection=mix(camera.horizon.rgb,camera.zenith.rgb,.3);
+    float spec=pow(saturate(dot(reflect(-camera.sun.xyz,normal),view)),140.0);
+    float3 water=mix(float3(.23,.62,.61),float3(.035,.15,.25),smoothstep(1.0,10.0,depth));
+    float caustic=pow(saturate(1.0-abs(sin(in.world.x*3.1+wave.x*8)*cos(in.world.z*3.7+wave.y*8))*3.0),8.0);
+    water+=float3(.018,.028,.02)*caustic*(1-smoothstep(2.0,5.0,depth));
+    color=mix(water*camera.ambient.rgb,reflection,fresnel);
+    color+=float3(1.0,.88,.65)*spec*camera.ambient.w*.3;
   }
   if(material==67) color=base*.95;
   if(material==37) color=base*.95;
@@ -175,7 +196,7 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     color=mix(color,float3(1.0,.89,.58),progress*.05);
   }
   float distance=length(in.world.xz-camera.eye.xz);
-  float fog=camera.eye.w>.5 ? smoothstep(78.0,138.0,distance) : smoothstep(52.0,91.0,distance);
+  float fog=camera.eye.w>1.5 ? smoothstep(120.0,205.0,distance) : camera.eye.w>.5 ? smoothstep(78.0,138.0,distance) : smoothstep(52.0,91.0,distance);
   float3 fogColor=camera.horizon.rgb;
   return float4(mix(color,fogColor,fog),1.0);
 }

@@ -4,6 +4,7 @@
 #include "ranch.hpp"
 #include "castle.hpp"
 #include "city.hpp"
+#include "coast.hpp"
 #include <SDL3/SDL_main.h>
 #include <algorithm>
 #include <charconv>
@@ -18,8 +19,8 @@ namespace {
 struct Options {
   int frames=0;
   bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
-  bool city=false,demoCity=false,hideUi=false;
-  std::string cityView="skyline";
+  bool city=false,demoCity=false,coast=false,demoCoast=false,hideUi=false;
+  std::string cityView="skyline",coastView="bay";
   std::optional<double> hour;
   std::filesystem::path screenshot,worldDirectory;
 };
@@ -35,6 +36,13 @@ Options parse(int argc,char** argv) {
     else if(arg=="--mute") result.muted=true;
     else if(arg=="--castle") result.castle=true;
     else if(arg=="--city") result.city=true;
+    else if(arg=="--coast") result.coast=true;
+    else if(arg=="--demo-coast") { result.demoCoast=true; result.save=false; result.paused=false; }
+    else if(arg=="--coast-view") {
+      result.coastView=value();
+      if(result.coastView!="bay" && result.coastView!="beach" && result.coastView!="hills" && result.coastView!="lagoon")
+        throw std::runtime_error("--coast-view requires bay, beach, hills, or lagoon");
+    }
     else if(arg=="--hide-ui") result.hideUi=true;
     else if(arg=="--demo-city") { result.demoCity=true; result.save=false; result.paused=false; }
     else if(arg=="--city-view") {
@@ -71,6 +79,9 @@ Options parse(int argc,char** argv) {
         <<"  --city                 Visit the waterfront city in your saved world\n"
         <<"  --demo-city            Preview a temporary city without touching saves\n"
         <<"  --city-view VIEW       Preview camera: skyline, street, roof, interior\n"
+        <<"  --coast                Visit the new coastal landscape in your saved world\n"
+        <<"  --demo-coast           Preview coastal terrain without touching saves\n"
+        <<"  --coast-view VIEW      Preview camera: bay, beach, hills, lagoon\n"
         <<"  --hide-ui              Hide overlays for clean game screenshots\n"
         <<"  --time HOURS           Set the starting time (0 to less than 24)\n"
         <<"  --mute                 Start with sound muted (M toggles sound)\n"
@@ -111,7 +122,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.12.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.13.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -208,6 +219,21 @@ int run(const Options& options) {
     center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z)));
     world.ensure(center,viewRadius);
   }
+  if(options.coast || options.demoCoast) {
+    if(!visitCoast(world,player)) throw std::runtime_error("Coast needs an untouched parcel and an open arrival");
+    if(options.demoCoast) {
+      auto o=*world.coastOrigin;
+      glm::vec3 at{226,54,248},target{143,24,180};
+      if(options.coastView=="beach") { at={157,20,170}; target={184,18,226}; }
+      if(options.coastView=="hills") { at={195,63,203}; target={115,35,106}; }
+      if(options.coastView=="lagoon") { at={278,53,158}; target={232,18,107}; }
+      player.pose.position=glm::vec3(o.x,0,o.z)+at;
+      auto d=glm::normalize(glm::vec3(o.x,0,o.z)+target-player.eye());
+      player.pose.yaw=std::atan2(d.x,-d.z); player.pose.pitch=std::asin(d.y); player.pose.flying=true;
+    }
+    center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z)));
+    world.ensure(center,world.streamingRadius(center));
+  }
   // Recover gracefully if the saved player is inside a newly placed block.
   while(player.collides(world,player.pose.position) && player.pose.position.y<worldHeight+2) player.pose.position.y+=1;
   Renderer renderer(window.get());
@@ -216,8 +242,8 @@ int run(const Options& options) {
   ChunkWorker worker(world.terrain); worker.request(center,world);
   HudState hud; hud.paused=options.paused; hud.muted=options.muted;
   hud.hidden=options.hideUi;
-  if(options.demoCastle || options.demoCity) hud.help=false;
-  hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.demoCity && !options.smoke);
+  if(options.demoCastle || options.demoCity || options.demoCoast) hud.help=false;
+  hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.demoCity && !options.demoCoast && !options.smoke);
   ToolSelection tools;
   tools.choose(world.inventory.held(),world.crafting);
   if(tools.mode==PlayMode::Remove) tools.mode=PlayMode::Farm; // Do not resume holding a demolition tool.
@@ -694,6 +720,13 @@ int run(const Options& options) {
             notice("Waterfront city / Explore the apartments and rooftops / C brings your car");
           } else notice("City entrance blocked, or no untouched site available");
         }
+        if(key==SDL_SCANCODE_J && sleepRemaining<=0) {
+          if(visitCoast(world,player)) {
+            ride.active=false; world.farm.car.speed=0; trackedAnimal.reset();
+            showMenu(Menu::None); hud.help=true; stride=0;
+            notice("Coastal landscape / Explore the bay / Tab: fly / R: home");
+          } else notice("Coast arrival blocked, or no untouched site available");
+        }
         if(hud.menu==Menu::Farm) {
           if(!hud.farmGarden && !hud.farmShop && (key==SDL_SCANCODE_UP || key==SDL_SCANCODE_DOWN) && !world.farm.chickens.empty()) {
             hud.animalSelected=std::clamp(hud.animalSelected+(key==SDL_SCANCODE_UP ? -1 : 1),0,int(world.farm.chickens.size())-1);
@@ -762,7 +795,7 @@ int run(const Options& options) {
     world.ensure(center,1); // Collision never depends on an unfinished background job.
     worker.collect(world,center);
     if(!previousCenter || *previousCenter!=center) {
-      world.evict(center,viewRadius+2); worker.request(center,world); previousCenter=center;
+      world.evict(center,world.streamingRadius(center)+2); worker.request(center,world); previousCenter=center;
     }
     if(hud.paused || hud.menuOpen() || sleepRemaining>0) cancelEdits();
     if(!hud.paused && !hud.menuOpen()) debris.tick(dt);
@@ -878,6 +911,10 @@ int run(const Options& options) {
     if(atCity(world,player)) {
       hud.guide={}; hud.guide.enabled=true; hud.guide.landmark=true; hud.guide.title="WATERFRONT CITY";
       hud.guide.lines={"Walk inside any apartment building.","Left-hand stairs reach the rooftop.","C: car    R: home    Tab: fly"};
+    }
+    if(atCoast(world,player)) {
+      hud.guide={}; hud.guide.enabled=true; hud.guide.landmark=true; hud.guide.title="THE COAST";
+      hud.guide.lines={"Bays, beaches, an island and wooded hills.","Follow the coastal road to the lagoon.","Tab: fly    Space / Shift: up / down    R: home"};
     }
     if(ride.active) hud.guide.enabled=false;
     if(trackedAnimal && *trackedAnimal<world.farm.chickens.size()) {

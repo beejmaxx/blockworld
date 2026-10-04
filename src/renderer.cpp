@@ -2,6 +2,7 @@
 #include "ui_font.hpp"
 #include "ranch.hpp"
 #include "city.hpp"
+#include "coast.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
@@ -224,9 +225,9 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   targets(w,h);
   Camera camera{};
   auto eye=player.eye(),forward=player.direction(),right=glm::normalize(glm::cross(forward,glm::vec3(0,1,0))),up=glm::cross(right,forward);
-  bool city=atCity(world,player);
-  camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
-  camera.eye=glm::vec4(eye,city ? 1.f : 0.f); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);
+  bool city=atCity(world,player),coast=atCoast(world,player);
+  camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,coast ? 260.f : city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
+  camera.eye=glm::vec4(eye,coast ? 2.f : city ? 1.f : 0.f); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);
   camera.screen={float(w),float(h),std::tan(glm::radians(73.f)*.5f),time};
   auto sky=hud.clock.sky();
   if(world.farm.garden.raining()) {

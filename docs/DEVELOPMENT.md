@@ -70,7 +70,7 @@ See [Clang's language status](https://clang.llvm.org/cxx_status.html).
 
 The first renderer supplies Metal shaders only. SDL's GPU abstraction can support
 other backends, but Windows/Linux shader builds are future work. The world is
-64 blocks tall and bounded to ±100,000 in X/Z. There are no hostile mobs, rivers or water simulation,
+64 blocks tall and bounded to ±100,000 in X/Z. There are no hostile mobs, flowing-water simulation,
 survival systems, or multiplayer yet.
 Glass currently uses clear cutouts with visible frames and pale streaks; it does
 not refract the scene. Torch light uses the nearest eight lights without shadow
@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and all eleven save formats. Building tests exercise the
+headroom, day rollover, and save compatibility through version 13. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -197,3 +197,30 @@ penthouse bed, drive the street loop, swim out of the lake, and check edit
 persistence, legacy saves, and parcel protection. `--city` visits the saved city;
 `--demo-city` uses a disposable world. Its `--city-view` can be `skyline`, `street`,
 `roof`, or `interior`. `--hide-ui` omits overlays from real framebuffer captures.
+
+
+`coast.*` generates a protected 384 × 384 landscape before player edits. Connected
+coves, a lagoon and tidal channel use a warped shoreline field; the road grades
+only a corridor beside it. Hills, sand shelves, an island, tree crowns and the
+swimming pier are deterministic across chunks. The outer terrain blends into the
+original world. A saved origin avoids hundreds of thousands of saved block edits.
+The existing city and farm terrain retain their original generation.
+
+`--coast` visits the saved region; `--demo-coast` is disposable. Use `--coast-view
+bay|beach|hills|lagoon` with the demo. For example:
+
+```sh
+./build/blockworld.app/Contents/MacOS/blockworld --demo-coast --coast-view hills --time 16 --frames 120 --hide-ui --screenshot artifacts/coast.bmp --mute
+```
+
+The coast streams a radius of 12 chunks, versus 6 elsewhere. Water vertices carry
+column depth in their otherwise unused light attribute; the shader blends shallow
+and deep colors, a sky tint, ripples, and a sun highlight. This is a surface shading
+approximation, not reflection of buildings or transparent refraction. No extra
+render pass or ray tracing is required.
+
+Coastal tests cover connected, level roads; gradual terrain joins; island/lagoon
+geometry; a complete walk/swim/pier return; car delivery, mounting and driving;
+parcel protection; edited blocks after streaming; compact saves; v12 migration;
+and atomic rejection of malformed or overlapping region metadata. Actual Metal
+captures are verified separately. The new city's buildings remain future work.

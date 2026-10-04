@@ -26,9 +26,17 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   cave, watch the sunset, and sleep until morning.
 - **Your castle:** press **K** to visit a four-tower stone castle. Walk up the
   courtyard staircase and along the walls to the tower roof, or furnish the hall.
+- **Coastal landscape:** press **J** to explore curved coves, a wooded island,
+  a lagoon, hills, beaches, and a drivable shoreline road. Walk down the pier
+  into the water, or fly over the landscape. This is the terrain foundation for
+  the next city; its buildings are still being designed.
 - **Waterfront city:** press **T** to visit twelve apartment buildings around a
   lake. Drive the broad streets, cross the garden bridge, and climb the stairs to
   furnished penthouses, rooftop pools, and planted terraces. Every building is editable.
+
+![Wooded coastal hills, coves, and stepped beaches](docs/images/coast.png)
+
+*Actual Metal framebuffer capture of the coastal terrain in version 0.13.0.*
 
 ![The waterfront city's apartments, rooftop terraces, and lake](docs/images/city.png)
 
@@ -97,7 +105,7 @@ The numbered bar in Build lets you select materials directly with **1–9**; no 
 | Fly up / down | Space / Shift |
 | Return home | R |
 | Bring your free car nearby / visit the castle | C / K |
-| Visit the waterfront city | T |
+| Visit the waterfront city / coastal landscape | T / J |
 | Pause and release the mouse | Esc |
 | Mute / unmute | M |
 

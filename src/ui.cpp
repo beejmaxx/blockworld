@@ -762,7 +762,7 @@ void Ui::build(const HudState& h) {
   }
   if(h.help && !h.paused) {
     label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
-    label("T: city    C: car    K: castle    R: home    H: hide help",24,height-194,14,muted);
+    label("J: coast    T: city    C: car    K: castle    R: home    H: help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -788,7 +788,7 @@ void Ui::build(const HudState& h) {
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
-    labelCentered("T: city     C: car     K: castle",cx,top+421,17,accent);
+    labelCentered("J: coast     T: city     C: car     K: castle",cx,top+421,17,accent);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

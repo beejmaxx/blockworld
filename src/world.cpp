@@ -2,6 +2,7 @@
 #include "inventory.hpp"
 #include "farm.hpp"
 #include "city.hpp"
+#include "coast.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -298,6 +299,7 @@ void World::growCrops(float seconds) {
 void World::insert(Chunk chunk) {
   const auto p = chunk.pos;
   if(cityOrigin) generateCity(chunk,*cityOrigin);
+  if(coastOrigin) generateCoast(chunk,terrain,*coastOrigin);
   for (const auto& [cell, block] : edits_) if (chunkAt(cell.x,cell.z) == p)
     chunk.set(localCoord(cell.x),cell.y,localCoord(cell.z),block);
   chunks.insert_or_assign(p, std::move(chunk));
@@ -312,6 +314,9 @@ bool World::editedIn(Cell minimum,Cell maximum) const {
 void World::ensure(ChunkPos p, int radius) {
   for (int z = p.z-radius; z <= p.z+radius; ++z) for (int x = p.x-radius; x <= p.x+radius; ++x)
     if (!chunks.contains({x,z})) insert(terrain.generate({x,z}));
+}
+int World::streamingRadius(ChunkPos center) const {
+  return coastOrigin && coastContains(*coastOrigin,float(center.x*chunkSize),float(center.z*chunkSize),32) ? coastViewRadius : viewRadius;
 }
 void World::evict(ChunkPos center, int radius) {
   std::erase_if(chunks, [&](const auto& pair) {
@@ -361,7 +366,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 12 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 13 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -387,6 +392,8 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   file<<castleOrigin.has_value()<<' '<<castle.x<<' '<<castle.y<<' '<<castle.z<<'\n';
   const auto city=cityOrigin.value_or(Cell{});
   file<<cityOrigin.has_value()<<' '<<city.x<<' '<<city.y<<' '<<city.z<<'\n';
+  const auto coast=coastOrigin.value_or(Cell{});
+  file<<coastOrigin.has_value()<<' '<<coast.x<<' '<<coast.y<<' '<<coast.z<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -412,8 +419,8 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   WorldClock savedClock;
   CraftState savedCrafting;
   FarmState savedFarm;
-  std::optional<Cell> savedCastle,savedCity;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>12) corrupt();
+  std::optional<Cell> savedCastle,savedCity,savedCoast;
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>13) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -519,6 +526,19 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       savedCity=c;
     } else if(c!=Cell{}) corrupt();
   }
+  if(version>=13) {
+    bool present=false; Cell c;
+    if(!(file>>present>>c.x>>c.y>>c.z)) corrupt();
+    if(present) {
+      if(!validCell(c) || c.x%chunkSize!=0 || c.z%chunkSize!=0 || c.y!=coastSeaLevel
+          || std::abs(c.x)>coordinateLimit-coastSize || std::abs(c.z)>coordinateLimit-coastSize) corrupt();
+      if(savedCity && c.x<savedCity->x+citySize && c.x+coastSize>savedCity->x
+          && c.z<savedCity->z+citySize && c.z+coastSize>savedCity->z) corrupt();
+      if(savedCastle && c.x<savedCastle->x+50 && c.x+coastSize>savedCastle->x
+          && c.z<savedCastle->z+50 && c.z+coastSize>savedCastle->z) corrupt();
+      savedCoast=c;
+    } else if(c!=Cell{}) corrupt();
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
@@ -553,7 +573,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   file >> std::ws;
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
-  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; edits_ = std::move(edits); chunks.clear();
+  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -580,7 +600,8 @@ void ChunkWorker::request(ChunkPos center, const World& world) {
   for (auto p : pending_) requested_.erase(p);
   pending_.clear();
   std::vector<ChunkPos> wanted;
-  for (int z=-viewRadius;z<=viewRadius;++z) for (int x=-viewRadius;x<=viewRadius;++x) {
+  int radius=world.streamingRadius(center);
+  for (int z=-radius;z<=radius;++z) for (int x=-radius;x<=radius;++x) {
     ChunkPos p{center.x+x,center.z+z};
     if (!world.chunks.contains(p) && !requested_.contains(p)) wanted.push_back(p);
   }
@@ -596,7 +617,8 @@ void ChunkWorker::collect(World& world, ChunkPos center) {
   { std::lock_guard lock(mutex_); completed.swap(completed_);
     for (const auto& c : completed) requested_.erase(c.pos);
   }
-  for (auto& c : completed) if (std::abs(c.pos.x-center.x)<=viewRadius+1 && std::abs(c.pos.z-center.z)<=viewRadius+1
+  int radius=world.streamingRadius(center);
+  for (auto& c : completed) if (std::abs(c.pos.x-center.x)<=radius+1 && std::abs(c.pos.z-center.z)<=radius+1
     && !world.chunks.contains(c.pos)) world.insert(std::move(c));
 }
 
@@ -642,13 +664,19 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
     auto city=world.cityOrigin;
     bool inCity=city && wx>=city->x && wx<city->x+citySize && wz>=city->z && wz<city->z+citySize;
     // The city is graded below some original hills; its streets aren't caves.
-    surface[z*chunkSize+x]=inCity ? city->y-1 : world.terrain.height(wx,wz);
+    surface[z*chunkSize+x]=world.coastOrigin && coastContains(*world.coastOrigin,float(wx),float(wz))
+      ? coastColumn(world.terrain,*world.coastOrigin,wx,wz).ground : inCity ? city->y-1 : world.terrain.height(wx,wz);
   }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {
     Block block = chunk.get(x,y,z);
     if (!solid(block)) continue;
     Cell c{chunk.pos.x*chunkSize+x,y,chunk.pos.z*chunkSize+z};
     float daylight=y<surface[z*chunkSize+x]-2 ? .20f : 1.f;
+    if(block==Block::Water) {
+      int floor=y-1;
+      while(floor>0 && world.get({c.x,floor,c.z})==Block::Water) --floor;
+      daylight=float(y-floor);
+    }
     if(block==Block::StoneSlab) {
       auto first=vertices.size();
       appendBox(vertices,blockBounds(c,block),c,3,daylight);

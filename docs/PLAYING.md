@@ -308,6 +308,7 @@ silently if none is available. No microphone access is used.
 | C | Bring your free car nearby; while driving, move it to clear ground |
 | K | Visit your castle |
 | T | Visit the waterfront city |
+| J | Visit the coastal landscape |
 | H | Toggle the guide and movement hints |
 | M | Mute / unmute sound |
 | F5 | Save |
@@ -334,10 +335,25 @@ water, and lantern blocks. The first nine number-key choices are unchanged.
 Place and remove city blocks using the usual controls; your changes stay saved.
 The city uses an untouched parcel and leaves your farm and castle in place.
 
+## Coastal landscape
+
+Press **J** to visit the new terrain region. It has connected coves, a lagoon,
+a wooded island, sandy shelves, rocky hilltops, and a coastal driving loop.
+**C** brings your car. Follow the road, or use **Tab** to fly; **Space** climbs
+and **Shift** descends. **R** returns home and **T** visits the original city.
+The pier on the northern bay has half-height steps all the way into the water,
+so you can swim out and walk back up without jumping.
+
+The coast is the foundation for the next city. New landmarks and penthouses are
+not placed yet. It occupies an untouched 384 × 384 region, preserves your farm,
+castle, and existing city, and keeps any blocks you add or remove. Water is deeper
+and darker away from the sand shelves; its surface has animated sun highlights.
+There are no water currents or flowing-water simulation.
+
 ## Saved worlds
 
 World edits, named animals and families, crop types, watering and compost, produce and eggs,
-garden coins and supplies, cows, horses, sheep, foxes, milk, the parked car, castle, city, weather, seed, day/time, crafting supplies,
+garden coins and supplies, cows, horses, sheep, foxes, milk, the parked car, castle, city, coastal region, weather, seed, day/time, crafting supplies,
 unlocked tools, the selected farm/build item, tutorial milestones, and player position
 save every 30 seconds of play, after sleeping, and on exit to
 `~/Library/Application Support/Bijan/Blockworld/meadow.bw`. F5 saves immediately.
@@ -346,7 +362,7 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–12. Version 12 adds the city location and
+to open it. The loader accepts versions 1–13. Version 13 adds the coastal landscape location. Version 12 adds the city location and
 city materials. Version 11 adds the castle location and stone steps. Earlier terrain, edits, tutorial
 progress, clocks, crafting, and farm data are retained. Worlds from before the
 shared inventory receive a starter hotbar containing owned tools; version 6's

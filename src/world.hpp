@@ -140,6 +140,7 @@ public:
   FarmState farm;
   std::optional<Cell> castleOrigin;
   std::optional<Cell> cityOrigin;
+  std::optional<Cell> coastOrigin;
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;
   bool set(Cell cell, Block block);
@@ -151,6 +152,7 @@ public:
   void insert(Chunk chunk);
   void ensure(ChunkPos center, int radius);
   void evict(ChunkPos center, int radius);
+  int streamingRadius(ChunkPos center) const;
   std::optional<RayHit> raycast(glm::vec3 origin, glm::vec3 direction, float reach = 7.f) const;
   void save(const std::filesystem::path& path, const PlayerPose& player) const;
   std::optional<PlayerPose> load(const std::filesystem::path& path);
