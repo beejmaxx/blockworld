@@ -1,4 +1,5 @@
 #include "renderer.hpp"
+#include "estate.hpp"
 #include "audio.hpp"
 #include "garden.hpp"
 #include "ranch.hpp"
@@ -25,6 +26,8 @@ struct Options {
   bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
   bool city=false,demoCity=false,coast=false,demoCoast=false,harbor=false,demoHarbor=false,hideUi=false;
   bool road=false,demoRoad=false,demoBoost=false,country=false,demoCountry=false,mapOverview=false;
+  bool debug=false,noclip=false,demoEstate=false;
+  int estate=-1;std::string estateView="villa";
   bool downtown=false,garage=false,bank=false,demoMetro=false,demoFamily=false,demoPopulation=false,demoFeeding=false,demoHome=false,demoNight=false;
   std::string metroView="skyline",cityMenu;
   std::string roadView="car";
@@ -41,6 +44,16 @@ Options parse(int argc,char** argv) {
     else if(arg=="--no-save") result.save=false;
     else if(arg=="--play") result.paused=false;
     else if(arg=="--classic") result.classic=true;
+    else if(arg=="--estate")result.estate=0;
+    else if(arg=="--airport")result.estate=4;
+    else if(arg=="--yacht")result.estate=3;
+    else if(arg=="--demo-estate") {result.demoEstate=true;result.save=false;result.paused=false;result.estate=0;}
+    else if(arg=="--estate-view") {
+      result.estateView=value();
+      if(result.estateView!="villa" && result.estateView!="interior" && result.estateView!="marina" && result.estateView!="yacht" && result.estateView!="airport" && result.estateView!="terminal")throw std::runtime_error("Unknown estate view");
+    }
+    else if(arg=="--debug") result.debug=true;
+    else if(arg=="--noclip") result.noclip=true;
     else if(arg=="--mute") result.muted=true;
     else if(arg=="--castle") result.castle=true;
     else if(arg=="--demo-night") {result.demoNight=true;result.demoMetro=true;result.metroView="apartment";result.save=false;result.paused=false;}
@@ -60,7 +73,7 @@ Options parse(int argc,char** argv) {
     }
     else if(arg=="--city-menu") {
       result.cityMenu=value();
-      if(result.cityMenu!="bank" && result.cityMenu!="garage" && result.cityMenu!="residents" && result.cityMenu!="properties")throw std::runtime_error("Unknown city menu page");
+      if(result.cityMenu!="bank" && result.cityMenu!="garage" && result.cityMenu!="residents" && result.cityMenu!="properties" && result.cityMenu!="places")throw std::runtime_error("Unknown city menu page");
     }
     else if(arg=="--road") result.road=true;
     else if(arg=="--demo-road") { result.demoRoad=true; result.save=false; result.paused=false; }
@@ -114,6 +127,9 @@ Options parse(int argc,char** argv) {
       std::cout<<"Blockworld\n  --play                 Start without the controls overlay\n"
         <<"  --frames N             Exit after N frames\n  --screenshot FILE.bmp  Capture the last frame (requires --frames)\n"
         <<"  --smoke-test           Exercise Metal, edits and resize without touching saves\n"
+        <<"  --estate / --yacht / --airport  Visit the waterfront estates and airport\n"
+        <<"  --demo-estate --estate-view VIEW  Temporary villa, interior, marina, yacht, airport, terminal\n"
+        <<"  --debug / --noclip     Performance overlay / fly through walls\n"
         <<"  --classic              Open the original sandbox and world.bw save\n"
         <<"  --demo-cabin           Preview a finished cabin in a temporary world\n"
         <<"  --demo-cave            Preview the lantern cave in a temporary world\n"
@@ -128,7 +144,7 @@ Options parse(int argc,char** argv) {
         <<"  --demo-feeding / --demo-home  Preview feeding or the decorated apartment\n"
         <<"  --demo-night           Preview an adult date and morning transition without saves\n"
         <<"  --metro-view VIEW      skyline, street, roof, garage, collection, bank, apartment, servers\n"
-        <<"  --city-menu PAGE       bank, garage, residents, properties\n"
+        <<"  --city-menu PAGE       bank, garage, residents, properties, places\n"
         <<"  --road                 Start beside your GT2 at the home end of the city road\n"
         <<"  --demo-road            Preview the GT2 and highway without touching saves\n"
         <<"  --demo-boost           Preview Shift boost driving without touching saves\n"
@@ -185,7 +201,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.20.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.21.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -317,6 +333,7 @@ int run(const Options& options) {
     if(!initializeRoad(world,player)) std::cerr<<"No clear road route found; existing construction was preserved.\n";
     if(!initializeCountryside(world,player)) std::cerr<<"No clear countryside parcel found; existing construction was preserved.\n";
     if(!initializeMetropolis(world,player)) std::cerr<<"No clear downtown parcel found; existing construction was preserved.\n";
+    if(!initializeEstate(world,player))std::cerr<<"No clear estate parcel found; existing construction was preserved.\n";
   }
   if(options.country || options.demoCountry) {
     if(!initializeCountryside(world,player))throw std::runtime_error("Countryside needs a clear parcel near the highway");
@@ -383,6 +400,20 @@ int run(const Options& options) {
     center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z)));
     world.ensure(center,world.streamingRadius(center));
   }
+  if(options.estate>=0) {
+    if(!visitEstate(world,player,options.estate))throw std::runtime_error("Estate arrival needs clear ground");
+    if(options.demoEstate) {
+      auto o=*world.estateOrigin;glm::vec3 at{116,35,305},target{60,6,245};
+      if(options.estateView=="interior"){at={57,0,231};target={44,1,250};}
+      if(options.estateView=="marina"){at={415,37,399};target={370,4,349};}
+      if(options.estateView=="yacht"){at={376,5,364};target={370,7,342};}
+      if(options.estateView=="airport"){at={377,100,236};target={321,0,87};}
+      if(options.estateView=="terminal"){at={300,0,154};target={329,1,130};}
+      player.pose.position=glm::vec3(o.x,o.y,o.z)+at;
+      auto d=glm::normalize(glm::vec3(o.x,o.y,o.z)+target-player.eye());player.pose.yaw=std::atan2(d.x,-d.z);player.pose.pitch=std::asin(d.y);player.pose.flying=true;
+    }
+    center=chunkAt(int(player.pose.position.x),int(player.pose.position.z));world.ensure(center,world.streamingRadius(center));
+  }
   // Recover gracefully if the saved player is inside a newly placed block.
   while(player.collides(world,player.pose.position) && player.pose.position.y<worldHeight+2) player.pose.position.y+=1;
   Renderer renderer(window.get());
@@ -390,13 +421,15 @@ int run(const Options& options) {
   renderer.sync(world,center,1000);
   ChunkWorker worker(world.terrain); worker.request(center,world);
   HudState hud; hud.paused=options.paused; hud.muted=options.muted;
-  hud.hidden=options.hideUi;
+  hud.hidden=options.hideUi;hud.debug=options.debug;
+  Diagnostics diagnostics;
+  if(options.noclip)player.toggleNoclip(world);
   hud.mapOverview=options.mapOverview;
   if(!options.cityMenu.empty()) {
     hud.menu=Menu::City;
-    hud.cityPage=options.cityMenu=="garage" ? CityPage::Garage : options.cityMenu=="residents" ? CityPage::Residents : options.cityMenu=="properties" ? CityPage::Properties : CityPage::Bank;
+    hud.cityPage=options.cityMenu=="garage" ? CityPage::Garage : options.cityMenu=="residents" ? CityPage::Residents : options.cityMenu=="properties" ? CityPage::Properties : options.cityMenu=="places" ? CityPage::Places : CityPage::Bank;
   }
-  if(options.demoCastle || options.demoCity || options.demoCoast || options.demoHarbor || options.demoRoad || options.demoCountry || options.demoMetro) hud.help=false;
+  if(options.demoEstate || options.demoCastle || options.demoCity || options.demoCoast || options.demoHarbor || options.demoRoad || options.demoCountry || options.demoMetro) hud.help=false;
   hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.demoCity && !options.demoCoast && !options.demoHarbor && !options.smoke);
   ToolSelection tools;
   tools.choose(world.inventory.held(),world.crafting);
@@ -444,7 +477,7 @@ int run(const Options& options) {
   };
   auto save=[&] {
     if(!options.save) return;
-    try { collectCityIncome(world); updateCityFamilies(world); world.save(savePath,player.pose); notice("WORLD SAVED"); }
+    try { collectCityIncome(world); updateCityFamilies(world); world.save(savePath,player.savePose(world)); notice("WORLD SAVED"); }
     catch(const std::exception& error) { std::cerr<<error.what()<<'\n'; notice("SAVE FAILED - SEE LOG"); }
     saveTime=0;
   };
@@ -525,6 +558,7 @@ int run(const Options& options) {
       case CityAction::Bank:ok=visitBank(world,player);break;
       case CityAction::Downtown:ok=visitMetropolis(world,player);break;
       case CityAction::Servers:ok=visitDataCenter(world,player,click.index);break;
+      case CityAction::Place:ok=visitEstate(world,player,click.index);break;
       case CityAction::Harbor:ok=visitHarbor(world,player);break;
       default:break;
     }
@@ -919,7 +953,13 @@ int run(const Options& options) {
         if(key==SDL_SCANCODE_F11) SDL_SetWindowFullscreen(window.get(),!(SDL_GetWindowFlags(window.get())&SDL_WINDOW_FULLSCREEN));
         if(key==SDL_SCANCODE_F5) save();
         if(key==SDL_SCANCODE_M) { hud.muted=!hud.muted; notice(hud.muted ? "SOUND OFF / M TO UNMUTE" : "SOUND ON"); }
-        if(key==SDL_SCANCODE_N && !hud.menuOpen()) hud.mapOverview=!hud.mapOverview;
+        if(key==SDL_SCANCODE_F3 || (key==SDL_SCANCODE_D && (event.key.mod&SDL_KMOD_CTRL)))hud.debug=!hud.debug;
+        if((key==SDL_SCANCODE_F4 || (key==SDL_SCANCODE_N && (event.key.mod&SDL_KMOD_CTRL))) && !hud.menuOpen() && sleepRemaining<=0) {
+          if(ride.active)notice("Exit your vehicle with V before using noclip");
+          else if(!player.toggleNoclip(world))notice("Move into open space before turning noclip off");
+          else {cancelEdits();notice(player.noclip() ? "Noclip on / Pass through walls / Space up / Shift down / Ctrl+N off" : "Noclip off / Normal flight / Tab to walk");}
+        }
+        if(key==SDL_SCANCODE_N && !(event.key.mod&SDL_KMOD_CTRL) && !hud.menuOpen()) hud.mapOverview=!hud.mapOverview;
         if(key==SDL_SCANCODE_E && sleepRemaining<=0) showMenu(hud.menuOpen() ? Menu::None : Menu::Inventory);
         if(key==SDL_SCANCODE_L && sleepRemaining<=0)showMenu(hud.menu==Menu::City ? Menu::None : Menu::City);
         if(key==SDL_SCANCODE_P && sleepRemaining<=0) {
@@ -990,11 +1030,12 @@ int run(const Options& options) {
           if(key==SDL_SCANCODE_V && interactive) pressPlace(keyEditSource);
           if(key>=SDL_SCANCODE_1 && key<=SDL_SCANCODE_9 && tools.select(int(key-SDL_SCANCODE_1),world.crafting)) rememberTool();
           if(key==SDL_SCANCODE_H) hud.help=!hud.help;
-          if(key==SDL_SCANCODE_TAB && (!ride.active || leaveRide(world,player,ride))) {
+          if(key==SDL_SCANCODE_TAB && player.noclip())notice("Ctrl+N turns noclip off in open space");
+          if(key==SDL_SCANCODE_TAB && !player.noclip() && (!ride.active || leaveRide(world,player,ride))) {
             player.toggleFlying(); jump=false; cancelEdits();
             notice(player.pose.flying ? "FLIGHT ON / SPACE UP / SHIFT DOWN" : "FLIGHT OFF / BACK TO WALKING");
           }
-          if(key==SDL_SCANCODE_SPACE && !ride.active) {
+          if(key==SDL_SCANCODE_SPACE && !ride.active && !player.noclip()) {
             double pressedAt=double(SDL_GetTicks())*.001;
             if(lastJumpPress>=0 && pressedAt-lastJumpPress<=.3) {
               player.toggleFlying(); jump=false; lastJumpPress=-1;
@@ -1204,6 +1245,10 @@ int run(const Options& options) {
       hud.guide={};hud.guide.enabled=true;hud.guide.landmark=true;hud.guide.title="DOWNTOWN";
       hud.guide.lines={"L: bank, garage, residents and properties", "You own these towers. Rent is paid every day.", "Enter any lobby. Stairs lead to the rooftop."};
     }
+    if(world.estateOrigin && estateContains(*world.estateOrigin,player.pose.position.x,player.pose.position.z)) {
+      hud.guide={};hud.guide.enabled=true;hud.guide.landmark=true;hud.guide.title=player.pose.position.z<world.estateOrigin->z+184 ? "CITY AIRPORT" : "WATERFRONT ESTATES";
+      hud.guide.lines={"L > Places: homes, yacht, airport", "Walk inside; stairs reach upper floors.", "C: car / Ctrl+N: pass through walls"};
+    }
     if(ride.active) hud.guide.enabled=false;
     if(trackedAnimal && *trackedAnimal<world.farm.chickens.size()) {
       const auto& c=world.farm.chickens[*trackedAnimal];
@@ -1267,6 +1312,11 @@ int run(const Options& options) {
     }
     if(ride.active) { hud.placement.reset(); hud.interaction="W / UP FORWARD   S / DOWN REVERSE   A-D STEER   SPACE BRAKE   V EXIT"; }
     renderer.sync(world,center,4);
+    diagnostics.frame(realDt);
+    hud.performance=diagnostics.snapshot();
+    hud.performance.chunks=world.chunks.size();hud.performance.meshes=renderer.meshCount();
+    hud.performance.triangles=renderer.triangleCount();hud.performance.meshBytes=renderer.meshBytes();hud.performance.edits=world.editCount();
+    hud.playerPosition=player.pose.position;hud.noclip=player.noclip();
     bool last=options.frames>0 && frame+1>=options.frames;
     renderer.draw(player,hit,hud,totalTime,debris,world,last ? options.screenshot : std::filesystem::path{});
     ++frame;
@@ -1280,10 +1330,11 @@ int run(const Options& options) {
     std::cout<<"PARTNER NIGHT PASS: fade, morning, and one daily income payment\n";
   }
   // Exit saves propagate failure so the caller never sees a successful save that did not happen.
-  if(options.save) {collectCityIncome(world);updateCityFamilies(world);world.save(savePath,player.pose);}
+  if(options.save) {collectCityIncome(world);updateCityFamilies(world);world.save(savePath,player.savePose(world));}
   double elapsed=double(SDL_GetPerformanceCounter()-start)/frequency;
   std::cout<<"Frames: "<<frame<<"; elapsed: "<<elapsed<<"s; average: "<<double(frame)/elapsed
            <<" fps; chunks: "<<renderer.meshCount()<<"; triangles: "<<renderer.triangleCount()<<'\n';
+  if(options.debug) {auto stats=diagnostics.snapshot();std::cout<<"PERFORMANCE: "<<stats.fps<<" fps; p95 "<<stats.p95Ms<<" ms; CPU "<<stats.cpuPercent<<"%; footprint "<<stats.footprint/(1024*1024)<<" MiB; RSS "<<stats.resident/(1024*1024)<<" MiB; mesh buffers "<<renderer.meshBytes()/(1024*1024)<<" MiB\n";}
   if(options.smoke) {
     if(smokeEdits!=2) throw std::runtime_error("Smoke test: block break/place failed");
     if(renderer.meshCount()<49 || renderer.triangleCount()<1000) throw std::runtime_error("Smoke test: terrain did not render");

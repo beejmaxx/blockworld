@@ -691,6 +691,30 @@ void Ui::minimap(const HudState& h) {
   quad(p+direction*5.f,p-direction*3.f+side*3.f,p-direction*3.f-side*3.f,p-direction*3.f-side*3.f,{1,1,.91f,1});
   label("N: zoom   /   north is up",x+10,y+223,12,muted);
 }
+void Ui::diagnostics(const HudState& h) {
+  const auto& p=h.performance;
+  rectangle(24,68,350,350,{.025f,.045f,.055f,.96f});
+  label("Performance",40,80,22,cream);
+  label("Ctrl+D / F3",245,86,14,muted);
+  char line[128];float y=116;
+  auto row=[&](const char* value){label(value,40,y,17,cream);y+=24;};
+  std::snprintf(line,sizeof(line),"%.0f FPS     %.1f ms average",p.fps,p.frameMs);row(line);
+  std::snprintf(line,sizeof(line),"Frame time p95     %.1f ms",p.p95Ms);row(line);
+  if(p.cpuAvailable)std::snprintf(line,sizeof(line),"CPU     %.1f%%   (100%% = one core)",p.cpuPercent);
+  else std::snprintf(line,sizeof(line),"CPU     sampling...");row(line);
+  if(p.memoryAvailable)std::snprintf(line,sizeof(line),"Memory footprint     %.0f MiB",double(p.footprint)/1048576.);else std::snprintf(line,sizeof(line),"Memory     unavailable");row(line);
+  if(p.memoryAvailable)std::snprintf(line,sizeof(line),"Resident / peak     %.0f / %.0f MiB",double(p.resident)/1048576.,double(p.peakResident)/1048576.);else std::snprintf(line,sizeof(line),"Resident / peak     unavailable");row(line);
+  std::snprintf(line,sizeof(line),"Terrain GPU buffers     %.0f MiB",double(p.meshBytes)/1048576.);row(line);
+  std::snprintf(line,sizeof(line),"Chunks %zu    Meshes %zu    %.1fM tris",p.chunks,p.meshes,double(p.triangles)/1e6);row(line);
+  std::snprintf(line,sizeof(line),"XYZ   %.1f   %.1f   %.1f",h.playerPosition.x,h.playerPosition.y,h.playerPosition.z);row(line);
+  label("Frame time / last 120 frames / 0-50 ms",40,y+4,14,muted);
+  y+=28;rectangle(40,y,318,44,{.1f,.14f,.17f,1});
+  rectangle(40,y+44-16.667f/50*44,318,1,{.4f,.5f,.4f,1});
+  for(std::size_t i=0;i<p.count;++i) {
+    float bar=std::clamp(p.history[i]/50.f,0.f,1.f)*44;
+    rectangle(40+float(i)*318/120,y+44-bar,2,bar,p.history[i]>33.34f ? glm::vec4(.95f,.5f,.27f,1) : accent);
+  }
+}
 void Ui::build(const HudState& h) {
   vertices.clear();
   if(h.hidden) return;
@@ -718,7 +742,9 @@ void Ui::build(const HudState& h) {
   text(!h.audioAvailable ? "SOUND UNAVAILABLE" : h.muted ? "M / SOUND OFF" : "M / SOUND ON",w-214,85,1.1f,muted);
   minimap(h);
 
-  if(h.guide.enabled && h.help && !h.paused) {
+  if(h.debug)diagnostics(h);
+  if(h.noclip){rectangle(24,24,265,32,panel);label("Noclip / Ctrl+N to turn off",36,28,18,accent);}
+  if(h.guide.enabled && h.help && !h.paused && !h.debug) {
     float panelHeight=h.guide.landmark ? 120.f : h.guide.farm ? (h.farmGarden ? 220.f : 168.f) : h.guide.stage==4 ? 279.f : 144.f;
     rectangle(24,106,350,panelHeight,panel);
     rectangle(24,106,350,2,accent);
@@ -827,7 +853,7 @@ void Ui::build(const HudState& h) {
     labelCentered(h.interaction,cx,top+3,size,cream);
   }
   if(h.help && !h.paused) {
-    label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
+    label(h.riding ? "Mouse: look around    R: return home" : h.noclip ? "Noclip: Space up / Shift down / Ctrl+N to exit" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
     label("L: city menu    T: downtown    U: rooftop    C: car    R: home    H: help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
@@ -841,7 +867,7 @@ void Ui::build(const HudState& h) {
     float x=cx-260,top=height*.5f-230;
     rectangle(x,top,520,454,{.07f,.115f,.105f,.96f});
     rectangle(x,top,520,3,accent);
-    labelCentered("Your farm, your world",cx,top+27,30,cream);
+    labelCentered("Your world",cx,top+27,30,cream);
     labelCentered("Choose Farm, Build, or Remove with E.",cx,top+76,19,muted);
     rectangle(x+36,top+113,448,1,{.28f,.36f,.29f,1});
     auto row=[&](std::string_view key,std::string_view action,float dy) {

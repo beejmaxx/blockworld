@@ -1,4 +1,5 @@
 #include "ui.hpp"
+#include "estate.hpp"
 #include "ui_font.hpp"
 #include <algorithm>
 
@@ -10,7 +11,7 @@ constexpr int propertyRows=8;
 CityClick Ui::cityActionAt(const HudState& h,float px,float py) {
   float x=h.width*.5f-340,y=h.height*.5f-276;
   auto in=[&](float bx,float by,float w,float height){return px>=x+bx && px<x+bx+w && py>=y+by && py<y+by+height;};
-  for(int i=0;i<4;++i)if(in(24+i*160,92,152,36))return {CityAction::Page,i};
+  for(int i=0;i<5;++i)if(in(24+i*128,92,120,36))return {CityAction::Page,i};
   if(!h.cityAvailable)return {};
   if(h.cityPage==CityPage::Bank) {
     for(int i=0;i<3;++i) {
@@ -34,6 +35,8 @@ CityClick Ui::cityActionAt(const HudState& h,float px,float py) {
     auto& r=h.cityLife.residents[h.residentSelected];
     if(h.nearResident && r.dating && in(260,486,cityChildCount(r) ? 188 : 396,30))return {CityAction::StartFamily,h.residentSelected};
     if(h.nearResident && cityChildCount(r) && in(468,486,188,30))return {CityAction::FeedFamily,h.residentSelected};
+  } else if(h.cityPage==CityPage::Places) {
+    for(int i=0;i<6;++i)if(in(24+(i%2)*328,171+(i/2)*110,304,94))return {CityAction::Place,i};
   } else {
     for(int i=0;i<propertyRows;++i)if(in(24,195+i*30,632,28)) {
       int index=h.propertyPage*propertyRows+i;
@@ -56,8 +59,8 @@ void Ui::cityPage(const HudState& h) {
     rectangle(x+bx,y+by,w,height,selected ? blue : enabled ? glm::vec4(.18f,.30f,.36f,1) : card);
     labelCentered(title,x+bx+w*.5f,y+by+(height-22)*.5f,17,selected ? card : enabled ? ink : dim);
   };
-  constexpr std::array tabs{"Bank","Garage","Residents","Properties"};
-  for(int i=0;i<4;++i)button(24+i*160,92,152,36,tabs[i],true,int(h.cityPage)==i);
+  constexpr std::array tabs{"Bank","Garage","Residents","Properties","Places"};
+  for(int i=0;i<5;++i)button(24+i*128,92,120,36,tabs[i],true,int(h.cityPage)==i);
   auto wrap=[&](std::string_view value,float bx,float by,float width,float size,glm::vec4 color) {
     std::string line,word;
     auto emit=[&]{label(line,x+bx,y+by,size,color);by+=size+6;line.clear();};
@@ -69,6 +72,17 @@ void Ui::cityPage(const HudState& h) {
     if(!line.empty())emit();
   };
   if(!h.cityAvailable) {wrap("The city needs a clear parcel. Your existing construction has been preserved.",24,160,620,21,ink);return;}
+  if(h.cityPage==CityPage::Places) {
+    label("Waterfront estates & airport",x+24,y+141,20,ink);
+    for(int i=0;i<6;++i) {
+      float bx=24+(i%2)*328,by=171+(i/2)*110;
+      button(bx,by,304,94," ");
+      label(estatePlaces()[i].name,x+bx+12,y+by+8,21,ink);
+      wrap(estatePlaces()[i].description,bx+12,by+39,280,15,dim);
+    }
+    label("Click a destination. All places are connected by road.",x+24,y+508,17,blue);
+    labelCentered("L / Esc: return to world",x+340,y+532,14,dim);return;
+  }
   if(h.cityPage==CityPage::Bank) {
     rectangle(x+24,y+146,304,106,card);rectangle(x+352,y+146,304,106,card);
     label("Wallet",x+36,y+151,16,dim);label("Bank account",x+364,y+151,16,dim);

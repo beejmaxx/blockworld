@@ -1,4 +1,5 @@
 #include "minimap.hpp"
+#include "estate.hpp"
 #include "coast.hpp"
 #include "city.hpp"
 #include "harbor.hpp"
@@ -30,6 +31,7 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
     if(w.castleOrigin) {auto o=*w.castleOrigin;include({o.x,o.z});include({o.x+50,o.z+50});}
     if(w.countrysideOrigin) {auto o=*w.countrysideOrigin;include({o.x,o.z});include({o.x+countrysideWidth,o.z+countrysideDepth});}
     if(w.metroOrigin){auto o=*w.metroOrigin;include({o.x,o.z});include({o.x+metroWidth,o.z+metroDepth});}
+    if(w.estateOrigin){auto o=*w.estateOrigin;include({o.x,o.z});include({o.x+estateWidth,o.z+estateDepth});}
     map.center=(lo+hi)*.5f;map.radius=std::max(120.f,std::max(hi.x-lo.x,hi.y-lo.y)*.5f+35.f);
   }
   for(int z=0;z<mapCells;++z)for(int x=0;x<mapCells;++x) {
@@ -67,6 +69,12 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
         height=y;color=blockColor(b)*.78f;break;
       }
     }
+    if(w.estateOrigin && estateContains(*w.estateOrigin,p.x,p.y)) {
+      auto o=*w.estateOrigin;int x=wx-o.x,z=wz-o.z;
+      color=z>=310 ? glm::vec3(.14f,.43f,.56f) : z>=297 ? glm::vec3(.67f,.66f,.52f) : glm::vec3(.3f,.46f,.28f);
+      if((z>=32 && z<=80 && x>18 && x<620) || (z>=184 && z<=200))color={.22f,.25f,.28f};
+      if((z>=112 && z<=164 && x>=246 && x<=540) || (z>=220 && z<=264 && ((x>=32 && x<88)||(x>=236 && x<300)||(x>=444 && x<504))))color={.75f,.77f,.72f};
+    }
     map.colors[z*mapCells+x]=color*(.88f+std::clamp(height,0,60)*.003f);
   }
   for(std::size_t i=1;i<w.road.size();++i)
@@ -90,6 +98,11 @@ MiniMap buildMiniMap(const World& w,glm::vec2 player,bool overview,bool driving)
     if(auto line=mapLine(map,{o.x+56.f,o.z-24.f},{o.x+56.f,o.z+95.f}))map.roads.push_back(*line);
   }
   if(w.farm.car.owned && !driving)map.markers.push_back({{w.farm.car.position.x,w.farm.car.position.z},"Car",{1,.39f,.27f}});
+  if(w.estateOrigin) {
+    auto o=*w.estateOrigin;auto route=estateRoad(w);
+    for(std::size_t i=1;i<route.size();++i)if(auto line=mapLine(map,{route[i-1].x,route[i-1].z},{route[i].x,route[i].z}))map.roads.push_back(*line);
+    for(int i:{0,3,4}) {auto p=estatePlaces()[i].arrival;map.markers.push_back({{o.x+p.x,o.z+p.z},i==0 ? "Estates" : i==3 ? "Yacht" : "Airport",{.84f,.75f,.47f}});}
+  }
   return map;
 }
 } // namespace bw

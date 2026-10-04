@@ -455,6 +455,40 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
   Offices have desks and monitors; apartments have furniture and beds.
   Rent is a fixed daily amount, not a tenant or vacancy simulation.
 
+## Waterfront estates and airport
+
+Press **L → Places** and click a destination. **Seabreeze villa**, **Palm court
+mansion**, and **Sunset residence** are furnished homes beside the marina. Enter
+through the front doors; two stair flights reach the bedrooms and roof gardens.
+You can place and remove their blocks using the usual Build controls. The pools,
+kitchens, lounges, studies and bathrooms are decorative; beds support sleeping.
+
+**Your yacht** takes you to the pier. Cross the gangway, walk along the right
+side to the rear deck, and enter the salon through the rear doorway. The rear
+stairs reach the bridge deck; another flight on its left reaches the sun deck.
+The yacht is docked: there is no sailing control yet.
+
+**City airport** has a terminal you can walk through, departure seating, ticket
+counters, a runway and control tower. **Private hangars** visits the aircraft
+area. The four jets are parked scenery, not flyable vehicles. Bring your car with
+**C** to drive around; the main road joins downtown's eastern edge. The minimap
+marks Estates, Yacht and Airport; **N** shows the full route overview.
+
+## Performance display and passing through walls
+
+**Ctrl+D** or **F3** toggles real process CPU and memory, FPS, average and p95 frame
+time, a recent-frame graph, chunk and triangle counts, terrain GPU buffer bytes,
+and your coordinates. On Macs whose function keys have system actions, use Ctrl+D
+or hold Fn while pressing F3. CPU uses 100% per CPU core. GPU buffer memory is the
+known terrain allocation, not total GPU usage. Process memory and CPU update twice
+a second; frame statistics use the most recent 120 frames.
+
+**Ctrl+N** or **F4** toggles noclip flight. Move through walls with WASD or arrows,
+**Space** goes up, **Shift** goes down, and **Ctrl** speeds up. Exit your vehicle
+first. Move clear of walls before toggling it off, then use **Tab** to walk.
+Ordinary Tab flight still collides with buildings. Noclip is temporary and is not
+saved; saving inside a wall uses your last clear position.
+
 ## Saved worlds
 
 World edits, named animals and families, crop types, watering and compost, produce and eggs,
@@ -468,7 +502,8 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–19. Version 19 adds feeding status.
+to open it. The loader accepts versions 1–20. Version 20 adds the estate district location.
+Version 19 adds feeding status.
 Version 18 adds pregnancies and children.
 Version 17 adds downtown, bank, cars and relationships.
 Version 16 adds countryside farms; version 15 adds the highway. Version 14 records the coastal city plots and new furniture/materials. Version 13 adds the coastal landscape location. Version 12 adds the city location and

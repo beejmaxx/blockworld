@@ -1,4 +1,5 @@
 #include "adventure.hpp"
+#include "diagnostics.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -76,6 +77,26 @@ void physics() {
   player.pose.flying=true; move={}; move.vertical=1;
   float initial=player.pose.position.y; player.tick(world,move,.1f);
   check(player.pose.position.y>initial+.8f,"creative flight ascends");
+}
+void debugTools() {
+  auto w=emptyWorld();for(int y=2;y<6;++y)w.set({2,y,0},Block::Stone);
+  Player p;p.pose.position={.5f,2,.5f};p.pose.yaw=0;
+  check(p.toggleNoclip(w) && p.noclip(),"noclip starts flight");
+  p.tick(w,{.right=1},.1f);p.tick(w,{.right=1},.06f);
+  check(p.collides(w,p.pose.position),"noclip enters a solid wall");
+  check(!p.toggleNoclip(w) && p.noclip(),"cannot turn collisions on inside wall");
+  check(!p.collides(w,p.savePose(w).position),"saving inside wall uses last clear location");
+  p.toggleFlying();check(p.pose.flying,"Tab cannot strand noclip player inside wall");
+  p.tick(w,{.right=1},.1f);check(p.pose.position.x>3.3f,"noclip crosses wall");
+  check(p.toggleNoclip(w) && !p.noclip(),"noclip can exit in open space");
+  p.toggleNoclip(w);auto y=p.pose.position.y;p.tick(w,{.vertical=-1},.1f);check(p.pose.position.y<y,"noclip descends");
+  p.stopFlying();check(!p.noclip() && !p.pose.flying,"teleports restore ordinary movement");
+  Diagnostics d;check(d.snapshot().count==0,"empty timing ring");
+  for(int i=0;i<119;++i)d.frame(.01);d.frame(.1);
+  auto stats=d.snapshot();check(stats.count==120 && std::abs(stats.p95Ms-10)<.01 && std::abs(stats.frameMs-10.75)<.01,"p95 handles rare frame spikes");
+  check(stats.memoryAvailable && stats.footprint>0 && stats.resident>0,"real process memory sampled");
+  d.frame(std::numeric_limits<double>::quiet_NaN());check(d.snapshot().count==120,"invalid timing ignored");
+  for(int i=0;i<120;++i)d.frame(.02);check(std::abs(d.snapshot().fps-50)<.001,"timing ring replaces old frames");
 }
 void saves() {
   auto name="blockworld-test-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -255,7 +276,7 @@ void guidedAdventure() {
 int main() {
   try {
     for(auto [name,test] : {std::pair{"coordinates",&coordinates},{"terrain",terrain},{"mesh",mesh},
-                           {"raycast",rays},{"physics",physics},{"persistence",saves},
+                           {"raycast",rays},{"physics",physics},{"persistence",saves},{"debug tools",debugTools},
                            {"doors and torches",doorsAndTorches},{"glass",glass},{"daylight",dayCycle},{"beds",beds},
                            {"guided adventure",guidedAdventure}}) {
       test(); std::cout<<"PASS "<<name<<'\n';

@@ -149,7 +149,8 @@ float3 blockTexture(int material,float2 uv) {
   }
   if(material==5) color*=.76+.30*hash21(float2(p.x,floor(p.y/5.0)));
   if(material==7) {
-    if(fmod(p.y,4.0)==0.0 || (fmod(p.x+floor(p.y/4.0)*7.0,16.0)==0.0)) color*=.68;
+    noise=.5+(noise-.5)*.25;
+    if(fmod(p.y,4.0)==0.0 || (fmod(p.x+floor(p.y/4.0)*7.0,16.0)==0.0)) color*=mix(1.0,.84,detail);
   }
   if(material==8) {
     if(fmod(p.y,5.0)==0.0 || fmod(p.x+floor(p.y/5.0)*4.0,8.0)==0.0) color=float3(.68,.64,.54);
@@ -197,8 +198,8 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
   float opacity=1.0;
   if(material==12) {
     float aa=max(fwidth(edge),.002);
-    opacity=1.0-smoothstep(.022-aa,.022+aa,edge);
-    if(opacity<.08) discard_fragment();
+    float frame=1.0-smoothstep(.014-aa,.014+aa,edge);
+    opacity=mix(.10,.72,frame);
   }
   float3 base=blockTexture(material,in.uv);
   if(material==108) {
@@ -236,6 +237,13 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     water+=float3(.018,.028,.02)*caustic*(1-smoothstep(2.0,5.0,depth));
     color=mix(water*camera.ambient.rgb,reflection,fresnel);
     color+=float3(1.0,.88,.65)*spec*camera.ambient.w*.3;
+  }
+  if(material==12) {
+    float3 n=normalize(cross(dfdx(in.world),dfdy(in.world)));
+    float3 view=normalize(camera.eye.xyz-in.world);
+    float fresnel=pow(1-abs(dot(n,view)),4.0);
+    color=mix(color,camera.horizon.rgb,.45+.3*fresnel);
+    opacity=min(.85,opacity+fresnel*.12);
   }
   if(material==68) {
     // Opaque curtain-wall panels suggest sky reflection; real Glass is used

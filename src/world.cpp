@@ -1,4 +1,5 @@
 #include "world.hpp"
+#include "estate.hpp"
 #include "inventory.hpp"
 #include "farm.hpp"
 #include "city.hpp"
@@ -313,6 +314,7 @@ void World::generateStructures(Chunk& chunk) const {
   generateRoad(chunk,road);
   if(countrysideOrigin)generateCountryside(chunk,*countrysideOrigin);
   generateMetropolis(chunk,*this);
+  generateEstate(chunk,*this);
 }
 void World::insert(Chunk chunk) {
   const auto p = chunk.pos;
@@ -336,7 +338,8 @@ int World::streamingRadius(ChunkPos center) const {
   bool coast=coastOrigin && coastContains(*coastOrigin,float(center.x*chunkSize),float(center.z*chunkSize),32);
   bool country=countrysideOrigin && countrysideContains(*countrysideOrigin,float(center.x*chunkSize),float(center.z*chunkSize),64);
   bool metro=metroOrigin && metroContains(*metroOrigin,float(center.x*chunkSize),float(center.z*chunkSize),64);
-  return coast || country || metro ? coastViewRadius : viewRadius;
+  bool estate=estateOrigin && estateContains(*estateOrigin,float(center.x*chunkSize),float(center.z*chunkSize),64);
+  return coast || country || metro || estate ? coastViewRadius : viewRadius;
 }
 void World::evict(ChunkPos center, int radius) {
   std::erase_if(chunks, [&](const auto& pair) {
@@ -386,7 +389,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 19 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 20 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -426,6 +429,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   for(auto e:cityLife.statement)file<<' '<<int(e.kind)<<' '<<e.amount<<' '<<e.day;
   for(auto r:cityLife.residents){file<<' '<<r.pregnancyDue;for(auto birth:r.children)file<<' '<<birth;}
   for(auto r:cityLife.residents)for(auto fed:r.lastFed)file<<' '<<fed;
+  auto estate=estateOrigin.value_or(Cell{});file<<' '<<estateOrigin.has_value()<<' '<<estate.x<<' '<<estate.y<<' '<<estate.z;
   file<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
@@ -452,11 +456,11 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   WorldClock savedClock;
   CraftState savedCrafting;
   FarmState savedFarm;
-  std::optional<Cell> savedCastle,savedCity,savedCoast,savedCountry,savedMetro;
+  std::optional<Cell> savedCastle,savedCity,savedCoast,savedCountry,savedMetro,savedEstate;
   CityLifeState savedLife;
   std::optional<std::uint32_t> savedHarbor;
   std::vector<glm::vec3> savedRoad;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>19) corrupt();
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>20) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -637,6 +641,11 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     double& fed=r.lastFed[c];double now=(double(savedClock.day)+savedClock.phase)*WorldClock::daySeconds;
     if(!(file>>fed) || !std::isfinite(fed) || fed<0 || fed>now+.000001 || (fed>0 && (!r.children[c] || fed<double(r.children[c])*WorldClock::daySeconds)))corrupt();
   }
+  if(version>=20) {
+    bool present=false;Cell c{};if(!(file>>present>>c.x>>c.y>>c.z))corrupt();
+    if(present) {if(!savedMetro || c.y!=23 || !validCell(c) || std::abs(c.x)>coordinateLimit-estateWidth-32 || std::abs(c.z)>coordinateLimit-estateDepth-32 || c.x<savedMetro->x+metroWidth+32 || c.z!=savedMetro->z)corrupt();savedEstate=c;}
+    else if(c!=Cell{})corrupt();
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
@@ -672,7 +681,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
   farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; harborLots=savedHarbor;
-  road=std::move(savedRoad); countrysideOrigin=savedCountry;metroOrigin=savedMetro;cityLife=std::move(savedLife); edits_ = std::move(edits); chunks.clear();
+  road=std::move(savedRoad); countrysideOrigin=savedCountry;metroOrigin=savedMetro;estateOrigin=savedEstate;cityLife=std::move(savedLife); edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -772,6 +781,7 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
       bool approach=wx>=o.x+51 && wx<=o.x+61 && wz>=o.z-24 && wz<o.z;
       if(site || approach)surface[z*chunkSize+x]=o.y-1;
     }
+    if(world.estateOrigin && estateContains(*world.estateOrigin,float(wx),float(wz)))surface[z*chunkSize+x]=float(wz-world.estateOrigin->z)>=310 ? 14 : 22;
     if(world.metroOrigin && metroContains(*world.metroOrigin,float(wx),float(wz)))surface[z*chunkSize+x]=harborGround-1;
   }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {

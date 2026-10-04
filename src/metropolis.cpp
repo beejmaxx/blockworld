@@ -3,6 +3,7 @@
 #include "city.hpp"
 #include "countryside.hpp"
 #include "road.hpp"
+#include "estate.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -92,6 +93,44 @@ public:
     for(int xx:{146,169,216,239})for(int zz:{144,175})tree(xx,zz);
     for(int xx:{153,219}){fill(xx,0,2*64+25,xx+5,0,2*64+25,Block::Sofa);put(xx+2,0,2*64+23,Block::Table);}
   }
+  void facade(const HarborBuilding& t,int index) {
+    int x=t.x,z=t.z,w=t.width,d=t.depth,roof=t.floors*5;
+    if(x+w+3<chunk.pos.x*16-o.x || x-3>chunk.pos.x*16-o.x+15 || z+d+4<chunk.pos.z*16-o.z || z-3>chunk.pos.z*16-o.z+15)return;
+    // Recessed glazing sits behind continuous piers and projecting sun shades.
+    for(int level=0;level<t.floors;++level) {
+      int y=level*5;
+      fill(x,y-1,z,x+w-1,y-1,z,Block::Concrete);
+      fill(x,y-1,z+d-1,x+w-1,y-1,z+d-1,Block::Concrete);
+      for(int xx=2;xx<w-3;xx+=8) {
+        if(t.style==0 || t.style==4)fill(x+xx,y,z-1,x+xx,y+4,z-1,t.trim);
+        if(t.style==1 || t.style==3)fill(x+xx,y+4,z-2,x+xx+4,y+4,z-1,Block::StoneSlab);
+        if(level>0 && t.style==2) {
+          fill(x+xx,y-1,z-2,x+xx+5,y-1,z-1,Block::Concrete);
+          fill(x+xx,y,z-2,x+xx+5,y,z-2,Block::Glass);
+          if(level%3==0)put(x+xx+1,y,z-1,Block::Planter);
+        }
+      }
+      // Dark, broad spandrels make office towers read differently from homes.
+      if(metroOffice(index)) {
+        fill(x+10,y-1,z+1,x+w-2,y-1,z+d-2,Block::Limestone);
+        for(int xx=12;xx<w-3;xx+=5)fill(x+xx,y+1,z,x+xx+2,y+3,z,Block::BlueGlass);
+      }
+      if(level>0 && level%4==0 && t.style!=4) {
+        for(int xx=3;xx<w-3;xx+=4)put(x+xx,y,z+d,Block::Planter);
+      }
+    }
+    // Distinct rooftop details retain the usable penthouse and stair landing.
+    if(t.style==1) {
+      for(int zz=4;zz<d-8;zz+=3)fill(x+w-8,roof+6,z+zz,x+w-2,roof+6,z+zz,t.trim);
+    } else if(t.style==3) {
+      fill(x+w-5,roof,z+3,x+w-3,std::min(roof+10,worldHeight-o.y-2),z+5,Block::Charcoal);
+      put(x+w-4,std::min(roof+11,worldHeight-o.y-1),z+4,Block::Lamp);
+    }
+    // Layered entrance canopy and a planted forecourt frame the street door.
+    fill(x+10,4,z+d,x+15,4,z+d+3,Block::Concrete);
+    fill(x+11,4,z+d+1,x+14,4,z+d+2,Block::Glass);
+    for(int xx:{3,w-5}) {fill(x+xx,0,z+d+2,x+xx+2,0,z+d+2,Block::Planter);}
+  }
   void apartment(const HarborBuilding& t,int resident) {
     int x=t.x,z=t.z,w=t.width,d=t.depth,y=(1+resident%4)*harborFloorHeight;
     constexpr std::array accents{Block::Sage,Block::BlueTile,Block::Terracotta,Block::GoldTile,Block::BlueTile,Block::RedTile,Block::Sage,Block::Terracotta};
@@ -133,6 +172,16 @@ public:
     p(w-3,0,d-15,Block::Chair);p(w-2,0,d-12,Block::Planter);
     for(auto spot:std::array{glm::ivec2(21,7),glm::ivec2(21,16),glm::ivec2(21,d-8),glm::ivec2(w-5,d-13)})p(spot.x,3,spot.y,Block::Lamp);
     p(16,0,2,Block::Planter);p(w-2,0,8,Block::Planter);
+    // A separate bathroom, a work desk and a media wall finish the home.
+    f(w-8,0,8,w-8,2,18,accent);f(w-8,0,18,w-2,2,18,Block::Concrete);
+    f(w-5,0,18,w-4,2,18,Block::Air);
+    f(w-7,-1,8,w-2,-1,17,Block::Limestone);
+    f(w-6,0,9,w-3,0,11,Block::Concrete);f(w-5,0,10,w-4,0,10,Block::Water);
+    f(w-3,0,14,w-2,0,16,Block::Concrete);p(w-3,1,15,Block::BlueTile);
+    f(w-2,1,14,w-2,2,16,Block::BlueGlass);
+    f(24,0,10,26,0,10,Block::Table);p(25,1,10,Block::Charcoal);p(25,0,12,Block::Chair);
+    f(18,0,d-12,22,0,d-12,Block::Planks);f(19,1,d-12,22,2,d-12,Block::Charcoal);
+    f(w-6,0,d-2,w-3,2,d-2,Block::Planks);
   }
 };
 bool land(World& w,Player& p,glm::vec3 at,glm::vec3 toward) {
@@ -176,6 +225,7 @@ void generateMetropolis(Chunk& chunk,const World& w) {
   }
   for(std::size_t i=0;i<towers.size();++i) {
     auto tower=towers[i];generateHarborTower(chunk,o,tower);
+    b.facade(tower,int(i));
     if(i<residentCount)b.apartment(tower,int(i));
     if(metroOffice(i))for(int floor=0;floor<tower.floors;++floor) {
       int x=tower.x,z=tower.z,y=floor*harborFloorHeight;
@@ -314,11 +364,17 @@ std::vector<Vertex> metropolisSkyline(const World& w,glm::vec3 eye) {
     }
     if(metroContains(o,float(x),float(z)))height=23;
     if(w.countrysideOrigin && countrysideContains(*w.countrysideOrigin,float(x),float(z)))height=float(w.countrysideOrigin->y);
+    if(w.estateOrigin && estateContains(*w.estateOrigin,float(x),float(z))) {
+      int zLocal=z-w.estateOrigin->z;height=zLocal>=310 ? 22 : 23;
+      material=zLocal>=310 ? 66 : zLocal>=297 ? 4 : zLocal>=184 && zLocal<=200 ? 65 : 1;
+    }
     return glm::vec2(height-1.2f,material);
   };
-  constexpr int step=24;
+  constexpr int step=16;
   int startX=int(std::floor((eye.x-900)/step))*step,startZ=int(std::floor((eye.z-900)/step))*step;
   for(int z=startZ;z<startZ+1800;z+=step)for(int x=startX;x<startX+1800;x+=step) {
+    // Do not paint the original landscape through new pools, roads or rooms.
+    if(w.chunks.contains(chunkAt(x,z)))continue;
     float distance=glm::length(glm::vec2(x+step*.5f-eye.x,z+step*.5f-eye.z));
     if(distance<80 || distance>880)continue;
     auto a=surface(x,z),b=surface(x,z+step),c=surface(x+step,z+step),d=surface(x+step,z);

@@ -1,12 +1,29 @@
 # Blockworld
 
-Grow a garden, drive to the city, own apartment towers, and collect rent.
+Build a life in a city you can shape: grow food, furnish homes, drive, and own property.
 A free, open-source game for **macOS**, built with a custom **C++26** engine,
 **SDL3**, and **Metal**.
 
+![Seabreeze villa, its pool and the downtown skyline](docs/images/estates.png)
+
+**New in 0.21: L → Places** opens three furnished waterfront mansions, your
+walkable yacht, and the airport. The houses have pools, kitchens, bedrooms,
+bathrooms, studies, and stairs to roof gardens. The airport has a terminal,
+runway, control tower and two hangars. Roads connect this district to downtown.
+The yacht is docked and the aircraft are parked; sailing and piloting are not implemented.
+
+| Your yacht and marina | City airport |
+| :---: | :---: |
+| ![The docked yacht, boarding pier and waterfront houses](docs/images/marina.png) | ![Airport terminal, control tower, runway and parked jets](docs/images/airport.png) |
+
+*Real Metal framebuffer captures from version 0.21.0, using temporary preview worlds.*
+
+[Inside a mansion](docs/images/mansion-interior.png) · [Places menu](docs/images/places.png) ·
+[Performance display](docs/images/performance.png)
+
 ![The new downtown district with 36 walkable towers](docs/images/downtown.png)
 
-**Press L for your city:** bank, 20-car garage, residents, and owned properties.
+**Press L for your city:** bank, 20-car garage, residents, owned properties, and places.
 **T** visits downtown; **U** visits the bank tower rooftop. Your farm, coast, and
 castle are in the same world, linked by roads.
 
@@ -176,6 +193,9 @@ Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, 
 | Farm, shop, and animals | P |
 | Toggle flying | Tab or double-tap Space |
 | Fly up / down | Space / Shift |
+| Pass through walls (noclip) | Ctrl+N or F4; exit in open space |
+| Performance display: FPS, CPU, memory | Ctrl+D or F3 |
+| Mansions, yacht and airport | L → Places |
 | Return home | R |
 | Bring your free car nearby / visit the castle | C / K |
 | Start beside the GT2 on the road to the city | Shift+C |

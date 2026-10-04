@@ -129,11 +129,13 @@ int main(int argc,char** argv) {
     hud.cityLife.statement={{BankKind::Rent,2300,999},{BankKind::Servers,256,999}};
     for(auto size:{glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x;hud.height=size.y;float x=size.x*.5f-340,y=size.y*.5f-276;hud.menu=Menu::City;
-      for(int page=0;page<4;++page) {
+      for(int page=0;page<5;++page) {
         hud.cityPage=CityPage(page);hud.cityMessage.clear();ui.build(hud);bounds(ui,size.x,size.y);
-        check(Ui::cityActionAt(hud,x+100+page*160,y+110).action==CityAction::Page,"city tabs have working targets");
+        check(Ui::cityActionAt(hud,x+80+page*128,y+110).action==CityAction::Page,"city tabs have working targets");
         snapshot(ui,hud,"city-"+std::to_string(page)+"-"+std::to_string(size.x)+".ppm");
       }
+      hud.cityPage=CityPage::Places;
+      for(int i=0;i<6;++i){auto click=Ui::cityActionAt(hud,x+100+(i%2)*328,y+205+(i/2)*110);check(click.action==CityAction::Place && click.index==i,"every destination selects the correct place");}
       hud.cityPage=CityPage::Garage;
       for(int page=0;page<2;++page)for(int i=0;i<10;++i) {
         hud.garagePage=page;auto target=Ui::cityActionAt(hud,x+80+(i%2)*328,y+198+(i/2)*54);

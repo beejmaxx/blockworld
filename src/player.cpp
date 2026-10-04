@@ -18,6 +18,16 @@ void Player::look(float dx,float dy) {
   pose.yaw = std::remainder(pose.yaw+dx*.0024f, 6.2831853f);
   pose.pitch = std::clamp(pose.pitch-dy*.0024f,-1.55f,1.55f);
 }
+bool Player::toggleNoclip(const World& world) {
+  if(noclip_ && collides(world,pose.position))return false;
+  noclip_=!noclip_;pose.flying=true;velocity={};grounded=false;
+  if(!collides(world,pose.position))lastClear_=pose;
+  return true;
+}
+PlayerPose Player::savePose(const World& world) const {
+  if(noclip_ && collides(world,pose.position) && lastClear_)return *lastClear_;
+  return pose;
+}
 bool Player::overlaps(Cell c,Block block) const {
   return collidable(block) && intersects(pose.position,blockBounds(c,block));
 }
@@ -34,6 +44,16 @@ void Player::tick(const World& world,Movement move,float dt) {
   // Bounded substeps prevent walking or falling through a one-block wall.
   // A counted loop avoids a tiny floating-point remainder that could clear grounded.
   if(dt==0.f) return;
+  if(noclip_) {
+    glm::vec3 forward{std::sin(pose.yaw),0,-std::cos(pose.yaw)},right{std::cos(pose.yaw),0,std::sin(pose.yaw)};
+    auto direction=forward*move.forward+right*move.right+glm::vec3(0,move.vertical,0);
+    if(glm::length(direction)>1)direction=glm::normalize(direction);
+    velocity=direction*(move.sprint ? 36.f : 12.f);pose.position+=velocity*dt;
+    pose.position=glm::clamp(pose.position,glm::vec3(-coordinateLimit+2,-32,-coordinateLimit+2),glm::vec3(coordinateLimit-2,worldHeight+128,coordinateLimit-2));
+    pose.flying=true;grounded=false;
+    if(!collides(world,pose.position))lastClear_=pose;
+    return;
+  }
   const int steps=std::max(1,int(std::ceil(dt*120.f)));
   for(int i=0;i<steps;++i) { step(world,move,dt/float(steps)); move.jump=false; }
 }

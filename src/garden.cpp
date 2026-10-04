@@ -62,7 +62,7 @@ bool visitGarden(World& world,Player& player) {
       Cell floor{int(std::floor(candidate.x)),int(candidate.y)-1,int(std::floor(candidate.z))};
       if(!collidable(world.get(floor)) || player.collides(world,candidate)) continue;
       player.pose.position=candidate; player.pose.yaw=0; player.pose.pitch=-.35f;
-      player.pose.flying=false; player.velocity={}; return true;
+      player.stopFlying(); return true;
     }
   }
   return false;

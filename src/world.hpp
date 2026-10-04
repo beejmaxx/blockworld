@@ -147,6 +147,7 @@ public:
   std::vector<glm::vec3> road; // Saved highway centerline; y is the driving surface.
   std::optional<Cell> countrysideOrigin;
   std::optional<Cell> metroOrigin;
+  std::optional<Cell> estateOrigin;
   CityLifeState cityLife;
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;

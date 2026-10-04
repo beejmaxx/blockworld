@@ -1,4 +1,5 @@
 #include "renderer.hpp"
+#include "estate.hpp"
 #include "ui_font.hpp"
 #include "ranch.hpp"
 #include "city.hpp"
@@ -307,6 +308,7 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
       if(car.owned)tag(car.position+glm::vec3(0,2.2f,0),std::string(garageCars()[i].name),12);
     }
     for(int i=0;i<2;++i)tag({o.x+(5+i)*64+31.f,29,o.z+4*64+7.f},i==0 ? "West data center" : "East data center",28);
+    if(world.estateOrigin)for(auto place:estatePlaces()){auto e=*world.estateOrigin;tag(glm::vec3(e.x,e.y+3,e.z)+place.arrival,std::string(place.name),42);}
   }
   if(!hud.hidden && !hud.menuOpen() && !hud.paused) {
     glm::vec2 position{player.pose.position.x,player.pose.position.z};
@@ -400,7 +402,13 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
     SDL_DrawGPUPrimitives(pass,Uint32(particles.size()),1,0,0);
   }
   SDL_BindGPUGraphicsPipeline(pass,glassPipeline_);
-  for(const auto& [pos,mesh] : meshes_) if(mesh.buffer && mesh.vertices>mesh.opaqueVertices && visible(pos,camera.viewProjection)) {
+  std::vector<std::pair<float,const Mesh*>> glass;
+  for(const auto& [pos,mesh]:meshes_)if(mesh.buffer && mesh.vertices>mesh.opaqueVertices && visible(pos,camera.viewProjection)) {
+    auto d=glm::vec2(pos.x*16+8.f-eye.x,pos.z*16+8.f-eye.z);glass.emplace_back(glm::dot(d,d),&mesh);
+  }
+  std::ranges::sort(glass,[](auto a,auto b){return a.first>b.first;});
+  for(const auto& [distance,entry]:glass) {
+    const auto& mesh=*entry;
     SDL_GPUBufferBinding binding{mesh.buffer,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
     SDL_DrawGPUPrimitives(pass,mesh.vertices-mesh.opaqueVertices,1,mesh.opaqueVertices,0);
   }

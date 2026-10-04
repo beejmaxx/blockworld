@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 19. Building tests exercise the
+headroom, day rollover, and save compatibility through version 20. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -395,3 +395,50 @@ are required. Ordinary bed sleep keeps its existing behavior.
 fixed fade timestep and verifies the new morning and single daily income payment.
 The city suite covers relationship, distance and bedroom validation and family
 progress during consecutive nights.
+
+
+## Waterfront estates, architecture and diagnostics (0.21)
+
+`estate.cpp` generates a 640 by 416 block district east of downtown, on a parcel
+without player edits or existing landmarks. The road connector is checked before
+installation. Three mansions have two working half-step stair flights, editable
+furniture, pools and roof gardens. The yacht has a boarding gangway, a salon,
+cabin, bridge and sun deck. A terminal, control tower, two hangars, four parked
+jets and a 603 block runway make up the airport. Boats and aircraft are static.
+`L > Places` exposes six safe arrivals, also reachable by road or on foot.
+
+Save version 20 appends the optional estate origin to the city-state line, after
+feeding timestamps. The loader remains atomic and accepts versions 1 through 19;
+new terrain and structures are generated before saved player edits are applied.
+`estate_tests` covers all arrivals, mansion stairs up and down, yacht boarding
+and upper decks, terminal access, vehicle clearance along the full road, map
+markers, persistence and refusal to overwrite an edited parcel. Pass input/output
+save paths to that executable to validate a real-world migration on a copy.
+
+Downtown facades now have projecting fins, shades, planted balconies, office
+spandrels and entrance canopies. Apartments add bathrooms, a study and media
+wall. Glass is subtly tinted and transparent chunks draw from far to near; this
+is approximate sorting, not order-independent transparency. Distant terrain
+skips loaded chunks so it cannot draw the old hills through rooms or pools.
+The voxel height cap remains 128; taller landmark towers and vertical streaming
+are a separate future architectural change.
+
+`Diagnostics` collects a bounded 120-frame history. CPU is getrusage user+system
+time divided by elapsed wall time (100% per core); memory comes from TASK_VM_INFO
+(physical footprint, resident and peak resident size). Stats sample every 0.5s.
+The UI labels terrain GPU buffer allocation separately; no total GPU usage or
+GPU percentage is inferred. `--debug` opens the overlay; Ctrl+D/F3 toggles it.
+
+`Player::toggleNoclip` bypasses movement collision while keeping `collides`
+truthful. Disabling inside solid geometry is rejected. The last clear pose is
+used when saving from inside a wall; normal teleports restore ordinary movement.
+`--noclip` enables it initially, Ctrl+N/F4 toggles it. Core tests cover wall
+crossing, rejected unsafe exit, safe saving, descending and frame statistics.
+
+Use `--demo-estate --estate-view villa|interior|marina|yacht|airport|terminal`
+for captures in a temporary world. Demos never read or write the player's save.
+
+The next design phase should connect the existing farms, adult relationships,
+families, property income and data centers through city-life goals. Current rent
+and server income are fixed daily payments; tenant demand, business management,
+marriage, moving households and a stock market are not implemented.
