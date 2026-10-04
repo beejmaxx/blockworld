@@ -30,7 +30,7 @@ See [Clang's language status](https://clang.llvm.org/cxx_status.html).
 ## Prototype scope
 
 - Seeded hills, grass, sand, stone, and oak trees.
-- 16 × 64 × 16 chunks, background terrain generation, nearby collision coverage,
+- 16 × 128 × 16 chunks, background terrain generation, nearby collision coverage,
   and eviction beyond the view radius.
 - Exposed-face meshes, frustum culling, per-vertex ambient occlusion, procedural
   pixel textures, distance fog, a moving sun/moon, stars, drifting block clouds,
@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 15. Building tests exercise the
+headroom, day rollover, and save compatibility through version 16. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -144,6 +144,8 @@ For disposable visual previews:
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-castle --time 10 --frames 120 --screenshot artifacts/castle.bmp --mute
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-city --time 10 --frames 120 --hide-ui --screenshot artifacts/city.bmp --mute
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-city --city-view roof --time 17 --mute
+./build/blockworld.app/Contents/MacOS/blockworld --demo-farms --frames 3 --hide-ui --screenshot artifacts/countryside.bmp --mute
+./build/blockworld.app/Contents/MacOS/blockworld --demo-boost --map-overview --frames 600 --screenshot artifacts/boost.bmp --mute
 ./build/sound_tests artifacts/soundscape.wav
 ./build/sound_tests artifacts/soundscape.wav artifacts/car-engine.wav
 ./build/farm_tests artifacts/garden-starter.ppm
@@ -249,7 +251,9 @@ followed by XYZ points, where Y is the driving surface. Versions 1–14 remain r
 The stylized GT2 uses a faceted coupe mesh with oval headlights, rear wing and
 spoked wheels. Its oriented collision body matches the longer model. Acceleration
 is 12 blocks/s², forward speed is capped at 42 blocks/s (about 151 km/h), and
-reverse at 8 blocks/s. Space is an immediate arcade brake; steering slows at speed.
+reverse at 8 blocks/s. Shift raises acceleration to 24 blocks/s² and forward speed
+to 84 blocks/s (about 302 km/h). Releasing Shift decelerates to the normal limit.
+Space is an immediate arcade brake; steering slows at speed.
 Collision motion is substepped to at most 0.08 blocks, and road steps test the
 entire rotated footprint. Fast driving preloads collision chunks ahead. Rendering
 uses a collision-aware chase camera; engine pitch includes automatic gear changes.
@@ -261,6 +265,24 @@ road edits, alternative coast locations and atomic save validation. Pass a save
 copy to `road_tests INPUT.bw OUTPUT.bw` to verify a real world's route while keeping
 its farm state intact. `--demo-road --road-view car|rear|highway|drive` captures
 disposable previews; `--road` opens a saved world beside the GT2 at the road entrance.
+
+`countryside.*` finds an untouched 112 × 96 parcel alongside the highway. It
+generates barns, pasture fences, a glass nursery, irrigation channels and four
+crop fields, with graded terrain around the edges. Crops are planted once as
+ordinary saved crop records; harvested fields stay harvested after streaming or
+reloading. Two cows, a horse and a sheep are added when the livestock capacity
+allows. Version 16 stores the optional parcel origin after the road points.
+It reads versions 1–15 and supports up to 2,048 growing plants. Procedural roofs
+also participate in crop shelter checks when their chunks are unloaded.
+`--farms` visits the saved district; `--demo-farms` is a disposable aerial preview.
+
+`minimap.*` samples terrain and loaded block columns without generating chunks.
+The 32 × 32 grid and clipped road lines refresh five times per second; player
+position and heading update each frame. Local radius is 96 blocks on foot or
+200 when driving. N toggles the landmark/route overview. UI text uses the native
+font renderer. The countryside suite covers harvest sales, lane driving, bed
+access, unloaded greenhouse growth, construction protection, migration, and map
+projection/clipping; UI bounds are checked at both supported window sizes.
 
 Sofas, tables, chairs and planters use small box meshes and matching collision
 bounds. Furniture and additional materials live on the second Build picker page;

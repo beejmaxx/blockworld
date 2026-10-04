@@ -54,7 +54,12 @@ void planting() {
   check(breakBlock(world,{2,1,0}) && world.get(crop)==Block::Air && world.farm.crops.empty(),"removing soil also removes its crop timer");
 
   world=flatWorld(); p.pose.position={-8,2,-8};
-  for(int z=1;z<=16;++z) for(int x=1;x<=16;++x) check(placeBlock(world,p,{x,2,z},Block::WheatYoung),"garden within budget can be planted");
+  for(std::size_t i=0;i<cropLimit;++i) {
+    int x=int(i%32)+1,z=int(i/32)+1;auto cp=chunkAt(x,z);
+    if(!world.chunks.contains(cp))world.insert(Chunk{cp});
+    world.set({x,1,z},Block::Farmland);
+    check(placeBlock(world,p,{x,2,z},Block::WheatYoung),"garden within budget can be planted");
+  }
   check(world.farm.crops.size()==cropLimit && placementStatus(world,p,{0,2,0},Block::WheatYoung)==PlacementStatus::CropLimit,"crop population is bounded");
   breakBlock(world,{1,2,1}); check(placeBlock(world,p,{0,2,0},Block::WheatYoung),"removing a crop frees a garden slot");
 }

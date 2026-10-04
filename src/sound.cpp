@@ -83,7 +83,7 @@ void Soundscape::environment(float daylight,float exposure,bool active,bool mute
 }
 void Soundscape::engine(bool running,float speed) {
   targetEngineGain_=running ? 1.f : 0.f;
-  float load=running && std::isfinite(speed) ? std::clamp(std::abs(speed)/carTopSpeed,0.f,1.f) : 0.f;
+  float load=running && std::isfinite(speed) ? std::clamp(std::abs(speed)/carBoostSpeed,0.f,1.f) : 0.f;
   // Short drops in revs suggest automatic gear changes as the GT2 accelerates.
   targetEngineLoad_=load==0 ? 0 : .18f+.5f*load+.30f*std::fmod(load*4.99f,1.f);
 }

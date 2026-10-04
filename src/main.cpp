@@ -7,6 +7,7 @@
 #include "coast.hpp"
 #include "harbor.hpp"
 #include "road.hpp"
+#include "countryside.hpp"
 #include <SDL3/SDL_main.h>
 #include <algorithm>
 #include <charconv>
@@ -22,7 +23,7 @@ struct Options {
   int frames=0;
   bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
   bool city=false,demoCity=false,coast=false,demoCoast=false,harbor=false,demoHarbor=false,hideUi=false;
-  bool road=false,demoRoad=false;
+  bool road=false,demoRoad=false,demoBoost=false,country=false,demoCountry=false,mapOverview=false;
   std::string roadView="car";
   std::string cityView="skyline",coastView="bay",harborView="skyline";
   std::optional<double> hour;
@@ -41,6 +42,10 @@ Options parse(int argc,char** argv) {
     else if(arg=="--castle") result.castle=true;
     else if(arg=="--road") result.road=true;
     else if(arg=="--demo-road") { result.demoRoad=true; result.save=false; result.paused=false; }
+    else if(arg=="--demo-boost") {result.demoRoad=true;result.demoBoost=true;result.roadView="drive";result.save=false;result.paused=false;}
+    else if(arg=="--farms")result.country=true;
+    else if(arg=="--demo-farms") {result.demoCountry=true;result.save=false;result.paused=false;}
+    else if(arg=="--map-overview")result.mapOverview=true;
     else if(arg=="--road-view") {
       result.roadView=value();
       if(result.roadView!="car" && result.roadView!="highway" && result.roadView!="rear" && result.roadView!="drive")
@@ -96,6 +101,10 @@ Options parse(int argc,char** argv) {
         <<"  --castle               Start at your saved world's castle\n"
         <<"  --road                 Start beside your GT2 at the home end of the city road\n"
         <<"  --demo-road            Preview the GT2 and highway without touching saves\n"
+        <<"  --demo-boost           Preview Shift boost driving without touching saves\n"
+        <<"  --farms                Visit the countryside crop fields in your world\n"
+        <<"  --demo-farms           Preview the farm district without touching saves\n"
+        <<"  --map-overview         Start with the route overview (N toggles zoom)\n"
         <<"  --road-view VIEW       Preview camera: car, rear, highway, drive\n"
         <<"  --city / --harbor      Visit the new city on the coast\n"
         <<"  --old-city             Visit the original waterfront city\n"
@@ -146,7 +155,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.15.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.16.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -276,6 +285,18 @@ int run(const Options& options) {
   if(!options.smoke && !options.demoCabin && !options.classic && !options.demoCastle
       && !options.demoCity && !options.demoCoast && !options.demoHarbor) {
     if(!initializeRoad(world,player)) std::cerr<<"No clear road route found; existing construction was preserved.\n";
+    if(!initializeCountryside(world,player)) std::cerr<<"No clear countryside parcel found; existing construction was preserved.\n";
+  }
+  if(options.country || options.demoCountry) {
+    if(!initializeCountryside(world,player))throw std::runtime_error("Countryside needs a clear parcel near the highway");
+    auto o=*world.countrysideOrigin;
+    player.pose.position={o.x+56.f,float(o.y),o.z+42.f};player.pose.yaw=3.14159265f;player.pose.pitch=-.1f;player.stopFlying();
+    if(options.demoCountry) {
+      player.pose.position={o.x+116.f,o.y+50.f,o.z+112.f};auto target=glm::vec3(o.x+51.f,o.y+2.f,o.z+44.f);
+      auto d=glm::normalize(target-player.eye());player.pose.yaw=std::atan2(d.x,-d.z);player.pose.pitch=std::asin(d.y);player.pose.flying=true;
+    }
+    center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z)));world.ensure(center,world.streamingRadius(center));
+    if(options.country)bringCar(world,player);
   }
   if(options.road || options.demoRoad) {
     if(!visitRoad(world,player)) throw std::runtime_error("Road start needs clear ground for the car");
@@ -304,7 +325,8 @@ int run(const Options& options) {
   ChunkWorker worker(world.terrain); worker.request(center,world);
   HudState hud; hud.paused=options.paused; hud.muted=options.muted;
   hud.hidden=options.hideUi;
-  if(options.demoCastle || options.demoCity || options.demoCoast || options.demoHarbor || options.demoRoad) hud.help=false;
+  hud.mapOverview=options.mapOverview;
+  if(options.demoCastle || options.demoCity || options.demoCoast || options.demoHarbor || options.demoRoad || options.demoCountry) hud.help=false;
   hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.demoCity && !options.demoCoast && !options.demoHarbor && !options.smoke);
   ToolSelection tools;
   tools.choose(world.inventory.held(),world.crafting);
@@ -759,6 +781,7 @@ int run(const Options& options) {
         if(key==SDL_SCANCODE_F11) SDL_SetWindowFullscreen(window.get(),!(SDL_GetWindowFlags(window.get())&SDL_WINDOW_FULLSCREEN));
         if(key==SDL_SCANCODE_F5) save();
         if(key==SDL_SCANCODE_M) { hud.muted=!hud.muted; notice(hud.muted ? "SOUND OFF / M TO UNMUTE" : "SOUND ON"); }
+        if(key==SDL_SCANCODE_N && !hud.menuOpen()) hud.mapOverview=!hud.mapOverview;
         if(key==SDL_SCANCODE_E && sleepRemaining<=0) showMenu(hud.menuOpen() ? Menu::None : Menu::Inventory);
         if(key==SDL_SCANCODE_P && sleepRemaining<=0) {
           if(hud.menu!=Menu::Farm) {
@@ -899,6 +922,7 @@ int run(const Options& options) {
       if(options.demoRoad && options.roadView=="drive") {
         auto road=sampleRoad(world.road,world.farm.car.position.x,world.farm.car.position.z);
         movement.forward=1;
+        movement.boost=options.demoBoost;
         movement.jump=road.length-road.along<30;
       }
       if(interactive) {
@@ -907,6 +931,7 @@ int run(const Options& options) {
         movement.vertical=float(keys[SDL_SCANCODE_SPACE])-float(keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]);
         movement.sprint=keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
         movement.sneak=keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+        movement.boost=movement.sneak;
         movement.jump=jump;
       }
       auto before=player.pose.position;
@@ -977,6 +1002,7 @@ int run(const Options& options) {
     hud.tools=tools;
     hud.breaking.reset(); hud.breakProgress=0; hud.riding=ride.active; hud.driving=ride.active && ride.car;
     hud.carSpeed=world.farm.car.speed; hud.roadGuide.clear();
+    hud.boosting=hud.driving && world.farm.car.boosting && !hud.paused;
     auto road=sampleRoad(world.road,player.pose.position.x,player.pose.position.z);
     if(road.distance<18) {
       bool toCity=glm::dot(road.direction,glm::vec2(std::sin(world.farm.car.yaw),-std::cos(world.farm.car.yaw)))>=0;
@@ -1012,6 +1038,10 @@ int run(const Options& options) {
     if(road.distance<12 && !atCoast(world,player)) {
       hud.guide={}; hud.guide.enabled=true; hud.guide.landmark=true; hud.guide.title="ROAD TO THE CITY";
       hud.guide.lines={"Follow the marked road to the coastal apartments.","C: bring your Porsche GT2    V: get in / out","W / Up: accelerate    Space: brake"};
+    }
+    if(atCountryside(world,player)) {
+      hud.guide={};hud.guide.enabled=true;hud.guide.landmark=true;hud.guide.title="COUNTRY FARMS";
+      hud.guide.lines={"V: pick ripe crops or collect milk from cows","P: sell your harvest    F: farming mode","Explore the barns, pastures and glass nursery."};
     }
     if(ride.active) hud.guide.enabled=false;
     if(trackedAnimal && *trackedAnimal<world.farm.chickens.size()) {

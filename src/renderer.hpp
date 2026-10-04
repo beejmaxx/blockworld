@@ -38,6 +38,9 @@ private:
   Uint32 uiCapacity_{};
   std::unordered_map<ChunkPos,Mesh,PositionHash> meshes_;
   Ui ui_;
+  MiniMap mapCache_;
+  float mapUpdated_=-100;
+  bool mapOverview_=false,mapDriving_=false;
   SDL_GPUShader* shader(const char* file,const char* entry,SDL_GPUShaderStage stage,Uint32 uniforms,Uint32 samplers=0);
   SDL_GPUGraphicsPipeline* pipeline(const char* file,const char* vertex,const char* fragment,int kind);
   void targets(Uint32 width,Uint32 height);

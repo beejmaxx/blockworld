@@ -5,6 +5,7 @@
 #include "coast.hpp"
 #include "harbor.hpp"
 #include "road.hpp"
+#include "countryside.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -255,7 +256,7 @@ int World::cropShelter(Cell c) const {
   const auto pos=chunkAt(c.x,c.z);
   auto chunk=chunks.find(pos);
   std::optional<Chunk> generated;
-  if(chunk==chunks.end()) generated=terrain.generate(pos);
+  if(chunk==chunks.end()) { generated=terrain.generate(pos); generateStructures(*generated); }
   for(int y=c.y+1;y<worldHeight;++y) {
     auto edit=edits_.find({c.x,y,c.z});
     auto b=edit!=edits_.end() ? edit->second
@@ -304,12 +305,16 @@ void World::growCrops(float seconds) {
     if(garden.weather>=showerPeriod) garden.weather=0;
   }
 }
-void World::insert(Chunk chunk) {
-  const auto p = chunk.pos;
+void World::generateStructures(Chunk& chunk) const {
   if(cityOrigin) generateCity(chunk,*cityOrigin);
   if(coastOrigin) generateCoast(chunk,terrain,*coastOrigin);
   if(coastOrigin && harborLots) generateHarbor(chunk,*coastOrigin,*harborLots);
   generateRoad(chunk,road);
+  if(countrysideOrigin)generateCountryside(chunk,*countrysideOrigin);
+}
+void World::insert(Chunk chunk) {
+  const auto p = chunk.pos;
+  generateStructures(chunk);
   for (const auto& [cell, block] : edits_) if (chunkAt(cell.x,cell.z) == p)
     chunk.set(localCoord(cell.x),cell.y,localCoord(cell.z),block);
   chunks.insert_or_assign(p, std::move(chunk));
@@ -326,7 +331,9 @@ void World::ensure(ChunkPos p, int radius) {
     if (!chunks.contains({x,z})) insert(terrain.generate({x,z}));
 }
 int World::streamingRadius(ChunkPos center) const {
-  return coastOrigin && coastContains(*coastOrigin,float(center.x*chunkSize),float(center.z*chunkSize),32) ? coastViewRadius : viewRadius;
+  bool coast=coastOrigin && coastContains(*coastOrigin,float(center.x*chunkSize),float(center.z*chunkSize),32);
+  bool country=countrysideOrigin && countrysideContains(*countrysideOrigin,float(center.x*chunkSize),float(center.z*chunkSize),64);
+  return coast || country ? coastViewRadius : viewRadius;
 }
 void World::evict(ChunkPos center, int radius) {
   std::erase_if(chunks, [&](const auto& pair) {
@@ -376,7 +383,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 15 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 16 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -407,6 +414,8 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   file<<harborLots.has_value()<<' '<<harborLots.value_or(0)<<'\n';
   file<<road.size()<<'\n';
   for(auto point:road) file<<point.x<<' '<<point.y<<' '<<point.z<<'\n';
+  auto country=countrysideOrigin.value_or(Cell{});
+  file<<countrysideOrigin.has_value()<<' '<<country.x<<' '<<country.y<<' '<<country.z<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -432,10 +441,10 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   WorldClock savedClock;
   CraftState savedCrafting;
   FarmState savedFarm;
-  std::optional<Cell> savedCastle,savedCity,savedCoast;
+  std::optional<Cell> savedCastle,savedCity,savedCoast,savedCountry;
   std::optional<std::uint32_t> savedHarbor;
   std::vector<glm::vec3> savedRoad;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>15) corrupt();
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>16) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -575,6 +584,15 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       savedRoad.push_back(p);
     }
   }
+  if(version>=16) {
+    bool present=false;Cell c;
+    if(!(file>>present>>c.x>>c.y>>c.z))corrupt();
+    if(present) {
+      if(!validCell(c) || c.y<4 || c.y>worldHeight-20 || std::abs(c.x)>coordinateLimit-countrysideWidth-4
+          || std::abs(c.z)>coordinateLimit-countrysideDepth-24 || savedRoad.empty())corrupt();
+      savedCountry=c;
+    } else if(c!=Cell{})corrupt();
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
@@ -610,7 +628,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
   farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; harborLots=savedHarbor;
-  road=std::move(savedRoad); edits_ = std::move(edits); chunks.clear();
+  road=std::move(savedRoad); countrysideOrigin=savedCountry; edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -705,6 +723,11 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
       ? coastColumn(world.terrain,*world.coastOrigin,wx,wz).ground : inCity ? city->y-1 : world.terrain.height(wx,wz);
     auto road=sampleRoad(world.road,wx+.5f,wz+.5f);
     if(road.distance<=roadHalfWidth+1) surface[z*chunkSize+x]=int(std::round(road.height)) - 1;
+    if(world.countrysideOrigin) {
+      auto o=*world.countrysideOrigin;bool site=wx>=o.x && wx<o.x+countrysideWidth && wz>=o.z && wz<o.z+countrysideDepth;
+      bool approach=wx>=o.x+51 && wx<=o.x+61 && wz>=o.z-24 && wz<o.z;
+      if(site || approach)surface[z*chunkSize+x]=o.y-1;
+    }
   }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {
     Block block = chunk.get(x,y,z);

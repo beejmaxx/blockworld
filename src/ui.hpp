@@ -2,6 +2,7 @@
 #include "building.hpp"
 #include "farm.hpp"
 #include "inventory.hpp"
+#include "minimap.hpp"
 #include <span>
 #include <string>
 
@@ -33,6 +34,8 @@ struct HudState {
   bool farmShop=false,farmRanch=false;
   bool riding=false,driving=false;
   float carSpeed=0;
+  bool boosting=false,mapOverview=false;
+  MiniMap map;
   std::string roadGuide;
   bool naming=false,nameSelectedAll=false;
   std::string nameDraft;
@@ -76,5 +79,6 @@ private:
   void workshop(const HudState& hud);
   void farmPage(const HudState& hud);
   void heldTool(const HudState& hud);
+  void minimap(const HudState& hud);
 };
 } // namespace bw

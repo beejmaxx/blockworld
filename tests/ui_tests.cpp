@@ -88,8 +88,11 @@ int main(int argc,char** argv) {
     ui.build(hud); bounds(ui,hud.width,hud.height); snapshot(ui,hud,"controls-small.ppm");
     for(auto size : {glm::ivec2(800,600),glm::ivec2(1280,800)}) {
       hud.width=size.x; hud.height=size.y; hud.paused=false; hud.riding=true; hud.driving=true; hud.guide.enabled=false;
+      hud.map=buildMiniMap(world,{0,0},false,true);hud.map.markers.push_back({{1000,200},"City",{.4f,.8f,1}});
+      hud.boosting=true;hud.carSpeed=carBoostSpeed;
       ui.build(hud); bounds(ui,size.x,size.y); snapshot(ui,hud,"driving-"+std::to_string(size.x)+".ppm");
     }
+    hud.map={};hud.boosting=false;
     hud.width=800; hud.height=600; hud.riding=false; hud.driving=false;
     hud.paused=false; hud.fps=60; hud.guide.enabled=false; hud.breaking=Cell{0,2,1}; hud.breakProgress=.6f;
     hud.interaction="Build / Left-click places / Right-click removes"; hud.tools.choose(Item::Workbench,CraftState{0,0,0,127});

@@ -144,6 +144,7 @@ public:
   std::optional<Cell> coastOrigin;
   std::optional<std::uint32_t> harborLots;
   std::vector<glm::vec3> road; // Saved highway centerline; y is the driving surface.
+  std::optional<Cell> countrysideOrigin;
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;
   bool set(Cell cell, Block block);
@@ -164,6 +165,7 @@ public:
   bool editedIn(Cell minimum,Cell maximum) const;
 private:
   std::unordered_map<Cell, Block, PositionHash> edits_;
+  void generateStructures(Chunk& chunk) const;
   void invalidate(ChunkPos pos);
 };
 

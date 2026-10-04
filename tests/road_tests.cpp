@@ -24,7 +24,7 @@ glm::vec3 atDistance(const std::vector<glm::vec3>& road,float distance) {
   }
   return road.back();
 }
-void drive(World& w,bool back) {
+void drive(World& w,bool back,bool boost=false) {
   auto route=w.road;if(back)std::ranges::reverse(route);
   auto pos=atDistance(route,4),next=atDistance(route,8);
   pos.y=std::round(pos.y);
@@ -42,10 +42,11 @@ void drive(World& w,bool back) {
     auto aim=atDistance(route,sample.along+std::max(8.f,std::abs(car.speed)*.55f));
     float yaw=std::atan2(aim.x-car.position.x,car.position.z-aim.z);
     float error=std::remainder(yaw-car.yaw,6.2831853f);
-    float wanted=std::abs(error)>.16f ? 16.f : std::abs(error)>.08f ? 26.f : carTopSpeed;
+    float top=boost ? carBoostSpeed : carTopSpeed;
+    float wanted=std::abs(error)>.16f ? 16.f : std::abs(error)>.08f ? 26.f : top;
     wanted=std::min(wanted,std::sqrt(18.f*remaining));
     Movement m;m.right=std::clamp(error*2.f,-1.f,1.f);
-    m.forward=car.speed>wanted+.5f ? 0 : wanted/carTopSpeed;
+    m.forward=car.speed>wanted+.5f ? 0 : wanted/top;m.boost=boost;
     tickRanch(w,p,ride,m,1.f/60);
     peak=std::max(peak,car.speed);
     if(frame>200 && car.speed<.05f) {
@@ -63,8 +64,9 @@ void drive(World& w,bool back) {
   }
   check(arrived,"complete road is drivable without teleporting");
   check(peak>38.f,"long straights allow more than four times the old car speed");
+  if(boost)check(peak>80.f,"boost exceeds 288 km/h on a streamed highway");
   check(w.farm.car.speed==0 && leaveRide(w,p,ride),"driver can brake and get out at either end");
-  std::cout<<(back ? "City to home" : "Home to city")<<": peak "<<peak*3.6f<<" km/h; lateral error "<<maxError<<" m\n";
+  std::cout<<(back ? "City to home" : "Home to city")<<(boost ? " with boost" : "")<<": peak "<<peak*3.6f<<" km/h; lateral error "<<maxError<<" m\n";
 }
 void persistence(World& w,Player p) {
   auto path=std::filesystem::temp_directory_path()/("blockworld-road-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".bw");
@@ -85,7 +87,7 @@ void persistence(World& w,Player p) {
     check(rejected && loaded.road==w.road,"invalid road metadata rejects atomically");};
   lines[14]="999999";write();reject();
   lines=original;lines[14]="2";lines.insert(lines.begin()+15,{"0 23 0","10 100 0"});write();reject();
-  lines=original;lines[0]="BLOCKWORLD 14 7262026 0";lines.erase(lines.begin()+14);write();
+  lines=original;lines[0]="BLOCKWORLD 14 7262026 0";lines.erase(lines.begin()+14,lines.begin()+16);write();
   check(loaded.load(path).has_value() && loaded.road.empty() && loaded.coastOrigin==blank.coastOrigin,"v14 worlds load unchanged before road installation");
 }
 void protection() {
@@ -106,7 +108,7 @@ void protection() {
 }
 void speedAndCollision() {
   World w;
-  for(int z=-16;z<180;++z)for(int x=-5;x<=5;++x) {
+  for(int z=-16;z<440;++z)for(int x=-5;x<=5;++x) {
     auto cp=chunkAt(x,z);if(!w.chunks.contains(cp))w.insert(Chunk{cp});w.set({x,1,z},Block::Asphalt);
   }
   w.farm.car={true,{.5f,2,4},3.14159265f,0};Player p;RideState ride{true,true,0};Movement m;m.forward=1;
@@ -114,7 +116,12 @@ void speedAndCollision() {
   check(w.farm.car.speed>41 && w.farm.car.speed<=carTopSpeed+.1f,"GT2 reaches bounded top speed after accelerating");
   auto before=w.farm.car.position;tickRanch(w,p,ride,{.jump=true},.1f);
   check(w.farm.car.speed==0 && w.farm.car.position==before,"Space is an immediate dependable brake at top speed");
-  w.farm.car.position={.5f,2,70};w.farm.car.speed=carTopSpeed;
+  w.farm.car.position={.5f,2,4};m.boost=true;
+  for(int i=0;i<240;++i)tickRanch(w,p,ride,m,1.f/60);
+  check(w.farm.car.boosting && w.farm.car.speed>83.f && w.farm.car.speed<carBoostSpeed+.1f,"Shift doubles the speed ceiling to about 300 km/h");
+  m.boost=false;for(int i=0;i<100;++i)tickRanch(w,p,ride,m,1.f/60);
+  check(!w.farm.car.boosting && w.farm.car.speed<carTopSpeed+.1f,"releasing Shift slows back to the normal speed ceiling");
+  w.farm.car.position={.5f,2,70};w.farm.car.speed=carBoostSpeed;m.boost=true;
   for(int x=-5;x<=5;++x)for(int y=2;y<6;++y)w.set({x,y,78},Block::Stone);
   for(int i=0;i<10;++i)tickRanch(w,p,ride,m,.1f);
   check(w.farm.car.position.z<75.78f && w.farm.car.speed==0,"full-speed GT2 cannot tunnel through walls at low frame rates");
@@ -133,7 +140,7 @@ int main(int argc,char** argv) {
       auto originalFarm=w.farm;
       std::cout<<"Road: "<<sampleRoad(w.road,w.road[0].x,w.road[0].z).length<<" m; "<<w.road.size()<<" points; "<<edits<<" saved edits\n";
       std::cout<<"Start "<<w.road.front().x<<','<<w.road.front().y<<','<<w.road.front().z<<"; end "<<w.road.back().x<<','<<w.road.back().y<<','<<w.road.back().z<<'\n';
-      drive(w,false);drive(w,true);w.farm=originalFarm;
+      drive(w,false);drive(w,true);drive(w,false,true);w.farm=originalFarm;
       if(argc>2)w.save(argv[2],p.pose);
     } else {protection();speedAndCollision();}
     std::cout<<"PASS physical road trips, GT2 acceleration/braking, streaming, protection and migration\n";

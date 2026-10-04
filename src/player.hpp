@@ -4,7 +4,7 @@
 namespace bw {
 struct Movement {
   float forward{}, right{}, vertical{};
-  bool jump{}, sprint{}, sneak{};
+  bool jump{}, sprint{}, sneak{},boost{};
 };
 class Player {
 public:

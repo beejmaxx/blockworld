@@ -116,7 +116,7 @@ Press **P** for **Your Farm**, or open **E → Farm**. The **Garden** section ha
 one seed button per crop, a hoe, watering can, compost, and separate harvest counts.
 Click a seed card to equip it and return to the world. Prepare grass or dirt with
 the hoe first, then **right-click or V** on that soil to plant. Seeds are unlimited,
-with room for 256 plants. All garden items are also in **E → Items**.
+with room for 2,048 plants. All garden items are also in **E → Items**.
 
 | Crop | First growth without watering | Harvest | Coins per item |
 | --- | --- | --- | --- |
@@ -167,6 +167,26 @@ cycle. It waters exposed crops, darkens the sky and soil, and leaves 45 seconds
 of moisture. Roofs keep the rain out. Rain, sprinkler water, and manual watering
 share the same double-growth bonus rather than multiplying it.
 
+### Countryside farms
+
+The highway between home and the coastal city now has a farm district. Press
+**N** for the route overview, follow the road toward **Farms**, then turn onto the
+broad sandy lane. Four fields hold **492 new plants**, including wheat, carrots,
+strawberries, and pumpkins. Some are already ripe. Use **V** to harvest and
+**P → Shop → Sell basket** to turn the produce into coins. Replant cleared rows
+with free seeds; strawberry bushes keep growing after you pick them.
+
+Two red barns, a grain silo, a glass nursery, a produce stand, and fenced pastures
+surround the lane. The new cows produce milk, the horse can be ridden, and the
+sheep can be petted. A bed inside the western barn lets you sleep at dusk. Existing
+buildings and crops are preserved; the farm chooses a clear parcel beside the road.
+You can also launch directly there with `./run.command --farms`.
+
+The minimap stays north-up. The light triangle is you; labeled markers show
+home, the city, farms, the castle, and your parked GT2. **N** switches between
+the nearby view and an overview of the route. Distant destinations appear at
+the edge of the nearby map. Driving automatically widens the nearby view.
+
 ## Cows, horses, and your car
 
 Press **C** to bring your free Porsche 911 GT2 nearby. For animals, open **P → Shop → Animals & car**. Stand outside near a clear, level patch
@@ -186,7 +206,9 @@ when buying or collecting a vehicle. Delivery never replaces your blocks or crop
 
 While riding or driving, **W / Up** goes forward, **S / Down** brakes then reverses,
 **A-D / Left-Right** steers, and **Space** brakes. The mouse looks around.
-The GT2 accelerates to about **150 km/h** on a long straight. Release the accelerator
+The GT2 accelerates to about **150 km/h** on a long straight. Hold **Shift** while
+accelerating to reach about **300 km/h**; release Shift to return to normal speed.
+Shift still moves downward when flying on foot. Release the accelerator
 to slow down; Space stops it immediately. Slow down for tight corners.
 The camera follows behind the car, so you can see its body and the road ahead.
 The dashboard shows your speed and the distance to the city or home while on the highway.
@@ -321,6 +343,8 @@ silently if none is available. No microphone access is used.
 | R | Go home; use P → Garden → Visit garden to return to the beds |
 | C | Bring your free car nearby; while driving, move it to clear ground |
 | Shift+C | Start beside the GT2 on the road from the farm to the city |
+| Shift while driving | Boost to about 300 km/h; release to return to normal speed |
+| N | Switch the minimap between nearby terrain and the route overview |
 | K | Visit your castle |
 | T | Visit the coastal city street |
 | U | Visit the penthouse terrace |

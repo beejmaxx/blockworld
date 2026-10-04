@@ -268,11 +268,13 @@ void tickRanch(World& world,Player& player,RideState& ride,Movement movement,flo
     float speed=throttle*6.f;
     if(ride.car) {
       speed=world.farm.car.speed;
-      float target=throttle>=0 ? throttle*carTopSpeed : throttle*8.f;
+      world.farm.car.boosting=movement.boost && throttle>0 && !movement.jump;
+      float top=world.farm.car.boosting ? carBoostSpeed : carTopSpeed;
+      float target=throttle>=0 ? throttle*top : throttle*8.f;
       // Lift slightly in tight turns. Steering is gentler at high speed, and
       // S first brakes forward motion before engaging reverse.
-      if(target>0) target=std::min(target,std::lerp(carTopSpeed,18.f,std::abs(turnInput)));
-      float rate=throttle==0 ? 14.f : speed*throttle<0 || std::abs(target)<std::abs(speed) ? 32.f : 12.f;
+      if(target>0) target=std::min(target,std::lerp(top,18.f,std::abs(turnInput)));
+      float rate=throttle==0 ? 14.f : speed*throttle<0 || std::abs(target)<std::abs(speed) ? 32.f : world.farm.car.boosting ? 24.f : 12.f;
       speed+=std::clamp(target-speed,-rate*dt,rate*dt);
     } else if(throttle<0) speed*=.45f;
     if(movement.jump) speed=0;
@@ -310,7 +312,7 @@ void tickRanch(World& world,Player& player,RideState& ride,Movement movement,flo
     player.stopFlying(); player.grounded=false; player.pose.position=seat(world,ride);
   }
   if(world.farm.car.owned && !(ride.active && ride.car)) {
-    auto& car=world.farm.car; car.speed=0;
+    auto& car=world.farm.car; car.speed=0; car.boosting=false;
     if(auto floor=carGround(world,car.position,car.yaw,false,worldHeight); floor && floor->y<car.position.y)
       car.position.y=std::max(floor->y,car.position.y-5.f*dt);
   }

@@ -26,7 +26,13 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   cave, watch the sunset, and sleep until morning.
 - **Drive to the city:** a marked two-lane road connects the farm outskirts to
   the coastal streets. The red GT2 has a rear wing, engine sounds, a chase camera,
-  a speedometer, and an arcade top speed of about **150 km/h**. Press **C** to bring it nearby.
+  a speedometer, and an arcade top speed of about **150 km/h**. Hold **Shift** while
+  accelerating for a **300 km/h boost**. Press **C** to bring it nearby.
+- **Countryside farms:** turn off the highway at the **Farms** marker. Harvest
+  four large fields of wheat, carrots, strawberries, and pumpkins; explore two
+  barns, a glass nursery, a grain silo, and pastures with cows, a horse, and a sheep.
+- **Find your way:** the minimap shows your heading, roads, home, city, farms,
+  castle, and parked car. Press **N** to switch between nearby terrain and the route overview.
 - **Your castle:** press **K** to visit a four-tower stone castle. Walk up the
   courtyard staircase and along the walls to the tower roof, or furnish the hall.
 - **Coastal city:** press **T** for ten buildings along curved coves and beaches.
@@ -39,6 +45,12 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   and changes there remain saved.
 
 ![The coastal city's towers, coves and beaches](docs/images/harbor.png)
+
+![Four crop fields, barns, a greenhouse and pastures beside the highway](docs/images/countryside.png)
+
+![Driving at 302 km/h with the route minimap visible](docs/images/boost-map.png)
+
+*Actual Metal framebuffer captures from version 0.16.0.*
 
 ![The red Porsche 911 GT2 at the home end of the highway](docs/images/gt2.png)
 
@@ -124,6 +136,7 @@ Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, 
 | Return home | R |
 | Bring your free car nearby / visit the castle | C / K |
 | Start beside the GT2 on the road to the city | Shift+C |
+| Boost while driving / change minimap zoom | Shift / N |
 | Coastal city street / penthouse terrace | T / U |
 | Northern coast / original city | J / Shift+T |
 | Pause and release the mouse | Esc |
@@ -131,6 +144,7 @@ Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, 
 
 Press **C** outside to bring your free GT2 nearby. Aim at it and press **V** to enter.
 Hold **W / Up** to accelerate, use **A-D / Left-Right** to steer, and **Space** to brake.
+Hold **Shift** with the accelerator for boost; release Shift to slow back to normal speed.
 **S / Down** brakes and then reverses; **V** gets you out.
 [All controls →](docs/PLAYING.md#controls)
 

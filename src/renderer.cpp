@@ -3,6 +3,7 @@
 #include "ranch.hpp"
 #include "city.hpp"
 #include "coast.hpp"
+#include "countryside.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
@@ -238,7 +239,8 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
     eye+=direction*distance; forward=glm::normalize(target-eye);
   }
   auto right=glm::normalize(glm::cross(forward,glm::vec3(0,1,0))),up=glm::cross(right,forward);
-  bool city=atCity(world,player),coast=atCoast(world,player);
+  bool city=atCity(world,player),coast=atCoast(world,player)
+    || (world.countrysideOrigin && countrysideContains(*world.countrysideOrigin,eye.x,eye.z,64));
   camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,coast ? 260.f : city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
   camera.eye=glm::vec4(eye,coast ? 2.f : city ? 1.f : 0.f); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);
   camera.screen={float(w),float(h),std::tan(glm::radians(73.f)*.5f),time};
@@ -277,6 +279,16 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
       if(screen.x<half || screen.x>float(w)-half || screen.y<114 || screen.y>float(h)-190) continue;
       hud.animalLabels.push_back({screen,std::move(name),isChick(c)});
     }
+  }
+  if(!hud.hidden && !hud.menuOpen() && !hud.paused) {
+    glm::vec2 position{player.pose.position.x,player.pose.position.z};
+    if(time-mapUpdated_>.2f || hud.mapOverview!=mapOverview_ || hud.driving!=mapDriving_
+        || glm::length(position-mapCache_.player)>30 || !mapCache_.enabled) {
+      mapCache_=buildMiniMap(world,position,hud.mapOverview,hud.driving);
+      mapUpdated_=time;mapOverview_=hud.mapOverview;mapDriving_=hud.driving;
+    }
+    hud.map=mapCache_;hud.map.player=position;
+    hud.map.yaw=hud.driving ? world.farm.car.yaw : player.pose.yaw;
   }
   hud.width=int(w); hud.height=int(h); ui_.build(hud);
   Uint32 bytes=Uint32(ui_.vertices.size()*sizeof(UiVertex));

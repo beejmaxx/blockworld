@@ -649,6 +649,47 @@ void Ui::heldTool(const HudState& h) {
 
 
 }
+void Ui::minimap(const HudState& h) {
+  if(!h.map.enabled || h.paused)return;
+  float x=float(h.width)-228,y=122,size=188;
+  rectangle(x,y,204,242,panel);
+  label(h.mapOverview ? "Route map" : "Nearby",x+10,y+6,16,cream);
+  label("N",x+180,y+6,16,accent);
+  glm::vec2 origin{x+8,y+32};
+  float cell=size/mapCells;
+  for(int z=0;z<mapCells;++z)for(int column=0;column<mapCells;++column)
+    rectangle(origin.x+column*cell,origin.y+z*cell,cell+.05f,cell+.05f,glm::vec4(h.map.colors[z*mapCells+column],1));
+  for(auto line:h.map.roads) {
+    auto a=origin+line[0]*size,b=origin+line[1]*size;
+    auto delta=b-a;float length=glm::length(delta);if(length<.01f)continue;
+    auto normal=glm::vec2(-delta.y,delta.x)/length*1.4f;
+    quad(a-normal,b-normal,b+normal,a+normal,{.90f,.87f,.73f,1});
+  }
+  std::vector<glm::vec4> labels;
+  for(const auto& marker:h.map.markers) {
+    auto point=mapPoint(h.map,marker.position);
+    bool outside=point.x<0 || point.x>1 || point.y<0 || point.y>1;
+    if(outside) {auto d=point-glm::vec2(.5f);point=glm::vec2(.5f)+d*(.465f/std::max(std::abs(d.x),std::abs(d.y)));}
+    auto p=origin+glm::clamp(point,glm::vec2(.035f),glm::vec2(.965f))*size;
+    auto color=glm::vec4(marker.color,1);
+    rectangle(p.x-4,p.y-4,8,8,{.05f,.08f,.06f,1});rectangle(p.x-2.5f,p.y-2.5f,5,5,color);
+    float width=readableWidth(marker.name,12)+6;
+    float left=std::clamp(p.x+6,origin.x,origin.x+size-width),top=std::clamp(p.y-18,origin.y,origin.y+size-16);
+    bool overlap=false;
+    for(auto box:labels)overlap|=left<box.z && left+width>box.x && top<box.w && top+16>box.y;
+    if(!overlap) {
+      rectangle(left,top,width,16,{.04f,.07f,.05f,.82f});label(marker.name,left+3,top,12,color);
+      labels.push_back({left,top,left+width,top+16});
+    }
+    if(outside)rectangle(p.x-1,p.y-6,2,2,color);
+  }
+  auto p=origin+glm::clamp(mapPoint(h.map,h.map.player),glm::vec2(.04f),glm::vec2(.96f))*size;
+  glm::vec2 direction{std::sin(h.map.yaw),-std::cos(h.map.yaw)},side{-direction.y,direction.x};
+  auto a=p+direction*7.f,b=p-direction*5.f+side*5.f,c=p-direction*5.f-side*5.f;
+  quad(a,b,c,c,{.05f,.07f,.05f,1});
+  quad(p+direction*5.f,p-direction*3.f+side*3.f,p-direction*3.f-side*3.f,p-direction*3.f-side*3.f,{1,1,.91f,1});
+  label("N: zoom   /   north is up",x+10,y+223,12,muted);
+}
 void Ui::build(const HudState& h) {
   vertices.clear();
   if(h.hidden) return;
@@ -674,6 +715,7 @@ void Ui::build(const HudState& h) {
   std::snprintf(status,sizeof(status),"%.0F FPS",h.fps);
   text(status,w-100,62,1.f,muted);
   text(!h.audioAvailable ? "SOUND UNAVAILABLE" : h.muted ? "M / SOUND OFF" : "M / SOUND ON",w-214,85,1.1f,muted);
+  minimap(h);
 
   if(h.guide.enabled && h.help && !h.paused) {
     float panelHeight=h.guide.landmark ? 120.f : h.guide.farm ? (h.farmGarden ? 220.f : 168.f) : h.guide.stage==4 ? 279.f : 144.f;
@@ -748,7 +790,8 @@ void Ui::build(const HudState& h) {
     labelCentered(h.driving ? driving : "Riding your horse",panelCenter,height-131,h.driving ? 19 : 23,accent);
     labelCentered("W / Up: gas    S / Down: reverse",panelCenter,height-96,16,cream);
     labelCentered("A D / arrows: steer    Space: brake",panelCenter,height-72,16,cream);
-    labelCentered(h.driving ? "V: get out    C: recover car" : "V: get off",panelCenter,height-47,17,accent);
+    labelCentered(h.driving ? "Shift: BOOST    V: exit    C: recover" : "V: get off",panelCenter,height-47,16,h.boosting ? glm::vec4(1,.64f,.22f,1) : accent);
+    if(h.boosting)rectangle(panelX,height-140,panelWidth,3,{1,.56f,.15f,1});
     if(h.driving && !h.roadGuide.empty()) {
       rectangle(panelX,height-183,panelWidth,34,panel);
       labelCentered(h.roadGuide,panelCenter,height-179,19,cream);

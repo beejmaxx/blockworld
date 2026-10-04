@@ -31,7 +31,7 @@ constexpr int cropPrice(CropKind kind) { return kind==CropKind::Carrot ? 2 : kin
 constexpr std::string_view cropName(CropKind kind) {
   return kind==CropKind::Carrot ? "CARROTS" : kind==CropKind::Strawberry ? "STRAWBERRIES" : kind==CropKind::Pumpkin ? "PUMPKINS" : "WHEAT";
 }
-inline constexpr std::size_t starterFlock=4,flockLimit=12,cropLimit=256,animalNameLimit=18;
+inline constexpr std::size_t starterFlock=4,flockLimit=12,cropLimit=2048,animalNameLimit=18;
 enum FarmFlag : std::uint32_t { PenBuilt=1,WheatPlanted=2,WheatHarvested=4,ChickenFed=8,EggCollected=16,EggIncubated=32,ChickHatched=64,AnimalNamed=128 };
 struct Chicken {
   glm::vec3 position{};
@@ -65,10 +65,12 @@ struct Livestock {
   bool moving=false;
 };
 inline constexpr float carTopSpeed=42.f; // Blocks/second; HUD uses 1 block = 1 metre.
+inline constexpr float carBoostSpeed=84.f;
 struct FarmCar {
   bool owned=false;
   glm::vec3 position{};
   float yaw=0,speed=0; // Speed is transient; cars load parked.
+  bool boosting=false;
 };
 struct FarmState {
   bool initialized=false;
