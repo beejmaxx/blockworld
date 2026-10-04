@@ -18,6 +18,7 @@ bool visitDataCenter(World&,Player&,int index=0);
 glm::vec3 garagePosition(Cell,int car);
 glm::vec3 bankTerminal(Cell);
 glm::vec3 metroResidentHome(Cell,int resident);
+void appendApartmentDecor(std::vector<Vertex>&,const World&,int resident);
 std::vector<Vertex> metropolisSkyline(const World&,glm::vec3 eye);
 inline constexpr std::size_t skylineVertexLimit=180000;
 } // namespace bw

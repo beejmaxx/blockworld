@@ -92,6 +92,48 @@ public:
     for(int xx:{146,169,216,239})for(int zz:{144,175})tree(xx,zz);
     for(int xx:{153,219}){fill(xx,0,2*64+25,xx+5,0,2*64+25,Block::Sofa);put(xx+2,0,2*64+23,Block::Table);}
   }
+  void apartment(const HarborBuilding& t,int resident) {
+    int x=t.x,z=t.z,w=t.width,d=t.depth,y=(1+resident%4)*harborFloorHeight;
+    constexpr std::array accents{Block::Sage,Block::BlueTile,Block::Terracotta,Block::GoldTile,Block::BlueTile,Block::RedTile,Block::Sage,Block::Terracotta};
+    Block accent=accents[resident];
+    auto f=[&](int a,int b,int c,int aa,int bb,int cc,Block block){fill(x+a,y+b,z+c,x+aa,y+bb,z+cc,block);};
+    auto p=[&](int a,int b,int c,Block block){f(a,b,c,a,b,c,block);};
+    // Keep the stairs, their landing, and the balcony doors clear.
+    f(15,0,2,w-2,3,d-2,Block::Air);
+    f(16,-1,3,w-3,-1,9,Block::Limestone);
+    f(17,0,2,w-3,0,2,Block::Concrete);
+    f(17,1,2,w-3,1,2,accent);
+    p(18,1,2,Block::Charcoal);p(19,1,2,Block::Charcoal);
+    p(w-8,1,2,Block::BlueTile);p(w-4,1,2,Block::Planter);
+    f(w-3,0,3,w-3,2,4,Block::Concrete);p(w-3,1,4,Block::Charcoal);
+    f(20,0,6,23,0,7,Block::Table);
+    for(int a:{20,23}){p(a,0,5,Block::Chair);p(a,0,9,Block::Chair);}
+    // A dining area separates the kitchen from a spacious lounge.
+    f(18,-1,13,24,-1,18,accent);f(19,-1,14,23,-1,17,Block::Limestone);
+    f(20,0,15,22,0,16,Block::Table);
+    for(int a:{20,22}){p(a,0,14,Block::Chair);p(a,0,18,Block::Chair);}
+    p(24,0,14,Block::Planter);
+    f(17,-1,d-12,23,-1,d-4,accent);f(18,-1,d-11,22,-1,d-5,Block::Limestone);
+    f(18,0,d-6,22,0,d-6,Block::Sofa);
+    f(19,0,d-9,21,0,d-9,Block::Table);
+    p(17,0,d-9,Block::Chair);p(23,0,d-9,Block::Chair);
+    p(17,0,d-6,Block::Table);p(23,0,d-6,Block::Planter);
+    // A book wall and framed artwork give each room a recognizable backdrop.
+    f(16,0,d-4,16,2,d-2,Block::Planks);
+    f(18,1,d-2,22,2,d-2,accent);
+    // Bedroom divider stops short of the route into the room.
+    f(w-7,0,d-7,w-7,2,d-3,accent);
+    f(w-6,-1,d-7,w-2,-1,d-2,Block::Limestone);
+    for(int a:{w-5,w-4}){p(a,0,d-4,Block::BedZ);p(a,0,d-5,Block::BedZHead);}
+    p(w-3,0,d-4,Block::Table);p(w-3,1,d-4,Block::Lamp);
+    p(w-6,0,d-3,Block::Planter);
+    // Two tables anchor a detailed crib; it can be removed or rebuilt normally.
+    f(w-6,-1,d-15,w-2,-1,d-10,accent);
+    f(w-5,0,d-13,w-4,0,d-13,Block::Table);
+    p(w-3,0,d-15,Block::Chair);p(w-2,0,d-12,Block::Planter);
+    for(auto spot:std::array{glm::ivec2(21,7),glm::ivec2(21,16),glm::ivec2(21,d-8),glm::ivec2(w-5,d-13)})p(spot.x,3,spot.y,Block::Lamp);
+    p(16,0,2,Block::Planter);p(w-2,0,8,Block::Planter);
+  }
 };
 bool land(World& w,Player& p,glm::vec3 at,glm::vec3 toward) {
   w.ensure(chunkAt(int(at.x),int(at.z)),2);
@@ -134,6 +176,7 @@ void generateMetropolis(Chunk& chunk,const World& w) {
   }
   for(std::size_t i=0;i<towers.size();++i) {
     auto tower=towers[i];generateHarborTower(chunk,o,tower);
+    if(i<residentCount)b.apartment(tower,int(i));
     if(metroOffice(i))for(int floor=0;floor<tower.floors;++floor) {
       int x=tower.x,z=tower.z,y=floor*harborFloorHeight;
       b.fill(x+11,y,z+2,x+tower.width-2,y+3,z+tower.depth-2,Block::Air);
@@ -215,6 +258,47 @@ bool visitDataCenter(World& w,Player& p,int index) {
 }
 glm::vec3 metroResidentHome(Cell o,int i) {
   auto b=towers[std::size_t(i)];return harborPosition(o,b,{float(b.width)-10.5f,float(1+i%4)*5,float(b.depth)-8.5f});
+}
+void appendApartmentDecor(std::vector<Vertex>& mesh,const World& w,int i) {
+  if(!w.metroOrigin || i<0 || i>=residentCount)return;
+  auto t=towers[i];auto o=*w.metroOrigin;int floor=(1+i%4)*harborFloorHeight;
+  glm::vec3 origin(o.x+t.x,o.y+floor,o.z+t.z);
+  auto anchor=[&](int x,int z,Block expected){return w.get({int(origin.x)+x,int(origin.y),int(origin.z)+z})==expected;};
+  auto box=[&](glm::vec3 a,glm::vec3 b,float material){appendBox(mesh,{origin+a,origin+b},{-100010,0,i},material,.95f);};
+  int d=t.depth,width=t.width;
+  if(anchor(16,d-3,Block::Planks)) {
+    for(int row=0;row<3;++row) {
+      float y=.18f+row*.84f;
+      box({16.97f,y-.06f,d-3.95f},{17.12f,y,d-1.05f},72);
+      for(int book=0;book<12;++book){float z=d-3.9f+book*.235f;box({16.99f,y,z},{17.16f,y+.48f+(book%3)*.08f,z+.17f},80+float((book+i*3+row)%20));}
+    }
+  }
+  if(w.get({int(origin.x)+20,int(origin.y)+1,int(origin.z)+d-2})!=Block::Air) {
+    float z=d-2.035f;
+    box({18.18f,1.08f,z-.04f},{22.82f,2.92f,z},72);
+    box({18.30f,1.20f,z-.065f},{22.70f,2.80f,z-.05f},73);
+    for(int band=0;band<5;++band) {
+      float x=18.45f+band*.82f,h=.45f+float((band*3+i)%5)*.21f;
+      box({x,1.34f,z-.085f},{x+.67f,1.34f+h,z-.075f},80+float((i*3+band+1)%20));
+    }
+  }
+  if(anchor(17,d-6,Block::Table)) {
+    box({17.44f,.58f,d-5.56f},{17.56f,1.85f,d-5.44f},71);
+    box({17.18f,1.61f,d-5.82f},{17.82f,2.03f,d-5.18f},73);
+  }
+  if(anchor(width-5,d-13,Block::Table) && anchor(width-4,d-13,Block::Table)) {
+    float x=width-5.f,z=d-13.f;
+    box({x+.08f,.59f,z+.07f},{x+1.92f,.68f,z+.93f},73);
+    for(float xx:{x+.06f,x+1.90f})box({xx,.56f,z+.03f},{xx+.05f,1.17f,z+.97f},60);
+    for(float zz:{z+.04f,z+.91f}) {
+      box({x+.06f,1.09f,zz},{x+1.95f,1.17f,zz+.05f},60);
+      for(int bar=0;bar<10;++bar){float xx=x+.14f+bar*.18f;box({xx,.64f,zz},{xx+.04f,1.1f,zz+.04f},60);}
+    }
+  }
+  if(anchor(21,15,Block::Table)) {
+    box({20.25f,.59f,15.25f},{22.75f,.615f,15.75f},73);
+    for(int fruit=0;fruit<4;++fruit){float x=21.f+fruit*.18f;box({x,.62f,15.40f},{x+.14f,.77f,15.57f},fruit%2 ? 70 : 71);}
+  }
 }
 std::vector<Vertex> metropolisSkyline(const World& w,glm::vec3 eye) {
   std::vector<Vertex> mesh;if(!w.metroOrigin)return mesh;auto o=*w.metroOrigin;

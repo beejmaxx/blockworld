@@ -10,6 +10,10 @@ std::span<const ResidentSpec> cityResidents();
 FarmCar parkedCar(const World&,int index);
 bool bankTransfer(World&,int amount,bool deposit);
 std::string startCityFamily(World&,int resident);
+std::string feedCityFamily(World&,int resident);
+int hungryCityChildren(const ResidentState&,const WorldClock&);
+glm::vec3 cityChildPosition(const World&,int resident,int child);
+bool cityChildFeeding(const World&,int resident,int child);
 void updateCityFamilies(World&);
 int cityChildCount(const ResidentState&);
 glm::vec3 cityWorkerPosition(const World&,int index);
@@ -25,5 +29,5 @@ std::optional<CityTarget> targetCity(const World&,const Player&,float reach=4);
 std::string cityPrompt(const World&,CityTarget);
 bool cityPeopleOverlap(const World&,Box);
 std::vector<Vertex> residentMesh(const World&,float time);
-inline constexpr std::size_t peopleVertexLimit=80000;
+inline constexpr std::size_t peopleVertexLimit=120000;
 } // namespace bw

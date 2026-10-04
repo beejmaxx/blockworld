@@ -25,7 +25,7 @@ struct Options {
   bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
   bool city=false,demoCity=false,coast=false,demoCoast=false,harbor=false,demoHarbor=false,hideUi=false;
   bool road=false,demoRoad=false,demoBoost=false,country=false,demoCountry=false,mapOverview=false;
-  bool downtown=false,garage=false,bank=false,demoMetro=false,demoFamily=false,demoPopulation=false;
+  bool downtown=false,garage=false,bank=false,demoMetro=false,demoFamily=false,demoPopulation=false,demoFeeding=false,demoHome=false;
   std::string metroView="skyline",cityMenu;
   std::string roadView="car";
   std::string cityView="skyline",coastView="bay",harborView="skyline";
@@ -43,8 +43,9 @@ Options parse(int argc,char** argv) {
     else if(arg=="--classic") result.classic=true;
     else if(arg=="--mute") result.muted=true;
     else if(arg=="--castle") result.castle=true;
-    else if(arg=="--demo-family" || arg=="--demo-population") {
-      result.demoFamily=arg=="--demo-family";result.demoPopulation=arg=="--demo-population";
+    else if(arg=="--demo-family" || arg=="--demo-population" || arg=="--demo-feeding" || arg=="--demo-home") {
+      result.demoFeeding=arg=="--demo-feeding";result.demoHome=arg=="--demo-home";
+      result.demoFamily=arg=="--demo-family" || result.demoFeeding || result.demoHome;result.demoPopulation=arg=="--demo-population";
       result.demoMetro=true;result.metroView=result.demoFamily ? "apartment" : "street";result.save=false;result.paused=false;
     }
     else if(arg=="--downtown")result.downtown=true;
@@ -123,6 +124,7 @@ Options parse(int argc,char** argv) {
         <<"  --demo-metropolis      Preview the new downtown without touching saves\n"
         <<"  --demo-population      Preview walking city residents without touching saves\n"
         <<"  --demo-family          Preview an apartment family without touching saves\n"
+        <<"  --demo-feeding / --demo-home  Preview feeding or the decorated apartment\n"
         <<"  --metro-view VIEW      skyline, street, roof, garage, collection, bank, apartment, servers\n"
         <<"  --city-menu PAGE       bank, garage, residents, properties\n"
         <<"  --road                 Start beside your GT2 at the home end of the city road\n"
@@ -181,7 +183,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.18.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.19.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -366,6 +368,12 @@ int run(const Options& options) {
         player.pose.yaw=std::atan2(d.x,-d.z);player.pose.pitch=std::asin(d.y);player.pose.flying=true;
       }
       if(options.demoFamily){auto& r=world.cityLife.residents[0];r.conversations=3;r.dating=true;r.children[0]=world.clock.day;}
+      if(options.demoFeeding)feedCityFamily(world,0);
+      if(options.demoHome) {
+        auto b=metroBuildings()[0];player.pose.position=harborPosition(o,b,{15.5f,5,12.5f});
+        auto d=glm::normalize(harborPosition(o,b,{float(b.width)-7,6,float(b.depth)-8})-player.eye());
+        player.pose.yaw=std::atan2(d.x,-d.z);player.pose.pitch=std::asin(d.y);
+      }
       if(options.demoPopulation){player.pose.position={o.x+34.f,23,o.z+62.f};player.pose.yaw=0;player.pose.pitch=-.1f;}
       if(!ok)throw std::runtime_error("City preview arrival is blocked");
     }
@@ -489,7 +497,10 @@ int run(const Options& options) {
       hud.cityMessage=bankTransfer(world,amount,deposit) ? std::to_string(amount)+(deposit ? " coins deposited." : " coins withdrawn.") : "Not enough coins or destination is full.";
       return;
     }
-    if(click.action==CityAction::Chat || click.action==CityAction::Date || click.action==CityAction::StartFamily) {
+    if(click.action==CityAction::Chat || click.action==CityAction::Date || click.action==CityAction::StartFamily || click.action==CityAction::FeedFamily) {
+      if(click.action==CityAction::FeedFamily && world.metroOrigin && glm::length(metroResidentHome(*world.metroOrigin,click.index)-player.pose.position)<4) {
+        auto message=feedCityFamily(world,click.index);showMenu(Menu::None);notice(message);return;
+      }
       if(world.metroOrigin && glm::length(metroResidentHome(*world.metroOrigin,click.index)-player.pose.position)<4)
         hud.cityMessage=click.action==CityAction::StartFamily ? startCityFamily(world,click.index) : talkToResident(world,click.index,click.action==CityAction::Date);
       else hud.cityMessage="Visit her apartment first.";

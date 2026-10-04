@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 18. Building tests exercise the
+headroom, day rollover, and save compatibility through version 19. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -363,3 +363,22 @@ child targeting, walking residents, rendering capacity, and save migration.
 
 `--demo-population` and `--demo-family` open temporary preview worlds for real Metal
 captures. Both disable saving; the family preview supplies a sample child.
+
+## Furnished homes and family care (0.19)
+
+The eight resident apartments receive distinct accent colors, floor inlays,
+kitchens, dining rooms, lounges, book walls, artwork, lamps, bedrooms, and cribs.
+Their stair landings and balcony approaches stay clear. Furniture generation runs
+before player edits, preserving custom construction and removals. Detailed books,
+artwork, lamps, and crib rails use their underlying blocks as removable anchors.
+
+Newborns rest in the crib; feeding briefly moves them into the parent's arms.
+Feeding older children supplies a snack. Each child stores its last meal in
+absolute game seconds; hunger prompts return after 150 seconds of play. No health
+or survival penalty is applied. Save version 19 appends 24 meal timestamps to the
+city-state record, validates them against births and the saved clock, and accepts
+all earlier formats. Tests exercise meal timing, household independence, safe
+walks through every furnished home, save round trips, and v18 migration.
+
+Use `--demo-home` for the furnished room or `--demo-feeding` for a mother and baby.
+These preview worlds do not read or write the player's save.

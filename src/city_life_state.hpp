@@ -12,6 +12,7 @@ struct ResidentState {
   int conversations=0;bool dating=false;
   std::uint32_t pregnancyDue=0;
   std::array<std::uint32_t,3> children{};
+  std::array<double,3> lastFed{};
 };
 struct CityLifeState {
   int bank=0,activeCar=0;

@@ -152,6 +152,10 @@ int main(int argc,char** argv) {
       hud.cityMessage.clear();ui.build(hud);bounds(ui,size.x,size.y);
       household.pregnancyDue=999;ui.build(hud);bounds(ui,size.x,size.y);
       household.pregnancyDue=0;household.children[0]=998;ui.build(hud);bounds(ui,size.x,size.y);
+      check(Ui::cityActionAt(hud,x+520,y+500).action==CityAction::FeedFamily,"parents can feed children from the household page");
+      hud.nearResident=false;
+      check(Ui::cityActionAt(hud,x+520,y+500).action==CityAction::None,"feeding requires a family visit");
+      hud.nearResident=true;
       household={};
     }
     hud.cityMessage.clear();

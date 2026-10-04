@@ -46,13 +46,11 @@ std::optional<float> ray(glm::vec3 origin,glm::vec3 direction,Box box,float reac
   }
   return lo<=hi ? std::optional(lo) : std::nullopt;
 }
-Box personBox(glm::vec3 p){return {p+glm::vec3(-.32f,0,-.24f),p+glm::vec3(.32f,1.8f,.24f)};}
+Box personBox(glm::vec3 p){return {p+glm::vec3(-.32f,0,-.29f),p+glm::vec3(.32f,1.8f,.24f)};}
 bool overlap(Box a,Box b) {return a.max.x>b.min.x && a.min.x<b.max.x && a.max.y>b.min.y && a.min.y<b.max.y && a.max.z>b.min.z && a.min.z<b.max.z;}
-glm::vec3 childPosition(const World& w,int resident,int child) {
-  constexpr std::array<glm::vec3,3> offsets{{{1.5f,0,.5f},{-1.5f,0,.5f},{0,0,-1.25f}}};
-  return metroResidentHome(*w.metroOrigin,resident)+offsets[child];
-}
-Box childBox(glm::vec3 at){return {at+glm::vec3(-.24f,0,-.22f),at+glm::vec3(.24f,.9f,.22f)};}
+double familyTime(const WorldClock& clock){return (double(clock.day)+clock.phase)*WorldClock::daySeconds;}
+bool infant(const World& w,int resident,int child){return w.clock.day==w.cityLife.residents[resident].children[child];}
+Box childBox(const World& w,int resident,int child){auto at=cityChildPosition(w,resident,child);return {at+glm::vec3(-.34f,0,-.22f),at+glm::vec3(.34f,infant(w,resident,child) ? .28f : .95f,.22f)};}
 double workerPhase(const World& w,int i) {return std::fmod(w.clock.phase*WorldClock::daySeconds*.06+i*.371,1.0);}
 bool workerVisible(const World& w,glm::vec3 at) {
   return w.chunks.contains(chunkAt(int(std::floor(at.x)),int(std::floor(at.z))))
@@ -71,6 +69,34 @@ glm::vec3 cityWorkerPosition(const World& w,int i) {
   return {o.x+((i/2)%metroColumns)*64+22.f+20*patrol,23,o.z+(i/(metroColumns*2))*64+56.8f+(i%2)*1.4f};
 }
 int cityChildCount(const ResidentState& r){return int(std::ranges::count_if(r.children,[](auto day){return day>0;}));}
+int hungryCityChildren(const ResidentState& r,const WorldClock& clock) {
+  int count=0;
+  for(int c=0;c<3;++c)if(r.children[c] && (r.lastFed[c]==0 || familyTime(clock)-r.lastFed[c]>=150))++count;
+  return count;
+}
+bool cityChildFeeding(const World& w,int resident,int child) {
+  auto& r=w.cityLife.residents[resident];double elapsed=familyTime(w.clock)-r.lastFed[child];
+  return r.children[child] && r.lastFed[child]>0 && elapsed>=0 && elapsed<8;
+}
+glm::vec3 cityChildPosition(const World& w,int resident,int child) {
+  auto home=metroResidentHome(*w.metroOrigin,resident);
+  if(infant(w,resident,child)) {
+    if(cityChildFeeding(w,resident,child))return home+glm::vec3(0,1.04f,-.39f);
+    auto crib=home+glm::vec3(6,0,-4);
+    if(w.get({int(crib.x),int(crib.y),int(crib.z)})==Block::Table)return crib+glm::vec3(0,.69f,0);
+  }
+  constexpr std::array<glm::vec3,3> offsets{{{1.5f,0,.5f},{-1.5f,0,.5f},{0,0,-1.25f}}};
+  return home+offsets[child];
+}
+std::string feedCityFamily(World& w,int index) {
+  if(!w.metroOrigin || index<0 || index>=residentCount)return "Visit your family first.";
+  auto& r=w.cityLife.residents[index];std::string name(residents[index].name);
+  if(!cityChildCount(r))return name+": We don't have a child to feed yet.";
+  if(!hungryCityChildren(r,w.clock))return name+": The children are fed and happy.";
+  bool baby=false;
+  for(int c=0;c<3;++c)if(r.children[c]){r.lastFed[c]=familyTime(w.clock);baby|=infant(w,index,c);}
+  return name+(baby ? ": I'll feed our baby. Come sit with us." : ": Snack time! Let's eat together.");
+}
 std::string startCityFamily(World& w,int index) {
   if(!w.metroOrigin || index<0 || index>=residentCount)return "Visit an apartment first.";
   auto& r=w.cityLife.residents[index];auto name=std::string(residents[index].name);
@@ -146,7 +172,7 @@ std::optional<CityTarget> targetCity(const World& w,const Player& p,float reach)
   auto test=[&](Box box,CityTargetKind kind,int index){if(auto distance=ray(p.eye(),p.direction(),box,nearest)){nearest=*distance;found=CityTarget{kind,index,nearest};}};
   for(int i=0;i<residentCount;++i) {
     test(personBox(metroResidentHome(*w.metroOrigin,i)),CityTargetKind::Resident,i);
-    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c])test(childBox(childPosition(w,i,c)),CityTargetKind::Child,i*3+c);
+    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c])test(childBox(w,i,c),CityTargetKind::Child,i*3+c);
   }
   for(int i=0;i<cityWorkerCount;++i) {auto at=cityWorkerPosition(w,i);if(workerVisible(w,at))test(personBox(at),CityTargetKind::Worker,i);}
   for(int i=0;i<garageSize;++i)if(i!=w.cityLife.activeCar)test(carBounds(parkedCar(w,i)),CityTargetKind::Car,i);
@@ -164,7 +190,7 @@ bool cityPeopleOverlap(const World& w,Box box) {
   if(!w.metroOrigin)return false;
   for(int i=0;i<residentCount;++i) {
     if(overlap(box,personBox(metroResidentHome(*w.metroOrigin,i))))return true;
-    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c] && overlap(box,childBox(childPosition(w,i,c))))return true;
+    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c] && overlap(box,childBox(w,i,c)))return true;
   }
   for(int i=0;i<garageSize;++i)if(i!=w.cityLife.activeCar && overlap(box,carBounds(parkedCar(w,i))))return true;
   return false;
@@ -174,16 +200,29 @@ std::vector<Vertex> residentMesh(const World& w,float time) {
   for(int i=0;i<residentCount;++i) {
     auto home=metroResidentHome(*w.metroOrigin,i);
     if(!w.chunks.contains(chunkAt(int(home.x),int(home.z))))continue;
+    appendApartmentDecor(mesh,w,i);
     float sway=std::sin(time*1.8f+i)*.014f;
     auto box=[&](glm::vec3 a,glm::vec3 b,float m){appendBox(mesh,{home+a,home+b},{-100007,0,i},m,.92f);};
-    float skin=i%3==0 ? 105 : metroOffice(i) ? 106 : 107,hair=metroOffice(i) ? 72 : 75,shirt=80+float((i*3+1)%20);
+    constexpr std::array<float,8> hairColors{72,71,75,62,71,72,62,75};
+    float skin=106,hair=hairColors[i],shirt=80+float((i*3+1)%20);
+    bool nursing=false;
+    for(int c=0;c<3;++c)nursing|=infant(w,i,c) && cityChildFeeding(w,i,c);
     for(float side:{-1.f,1.f}) {
       float x=side*.115f;box({x-.08f,.06f,-.095f},{x+.08f,.74f,.095f},75);
       box({x-.085f,0,-.16f},{x+.085f,.12f,.11f},77);
-      float arm=side*.265f;box({arm-.065f,.74f+sway,-.09f},{arm+.065f,1.28f+sway,.09f},shirt);
-      box({arm-.062f,.64f+sway,-.085f},{arm+.062f,.82f+sway,.085f},skin);
+      float arm=side*.265f;
+      if(nursing) {
+        box({arm-.065f,.90f,-.17f},{arm+.065f,1.28f,.09f},shirt);
+        box({std::min(arm,arm*.2f)-.05f,.93f,-.49f},{std::max(arm,arm*.2f)+.05f,1.04f,-.14f},skin);
+      } else {
+        box({arm-.065f,.74f+sway,-.09f},{arm+.065f,1.28f+sway,.09f},shirt);
+        box({arm-.062f,.64f+sway,-.085f},{arm+.062f,.82f+sway,.085f},skin);
+      }
     }
-    box({-.22f,.72f,-.13f},{.22f,1.29f,.13f},shirt);
+    box({-.20f,.72f,-.13f},{.20f,.94f,.13f},shirt);
+    box({-.18f,.94f,-.12f},{.18f,1.05f,.12f},shirt);
+    box({-.22f,1.05f,-.15f},{.22f,1.29f,.13f},shirt);
+    for(float side:{-.105f,.105f})box({side-.093f,1.04f,-.245f},{side+.093f,1.23f,-.13f},shirt);
     if(w.cityLife.residents[i].pregnancyDue)box({-.19f,.77f,-.23f},{.19f,1.13f,-.12f},shirt);
     box({-.08f,1.27f,-.08f},{.08f,1.38f,.08f},skin);
     box({-.19f,1.34f,-.17f},{.19f,1.74f,.17f},skin);
@@ -197,9 +236,16 @@ std::vector<Vertex> residentMesh(const World& w,float time) {
     if(i%2==0)box({-.17f,.83f,-.143f},{.17f,.865f,-.131f},77);
     for(float x:{-.10f,.07f})box({x,1.52f,-.181f},{x+.035f,1.56f,-.169f},75);
     box({-.055f,1.43f,-.182f},{.055f,1.45f,-.170f},79);
-    for(int c=0;c<3;++c)if(auto born=w.cityLife.residents[i].children[c]) {
-      auto at=childPosition(w,i,c);float size=w.clock.day<=born ? .43f : .64f;
+    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c]) {
+      auto at=cityChildPosition(w,i,c);float size=.64f;
       auto piece=[&](glm::vec3 a,glm::vec3 b,float m){appendBox(mesh,{at+a*size,at+b*size},{-100007,1,i*3+c},m,.92f);};
+      if(infant(w,i,c)) {
+        at.y+=nursing ? std::sin(time*2)*.012f : 0;
+        piece({-.48f,0,-.25f},{.20f,.31f,.25f},73);
+        piece({.14f,.05f,-.22f},{.49f,.40f,.22f},skin);
+        piece({.38f,.16f,-.225f},{.42f,.20f,-.213f},75);
+        continue;
+      }
       piece({-.23f,.40f,-.15f},{.23f,.97f,.15f},80+float((i+c+4)%20));
       piece({-.24f,.96f,-.20f},{.24f,1.41f,.20f},skin);
       piece({-.25f,1.33f,-.21f},{.25f,1.45f,.21f},hair);

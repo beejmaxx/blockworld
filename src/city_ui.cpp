@@ -31,7 +31,9 @@ CityClick Ui::cityActionAt(const HudState& h,float px,float py) {
     if(in(260,392,396,38))return {CityAction::VisitResident,h.residentSelected};
     if(h.nearResident && in(260,442,188,38))return {CityAction::Chat,h.residentSelected};
     if(h.nearResident && in(468,442,188,38))return {CityAction::Date,h.residentSelected};
-    if(h.nearResident && h.cityLife.residents[h.residentSelected].dating && in(260,486,396,30))return {CityAction::StartFamily,h.residentSelected};
+    auto& r=h.cityLife.residents[h.residentSelected];
+    if(h.nearResident && r.dating && in(260,486,cityChildCount(r) ? 188 : 396,30))return {CityAction::StartFamily,h.residentSelected};
+    if(h.nearResident && cityChildCount(r) && in(468,486,188,30))return {CityAction::FeedFamily,h.residentSelected};
   } else {
     for(int i=0;i<propertyRows;++i)if(in(24,195+i*30,632,28)) {
       int index=h.propertyPage*propertyRows+i;
@@ -115,13 +117,19 @@ void Ui::cityPage(const HudState& h) {
     label(relationship,x+260,y+215,17,gold);
     wrap("Enjoys "+std::string(person.interest)+".",260,246,385,17,dim);
     std::string guidance=state.pregnancyDue ? "Your baby will arrive here on the due day. Time passes while you play or sleep; menus pause it."
-      : children ? "Your children live here with their mother. Visit your family, chat, or spend time together."
+      : children ? (hungryCityChildren(state,h.clock) ? "Time for a feed. Visit, then choose Feed baby or Feed children. Babies rest in the crib and are held while feeding." : "Fed and happy. Visit your family, chat, or spend time together.")
       : state.dating ? "Visit her apartment to spend time together. Choose Start a family if you'd like to have a baby together."
       : "Visit her apartment, then press V to talk. Chat and get to know her before asking her out.";
     wrap(h.cityMessage.empty() ? guidance : h.cityMessage,260,298,386,18,ink);
     button(260,392,396,38,"Visit apartment");button(260,442,188,38,"Chat",h.nearResident);
     button(468,442,188,38,state.dating ? "Spend time" : "Ask on a date",h.nearResident);
-    if(h.nearResident && state.dating)button(260,486,396,30,state.pregnancyDue ? "Baby on the way" : cityChildCount(state)==3 ? "Your family has 3 children" : "Start a family",!state.pregnancyDue && cityChildCount(state)<3);
+    if(h.nearResident && state.dating) {
+      button(260,486,children ? 188 : 396,30,state.pregnancyDue ? "Baby on the way" : children==3 ? "Family complete" : "Start a family",!state.pregnancyDue && children<3);
+      if(children) {
+        bool baby=std::ranges::any_of(state.children,[&](auto day){return day && day==h.clock.day;});
+        button(468,486,188,30,baby ? "Feed baby" : "Feed children");
+      }
+    }
     else if(!h.nearResident)label("Conversation is available when you're there.",x+260,y+486,15,dim);
   } else {
     label("You own 36 towers and 2 data centers",x+24,y+142,23,ink);

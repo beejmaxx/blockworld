@@ -22,6 +22,12 @@ castle are in the same world, linked by roads.
 
 *Actual Metal captures from version 0.18.0. The family preview uses a temporary world.*
 
+| Furnished apartment | Family care |
+| :---: | :---: |
+| ![A decorated apartment with a dining area, lounge, artwork and book wall](docs/images/home.png) | ![A mother holding her baby during a feed](docs/images/feeding.png) |
+
+*Actual Metal captures from version 0.19.0, using temporary preview worlds.*
+
 ![A wooden cabin in the meadow after sunrise](docs/images/cabin.png)
 
 *Actual in-game screenshots from an earlier build. The current HUD and controls have changed.*
@@ -65,6 +71,10 @@ castle are in the same world, linked by roads.
   A baby arrives in her apartment two game days later. Households can have up to
   three children; pregnancy and children are saved. This is a simple, non-explicit
   family simulation.
+- **Make a home:** each resident's apartment has a coordinated kitchen, dining
+  area, lounge, bookshelves, artwork, bedroom, plants, and a crib. Visit your family
+  and choose **Feed baby** to see the mother cradle the baby; older children have
+  **Feed children**. Feeding status is saved.
 - **Coastal city:** **L → Bank → Visit waterfront** visits ten buildings along curved coves and beaches.
   Walk from the street to the rooftops, explore furnished apartments, and visit
   the fourteen-floor tower. The main penthouse terrace has

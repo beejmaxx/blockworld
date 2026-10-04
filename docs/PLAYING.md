@@ -437,6 +437,13 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
   day. Menus pause time; playing or sleeping advances it. Children appear at home
   and become larger after their first day. Each household can have three children.
   Relationships, pregnancies, and children survive saving and reloading.
+  Babies rest in a crib on their first day. **Feed baby** closes the menu and shows
+  the mother holding and feeding the baby for eight seconds. After that, the baby
+  returns to the crib. Older children use **Feed children** for a snack. The page
+  shows when the family is fed or ready for another meal. Feeding is free, and
+  skipping it has no health penalty. The status persists across saves.
+  All eight homes now have kitchens, dining and living areas, bookshelves, framed
+  artwork, plants, lamps, bedrooms, and nurseries with distinct accent colors.
 - **Population:** 84 additional residents walk the downtown sidewalks. Look at
   someone and press **V** for a greeting.
 - **Properties:** your 36 towers and two data centers are already owned. Click
@@ -447,7 +454,7 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
 ## Saved worlds
 
 World edits, named animals and families, crop types, watering and compost, produce and eggs,
-bank balances, rental payment day, relationships, pregnancies, children, selected car, downtown location,
+bank balances, rental payment day, relationships, pregnancies, children, feeding status, selected car, downtown location,
 garden coins and supplies, cows, horses, sheep, foxes, milk, the parked car, castle, city, coastal region, weather, seed, day/time, crafting supplies,
 unlocked tools, the selected farm/build item, tutorial milestones, and player position
 save every 30 seconds of play, after sleeping, and on exit to
@@ -457,7 +464,8 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–18. Version 18 adds pregnancies and children.
+to open it. The loader accepts versions 1–19. Version 19 adds feeding status.
+Version 18 adds pregnancies and children.
 Version 17 adds downtown, bank, cars and relationships.
 Version 16 adds countryside farms; version 15 adds the highway. Version 14 records the coastal city plots and new furniture/materials. Version 13 adds the coastal landscape location. Version 12 adds the city location and
 city materials. Version 11 adds the castle location and stone steps. Earlier terrain, edits, tutorial
