@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 #include "ui_font.hpp"
 #include "ranch.hpp"
+#include "city.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
@@ -192,7 +193,8 @@ void Renderer::sync(World& world,ChunkPos center,int budget) {
     auto vertices=buildMesh(world,*chunk);
     Mesh replacement{}; replacement.vertices=Uint32(vertices.size());
     for(int y=1;y<worldHeight;++y) for(int z=0;z<chunkSize;++z) for(int x=0;x<chunkSize;++x)
-      if(chunk->get(x,y,z)==Block::Torch) replacement.lights.emplace_back(chunk->pos.x*chunkSize+x+.5f,y+.68f,chunk->pos.z*chunkSize+z+.5f);
+      if(chunk->get(x,y,z)==Block::Torch || chunk->get(x,y,z)==Block::Lamp)
+        replacement.lights.emplace_back(chunk->pos.x*chunkSize+x+.5f,y+.68f,chunk->pos.z*chunkSize+z+.5f);
     if(!vertices.empty()) {
       Uint32 bytes=Uint32(vertices.size()*sizeof(Vertex));
       SDL_GPUBufferCreateInfo bi{SDL_GPU_BUFFERUSAGE_VERTEX,bytes,0};
@@ -222,8 +224,9 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   targets(w,h);
   Camera camera{};
   auto eye=player.eye(),forward=player.direction(),right=glm::normalize(glm::cross(forward,glm::vec3(0,1,0))),up=glm::cross(right,forward);
-  camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
-  camera.eye=glm::vec4(eye,1); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);
+  bool city=atCity(world,player);
+  camera.viewProjection=glm::perspective(glm::radians(73.f),float(w)/float(h),.06f,city ? 160.f : 115.f)*glm::lookAt(eye,eye+forward,glm::vec3(0,1,0));
+  camera.eye=glm::vec4(eye,city ? 1.f : 0.f); camera.forward=glm::vec4(forward,0); camera.right=glm::vec4(right,0); camera.up=glm::vec4(up,0);
   camera.screen={float(w),float(h),std::tan(glm::radians(73.f)*.5f),time};
   auto sky=hud.clock.sky();
   if(world.farm.garden.raining()) {
@@ -233,7 +236,7 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   }
   camera.sun=glm::vec4(sky.sun,sky.twilight); camera.horizon=glm::vec4(sky.horizon,0);
   camera.zenith=glm::vec4(sky.zenith,0); camera.ambient=glm::vec4(sky.ambient,sky.daylight);
-  if(hit) camera.selection={float(hit->block.x),float(hit->block.y),float(hit->block.z),1};
+  if(hit && !hud.hidden) camera.selection={float(hit->block.x),float(hit->block.y),float(hit->block.z),1};
   if(hud.breaking) camera.breaking={float(hud.breaking->x),float(hud.breaking->y),float(hud.breaking->z),hud.breakProgress};
   std::vector<glm::vec3> lights;
   for(const auto& [pos,mesh] : meshes_) for(auto light : mesh.lights) lights.push_back(light);
@@ -271,13 +274,15 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
     SDL_GPUTransferBufferCreateInfo ti{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,uiCapacity_,0}; uiTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!uiBuffer_ || !uiTransfer_) fail("Create UI buffers");
   }
-  void* data=SDL_MapGPUTransferBuffer(device_,uiTransfer_,true); if(!data) fail("Map UI transfer");
-  std::memcpy(data,ui_.vertices.data(),bytes); SDL_UnmapGPUTransferBuffer(device_,uiTransfer_);
   auto* copy=SDL_BeginGPUCopyPass(command);
-  SDL_GPUTransferBufferLocation source{uiTransfer_,0}; SDL_GPUBufferRegion target{uiBuffer_,0,bytes};
-  SDL_UploadToGPUBuffer(copy,&source,&target,true);
-  bool guides=hud.guide.preview && hud.help && !hud.paused && !hud.menuOpen() && !hud.sleeping;
-  bool placement=hud.placement && !hud.paused && !hud.menuOpen() && !hud.sleeping && !hud.breaking;
+  if(bytes>0) {
+    void* data=SDL_MapGPUTransferBuffer(device_,uiTransfer_,true); if(!data) fail("Map UI transfer");
+    std::memcpy(data,ui_.vertices.data(),bytes); SDL_UnmapGPUTransferBuffer(device_,uiTransfer_);
+    SDL_GPUTransferBufferLocation source{uiTransfer_,0}; SDL_GPUBufferRegion target{uiBuffer_,0,bytes};
+    SDL_UploadToGPUBuffer(copy,&source,&target,true);
+  }
+  bool guides=hud.guide.preview && hud.help && !hud.hidden && !hud.paused && !hud.menuOpen() && !hud.sleeping;
+  bool placement=hud.placement && !hud.hidden && !hud.paused && !hud.menuOpen() && !hud.sleeping && !hud.breaking;
   std::vector<Vertex> previews;
   if(guides) previews=buildPreview(*hud.guide.preview,hud.guide.previewBlock);
   Uint32 placementStart=Uint32(previews.size());
@@ -345,11 +350,13 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
     SDL_GPUBufferBinding previewBinding{previewBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&previewBinding,1);
     SDL_DrawGPUPrimitives(pass,36,1,0,0);
   }
-  SDL_BindGPUGraphicsPipeline(pass,uiPipeline_);
-  SDL_GPUTextureSamplerBinding fontBinding{fontTexture_,fontSampler_}; SDL_BindGPUFragmentSamplers(pass,0,&fontBinding,1);
-  glm::vec4 screen{float(w),float(h),0,0}; SDL_PushGPUVertexUniformData(command,0,&screen,sizeof(screen));
-  SDL_GPUBufferBinding binding{uiBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
-  SDL_DrawGPUPrimitives(pass,Uint32(ui_.vertices.size()),1,0,0);
+  if(!ui_.vertices.empty()) {
+    SDL_BindGPUGraphicsPipeline(pass,uiPipeline_);
+    SDL_GPUTextureSamplerBinding fontBinding{fontTexture_,fontSampler_}; SDL_BindGPUFragmentSamplers(pass,0,&fontBinding,1);
+    glm::vec4 screen{float(w),float(h),0,0}; SDL_PushGPUVertexUniformData(command,0,&screen,sizeof(screen));
+    SDL_GPUBufferBinding binding{uiBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
+    SDL_DrawGPUPrimitives(pass,Uint32(ui_.vertices.size()),1,0,0);
+  }
   SDL_EndGPURenderPass(pass);
 
   SDL_GPUTransferBuffer* download{};

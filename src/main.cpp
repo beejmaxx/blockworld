@@ -3,6 +3,7 @@
 #include "garden.hpp"
 #include "ranch.hpp"
 #include "castle.hpp"
+#include "city.hpp"
 #include <SDL3/SDL_main.h>
 #include <algorithm>
 #include <charconv>
@@ -17,6 +18,8 @@ namespace {
 struct Options {
   int frames=0;
   bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
+  bool city=false,demoCity=false,hideUi=false;
+  std::string cityView="skyline";
   std::optional<double> hour;
   std::filesystem::path screenshot,worldDirectory;
 };
@@ -31,6 +34,14 @@ Options parse(int argc,char** argv) {
     else if(arg=="--classic") result.classic=true;
     else if(arg=="--mute") result.muted=true;
     else if(arg=="--castle") result.castle=true;
+    else if(arg=="--city") result.city=true;
+    else if(arg=="--hide-ui") result.hideUi=true;
+    else if(arg=="--demo-city") { result.demoCity=true; result.save=false; result.paused=false; }
+    else if(arg=="--city-view") {
+      result.cityView=value();
+      if(result.cityView!="skyline" && result.cityView!="street" && result.cityView!="roof" && result.cityView!="interior")
+        throw std::runtime_error("--city-view requires skyline, street, roof, or interior");
+    }
     else if(arg=="--demo-castle") { result.demoCastle=true; result.save=false; result.paused=false; }
     else if(arg=="--time") {
       auto text=value(); double hour=0; auto [end,error]=std::from_chars(text.data(),text.data()+text.size(),hour);
@@ -57,6 +68,10 @@ Options parse(int argc,char** argv) {
         <<"  --demo-farm            Visit a temporary chicken pen and mixed garden\n"
         <<"  --demo-castle          Preview the castle and car without touching saves\n"
         <<"  --castle               Start at your saved world's castle\n"
+        <<"  --city                 Visit the waterfront city in your saved world\n"
+        <<"  --demo-city            Preview a temporary city without touching saves\n"
+        <<"  --city-view VIEW       Preview camera: skyline, street, roof, interior\n"
+        <<"  --hide-ui              Hide overlays for clean game screenshots\n"
         <<"  --time HOURS           Set the starting time (0 to less than 24)\n"
         <<"  --mute                 Start with sound muted (M toggles sound)\n"
         <<"  --no-save              Use a temporary world\n  --world-dir DIRECTORY  Override the save directory\n";
@@ -96,7 +111,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.11.0","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.12.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -176,6 +191,23 @@ int run(const Options& options) {
     center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z))); world.ensure(center,3);
   }
   initializeCastlePets(world);
+  if(options.city || options.demoCity) {
+    if(!visitCity(world,player)) throw std::runtime_error("City needs an untouched parcel and an open entrance");
+    if(options.city) bringCar(world,player);
+    if(options.demoCity) {
+      auto o=*world.cityOrigin;
+      glm::vec3 at{42,42,83},target{73,23,35};
+      if(options.cityView=="street") { at={37,0,86}; target={37,6,44}; }
+      if(options.cityView=="roof") { at={120,34,49}; target={58,21,50}; }
+      if(options.cityView=="interior") { at={112,32,55}; target={120,32,62}; }
+      player.pose.position=glm::vec3(o.x,o.y,o.z)+at;
+      auto d=glm::normalize(glm::vec3(o.x,o.y,o.z)+target-player.eye());
+      player.pose.yaw=std::atan2(d.x,-d.z); player.pose.pitch=std::asin(d.y);
+      player.pose.flying=true;
+    }
+    center=chunkAt(int(std::floor(player.pose.position.x)),int(std::floor(player.pose.position.z)));
+    world.ensure(center,viewRadius);
+  }
   // Recover gracefully if the saved player is inside a newly placed block.
   while(player.collides(world,player.pose.position) && player.pose.position.y<worldHeight+2) player.pose.position.y+=1;
   Renderer renderer(window.get());
@@ -183,8 +215,9 @@ int run(const Options& options) {
   renderer.sync(world,center,1000);
   ChunkWorker worker(world.terrain); worker.request(center,world);
   HudState hud; hud.paused=options.paused; hud.muted=options.muted;
-  if(options.demoCastle) hud.help=false;
-  hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.smoke);
+  hud.hidden=options.hideUi;
+  if(options.demoCastle || options.demoCity) hud.help=false;
+  hud.farming=options.demoFarm || (!options.classic && !options.demoCabin && !options.demoCastle && !options.demoCity && !options.smoke);
   ToolSelection tools;
   tools.choose(world.inventory.held(),world.crafting);
   if(tools.mode==PlayMode::Remove) tools.mode=PlayMode::Farm; // Do not resume holding a demolition tool.
@@ -654,6 +687,13 @@ int run(const Options& options) {
             notice("Your castle / Walk inside / Stairs on the left / C brings your car");
           } else notice("Castle entrance blocked, or no untouched site available");
         }
+        if(key==SDL_SCANCODE_T && sleepRemaining<=0) {
+          if(visitCity(world,player)) {
+            ride.active=false; world.farm.car.speed=0; trackedAnimal.reset();
+            showMenu(Menu::None); hud.help=true; stride=0;
+            notice("Waterfront city / Explore the apartments and rooftops / C brings your car");
+          } else notice("City entrance blocked, or no untouched site available");
+        }
         if(hud.menu==Menu::Farm) {
           if(!hud.farmGarden && !hud.farmShop && (key==SDL_SCANCODE_UP || key==SDL_SCANCODE_DOWN) && !world.farm.chickens.empty()) {
             hud.animalSelected=std::clamp(hud.animalSelected+(key==SDL_SCANCODE_UP ? -1 : 1),0,int(world.farm.chickens.size())-1);
@@ -834,6 +874,10 @@ int run(const Options& options) {
     if(atCastle(world,player)) {
       hud.guide={}; hud.guide.enabled=true; hud.guide.landmark=true; hud.guide.title="YOUR CASTLE";
       hud.guide.lines={"Walk through the arch into the courtyard.","Stairs on the left lead to the wall walk.","North-wall steps lead to the tall tower."};
+    }
+    if(atCity(world,player)) {
+      hud.guide={}; hud.guide.enabled=true; hud.guide.landmark=true; hud.guide.title="WATERFRONT CITY";
+      hud.guide.lines={"Walk inside any apartment building.","Left-hand stairs reach the rooftop.","C: car    R: home    Tab: fly"};
     }
     if(ride.active) hud.guide.enabled=false;
     if(trackedAnimal && *trackedAnimal<world.farm.chickens.size()) {

@@ -40,15 +40,22 @@ void Player::step(const World& world,Movement move,float dt) {
   glm::vec3 forward{std::sin(pose.yaw),0,-std::cos(pose.yaw)}, right{std::cos(pose.yaw),0,std::sin(pose.yaw)};
   glm::vec3 wanted=forward*move.forward+right*move.right;
   if (glm::length(wanted)>1.f) wanted=glm::normalize(wanted);
+  Cell water{int(std::floor(pose.position.x)),int(std::floor(pose.position.y+.6f)),int(std::floor(pose.position.z))};
+  bool swimming=!pose.flying && world.get(water)==Block::Water;
   float speed=pose.flying ? (move.sprint ? 18.f : 10.f) : sneaking ? 1.4f : (move.sprint ? 7.8f : 4.6f);
+  if(swimming) speed=3.2f;
   velocity.x=wanted.x*speed; velocity.z=wanted.z*speed;
   if (pose.flying) velocity.y=move.vertical*speed;
+  else if(swimming) {
+    while(water.y<worldHeight && world.get(water)==Block::Water) ++water.y;
+    velocity.y=move.jump ? 4.f : std::clamp((float(water.y)-.9f-pose.position.y)*4.f,-3.f,3.f);
+  }
   else {
     if (move.jump && grounded) velocity.y=8.f;
     velocity.y=std::max(velocity.y-24.f*dt,-35.f);
   }
   bool protectEdge=sneaking && grounded && velocity.y<=0;
-  bool canStep=grounded && !pose.flying && velocity.y<=0;
+  bool canStep=(grounded || swimming) && !pose.flying && velocity.y<=.1f;
   grounded=false;
   for (int axis : {0,2,1}) {
     float amount=velocity[axis]*dt;

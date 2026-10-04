@@ -87,6 +87,14 @@ float3 blockTexture(int material,float2 uv) {
     case 40: color=float3(.37,.24,.14); break;
     case 41: color=float3(.23,.15,.10); break;
     case 42: color=float3(.36,.69,.74); break;
+    case 60: color=float3(.88,.89,.84); break;
+    case 61: color=float3(.78,.72,.55); break;
+    case 62: color=float3(.72,.34,.22); break;
+    case 63: color=float3(.34,.53,.40); break;
+    case 64: color=float3(.20,.24,.26); break;
+    case 65: color=float3(.16,.19,.21); break;
+    case 66: color=float3(.15,.52,.63); break;
+    case 67: color=float3(1.0,.80,.43); break;
     default: {
       float ring=fmod(floor(max(abs(p.x-7.5),abs(p.y-7.5))),3.0);
       color=ring==0.0 ? float3(.45,.30,.16) : float3(.70,.52,.30); break;
@@ -100,6 +108,11 @@ float3 blockTexture(int material,float2 uv) {
     if(fmod(p.y,5.0)==0.0 || fmod(p.x+floor(p.y/5.0)*4.0,8.0)==0.0) color=float3(.68,.64,.54);
   }
   if(material==3 && noise>.84) color*=.82;
+  if(material>=60 && material<=64) {
+    noise=.5+(noise-.5)*.25;
+    if((material==61 || material==62) && (p.y==0 || (p.x==0 && fmod(p.y,8.0)<1.0))) color*=.88;
+  }
+  if(material==67 && (p.x<1 || p.x>14 || p.y<1 || p.y>14)) color*=.28;
   if(material==35 && fmod(p.x+floor(p.y/4.0)*2.0,5.0)==0.0 && fmod(p.y,4.0)==1.0) color=float3(1.0,.81,.35);
   if(material==36 && fmod(p.x,4.0)==0.0) color*=.72;
   if((material==40 || material==41) && fmod(p.x,4.0)<1.0) color*=.65;
@@ -135,6 +148,12 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     discard_fragment();
   float3 base=blockTexture(material,in.uv);
   float3 color=base*in.light*camera.ambient.rgb;
+  if(material==66) {
+    float waves=sin(in.world.x*1.8+camera.screen.w*.9)+sin(in.world.z*2.1-camera.screen.w*.7);
+    float sparkle=smoothstep(1.75,1.95,waves)*.13;
+    color=mix(base*camera.ambient.rgb,camera.horizon.rgb,.22)+float3(sparkle);
+  }
+  if(material==67) color=base*.95;
   if(material==37) color=base*.95;
   for(int i=0;i<8;++i) if(camera.lights[i].w>0) {
     float falloff=saturate(1.0-length(in.world-camera.lights[i].xyz)/camera.lights[i].w);
@@ -156,7 +175,7 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     color=mix(color,float3(1.0,.89,.58),progress*.05);
   }
   float distance=length(in.world.xz-camera.eye.xz);
-  float fog=smoothstep(52.0,91.0,distance);
+  float fog=camera.eye.w>.5 ? smoothstep(78.0,138.0,distance) : smoothstep(52.0,91.0,distance);
   float3 fogColor=camera.horizon.rgb;
   return float4(mix(color,fogColor,fog),1.0);
 }

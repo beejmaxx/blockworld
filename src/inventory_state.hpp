@@ -6,13 +6,15 @@ namespace bw {
 // Stable IDs for the saved nine-slot hotbar. A slot holds exactly one item.
 enum class Item : std::uint8_t {
   Empty,Planks,Wood,Stone,Glass,Door,Torch,Grass,Leaves,Brick,Bed,Workbench,Fence,Gate,Wheat,Axe,Pickaxe,Dirt,Sand,
-  Carrot,Strawberry,Pumpkin,WateringCan,Hoe,Compost,Sprinkler,Greenhouse,StoneSlab,Count
+  Carrot,Strawberry,Pumpkin,WateringCan,Hoe,Compost,Sprinkler,Greenhouse,StoneSlab,
+  Concrete,Limestone,Terracotta,Sage,Charcoal,Asphalt,Water,Lamp,Count
 };
 inline constexpr int hotbarSize=9;
 inline constexpr std::array itemCatalog{
   Item::Planks,Item::Wood,Item::Stone,Item::Glass,Item::Door,Item::Torch,Item::Grass,Item::Leaves,Item::Brick,
   Item::Bed,Item::Workbench,Item::Fence,Item::Gate,Item::Wheat,Item::Axe,Item::Pickaxe,Item::Dirt,Item::Sand,
-  Item::Carrot,Item::Strawberry,Item::Pumpkin,Item::WateringCan,Item::Hoe,Item::Compost,Item::Sprinkler,Item::Greenhouse,Item::StoneSlab,Item::Empty
+  Item::Carrot,Item::Strawberry,Item::Pumpkin,Item::WateringCan,Item::Hoe,Item::Compost,Item::Sprinkler,Item::Greenhouse,Item::StoneSlab,
+  Item::Concrete,Item::Limestone,Item::Terracotta,Item::Sage,Item::Charcoal,Item::Asphalt,Item::Water,Item::Lamp,Item::Empty
 };
 struct Inventory {
   std::array<Item,hotbarSize> slots{Item::Planks,Item::Wood,Item::Stone,Item::Glass,Item::Door,Item::Torch,Item::Empty,Item::Empty,Item::Wheat};

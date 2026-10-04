@@ -1,6 +1,7 @@
 #include "world.hpp"
 #include "inventory.hpp"
 #include "farm.hpp"
+#include "city.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -30,6 +31,10 @@ std::size_t PositionHash::operator()(Cell p) const noexcept {
   return (*this)(ChunkPos{p.x, p.z}) ^ (std::uint64_t(mix(std::uint32_t(p.y))) * 0x9e3779b97f4a7c15ull);
 }
 std::string_view blockName(Block b) {
+  if(isCityMaterial(b)) {
+    constexpr std::array names{"White concrete","Limestone","Terracotta","Sage concrete","Charcoal","Asphalt","Water","Lantern block"};
+    return names[int(b)-int(Block::Concrete)];
+  }
   if(isDoor(b)) return "Oak door";
   if(isBed(b)) return "Cozy bed";
   if(b==Block::Workbench) return "Workbench";
@@ -44,6 +49,11 @@ std::string_view blockName(Block b) {
   return names[static_cast<unsigned>(b)];
 }
 glm::vec3 blockColor(Block b) {
+  if(isCityMaterial(b)) {
+    constexpr std::array<glm::vec3,8> colors{{{.88f,.89f,.84f},{.78f,.72f,.55f},{.72f,.34f,.22f},{.34f,.53f,.40f},
+      {.20f,.24f,.26f},{.16f,.19f,.21f},{.15f,.52f,.63f},{1.f,.80f,.43f}}};
+    return colors[int(b)-int(Block::Concrete)];
+  }
   if(isDoor(b)) return {.61f,.40f,.20f};
   if(isBed(b)) return {.72f,.27f,.22f};
   if(b==Block::Workbench) return {.64f,.44f,.24f};
@@ -287,10 +297,17 @@ void World::growCrops(float seconds) {
 }
 void World::insert(Chunk chunk) {
   const auto p = chunk.pos;
+  if(cityOrigin) generateCity(chunk,*cityOrigin);
   for (const auto& [cell, block] : edits_) if (chunkAt(cell.x,cell.z) == p)
     chunk.set(localCoord(cell.x),cell.y,localCoord(cell.z),block);
   chunks.insert_or_assign(p, std::move(chunk));
   for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx) invalidate({p.x+dx,p.z+dz});
+}
+bool World::editedIn(Cell minimum,Cell maximum) const {
+  return std::ranges::any_of(edits_,[&](const auto& edit) {
+    auto c=edit.first;
+    return c.x>=minimum.x && c.x<=maximum.x && c.y>=minimum.y && c.y<=maximum.y && c.z>=minimum.z && c.z<=maximum.z;
+  });
 }
 void World::ensure(ChunkPos p, int radius) {
   for (int z = p.z-radius; z <= p.z+radius; ++z) for (int x = p.x-radius; x <= p.x+radius; ++x)
@@ -344,7 +361,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 11 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 12 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -368,6 +385,8 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   file<<car.owned<<' '<<car.position.x<<' '<<car.position.y<<' '<<car.position.z<<' '<<car.yaw<<'\n';
   const auto castle=castleOrigin.value_or(Cell{});
   file<<castleOrigin.has_value()<<' '<<castle.x<<' '<<castle.y<<' '<<castle.z<<'\n';
+  const auto city=cityOrigin.value_or(Cell{});
+  file<<cityOrigin.has_value()<<' '<<city.x<<' '<<city.y<<' '<<city.z<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -393,8 +412,8 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   WorldClock savedClock;
   CraftState savedCrafting;
   FarmState savedFarm;
-  std::optional<Cell> savedCastle;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>11) corrupt();
+  std::optional<Cell> savedCastle,savedCity;
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>12) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -491,12 +510,21 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       savedCastle=c;
     } else if(c!=Cell{}) corrupt();
   }
+  if(version>=12) {
+    bool present=false; Cell c;
+    if(!(file>>present>>c.x>>c.y>>c.z)) corrupt();
+    if(present) {
+      if(!validCell(c) || c.x%chunkSize!=0 || c.z%chunkSize!=0 || c.y!=16
+          || std::abs(c.x)>coordinateLimit-citySize || std::abs(c.z)>coordinateLimit-citySize) corrupt();
+      savedCity=c;
+    } else if(c!=Cell{}) corrupt();
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
     for(auto& item : savedInventory.slots) {
       int value=-1;
-      if(!(file>>value) || value<0 || value>=(version>=11 ? int(Item::Count) : version>=9 ? int(Item::StoneSlab) : version==8 ? int(Item::Hoe) : int(Item::Carrot)) || !itemAvailable(Item(value),savedCrafting)) corrupt();
+      if(!(file>>value) || value<0 || value>=(version>=12 ? int(Item::Count) : version==11 ? int(Item::Concrete) : version>=9 ? int(Item::StoneSlab) : version==8 ? int(Item::Hoe) : int(Item::Carrot)) || !itemAvailable(Item(value),savedCrafting)) corrupt();
       item=Item(value);
     }
   }
@@ -508,7 +536,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     Cell c; int b{};
     if (!(file >> c.x >> c.y >> c.z >> b) || !validCell(c) || b < 0 || b==int(Block::Bedrock)
         || b >= (version==1 ? int(Block::Bedrock) : version==2 ? int(Block::BedZ) : version==3 ? int(Block::Workbench)
-                 : version==4 ? int(Block::Fence) : version<8 ? int(Block::CarrotYoung) : version==8 ? int(Block::Farmland) : version<11 ? int(Block::StoneSlab) : int(Block::Count))) corrupt();
+                 : version==4 ? int(Block::Fence) : version<8 ? int(Block::CarrotYoung) : version==8 ? int(Block::Farmland) : version<11 ? int(Block::StoneSlab) : version==11 ? int(Block::Concrete) : int(Block::Count))) corrupt();
     if (!edits.emplace(c,static_cast<Block>(b)).second) corrupt();
     if(Block(b)==Block::Sprinkler) savedFarm.sprinklers.push_back({c.x,c.y,c.z});
   }
@@ -525,7 +553,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   file >> std::ws;
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
-  farm=std::move(savedFarm); castleOrigin=savedCastle; edits_ = std::move(edits); chunks.clear();
+  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -609,8 +637,13 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
   std::vector<Vertex> vertices;
   vertices.reserve(12000);
   std::array<int,chunkSize*chunkSize> surface{};
-  for(int z=0;z<chunkSize;++z) for(int x=0;x<chunkSize;++x)
-    surface[z*chunkSize+x]=world.terrain.height(chunk.pos.x*chunkSize+x,chunk.pos.z*chunkSize+z);
+  for(int z=0;z<chunkSize;++z) for(int x=0;x<chunkSize;++x) {
+    int wx=chunk.pos.x*chunkSize+x,wz=chunk.pos.z*chunkSize+z;
+    auto city=world.cityOrigin;
+    bool inCity=city && wx>=city->x && wx<city->x+citySize && wz>=city->z && wz<city->z+citySize;
+    // The city is graded below some original hills; its streets aren't caves.
+    surface[z*chunkSize+x]=inCity ? city->y-1 : world.terrain.height(wx,wz);
+  }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {
     Block block = chunk.get(x,y,z);
     if (!solid(block)) continue;
@@ -752,8 +785,9 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
     for (int face=0;face<6;++face) {
       Cell n = neighbors[face], u = us[face], v = vs[face];
       Block neighbor=world.get(c+n);
-      if (opaque(neighbor) || (block==Block::Glass && neighbor==Block::Glass)) continue;
+      if (opaque(neighbor) || ((block==Block::Glass || block==Block::Water) && neighbor==block)) continue;
       float material = float(static_cast<int>(block));
+      if(isCityMaterial(block)) material=cityMaterial(block);
       if(block==Block::Glass) material=12.f;
       if(block==Block::Workbench) material=face==2 ? 21.f : 19.f;
       if(block==Block::Farmland) {

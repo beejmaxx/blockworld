@@ -129,7 +129,7 @@ int main(int argc,char** argv) {
         auto mode=PlayMode(m); hud.tools.mode=mode;
         check(Ui::modeAt(size.x,size.y,x+24+m*640.f/3+50,y+100)==mode,"all three mode buttons work at both sizes");
         check(!Ui::modeAt(size.x,size.y,x+24+m*640.f/3+211,y+100),"gaps between modes cannot switch modes");
-        auto choices=modeTools(mode); int columns=mode==PlayMode::Build ? 4 : 3; float stride=640.f/columns;
+        auto choices=modeTools(mode); int columns=mode==PlayMode::Build ? 6 : 3; float stride=640.f/columns;
         for(int i=0;i<int(choices.size());++i) {
           float px=x+24+(i%columns)*stride+stride*.5f,py=y+166+(i/columns)*76+35;
           check(Ui::toolAt(size.x,size.y,px,py,mode)==i,"every labeled tool selects directly without slot assignment");

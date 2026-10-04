@@ -40,7 +40,7 @@ Glyph glyph(char c) {
 constexpr glm::vec4 cream{.96f,.94f,.84f,1}, muted{.72f,.79f,.73f,1}, panel{.065f,.105f,.10f,.87f}, accent{.77f,.87f,.47f,1};
 constexpr float workshopWidth=680,workshopHeight=552,recipeTop=238,recipeStride=60,recipeHeight=54;
 constexpr float toolsTop=166,toolStrideY=76,toolHeight=70;
-int toolColumns(PlayMode mode) { return mode==PlayMode::Build ? 4 : 3; }
+int toolColumns(PlayMode mode) { return mode==PlayMode::Build ? 6 : 3; }
 constexpr glm::vec4 removeColor{.98f,.57f,.42f,1},buildColor{.57f,.80f,.94f,1};
 glm::vec4 modeColor(PlayMode mode) { return mode==PlayMode::Remove ? removeColor : mode==PlayMode::Build ? buildColor : accent; }
 }
@@ -636,6 +636,7 @@ void Ui::heldTool(const HudState& h) {
 }
 void Ui::build(const HudState& h) {
   vertices.clear();
+  if(h.hidden) return;
   if(h.menuOpen()) {
     if(h.menu==Menu::Crafting) workshop(h); else if(h.menu==Menu::Farm) farmPage(h); else inventory(h);
     menuTabs(h); return;
@@ -761,7 +762,7 @@ void Ui::build(const HudState& h) {
   }
   if(h.help && !h.paused) {
     label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
-    label("C: bring car    K: castle    R: home    H: hide help",24,height-194,14,muted);
+    label("T: city    C: car    K: castle    R: home    H: hide help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -787,7 +788,7 @@ void Ui::build(const HudState& h) {
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
-    labelCentered("C: bring your car     K: visit your castle",cx,top+421,17,accent);
+    labelCentered("T: city     C: car     K: castle",cx,top+421,17,accent);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

@@ -34,10 +34,13 @@ enum class Block : std::uint8_t {
   BedZ, BedZHead, BedX, BedXHead, Workbench,
   Fence,GateZ,GateZOpen,GateX,GateXOpen,WheatYoung,WheatGrowing,WheatRipe,
   CarrotYoung,CarrotGrowing,CarrotRipe,StrawberryYoung,StrawberryGrowing,StrawberryRipe,
-  PumpkinYoung,PumpkinGrowing,PumpkinRipe,Farmland,Sprinkler,StoneSlab,Count
+  PumpkinYoung,PumpkinGrowing,PumpkinRipe,Farmland,Sprinkler,StoneSlab,
+  Concrete,Limestone,Terracotta,Sage,Charcoal,Asphalt,Water,Lamp,Count
 };
 std::string_view blockName(Block block);
 glm::vec3 blockColor(Block block);
+constexpr bool isCityMaterial(Block b) { return b>=Block::Concrete && b<=Block::Lamp; }
+constexpr float cityMaterial(Block b) { return 60.f+float(int(b)-int(Block::Concrete)); }
 constexpr bool isDoor(Block b) { return b >= Block::DoorZ && b <= Block::DoorXOpenTop; }
 constexpr bool doorUpper(Block b) { return isDoor(b) && (int(b)-int(Block::DoorZ))%2 == 1; }
 constexpr bool doorOpen(Block b) { return isDoor(b) && ((int(b)-int(Block::DoorZ))%4)>=2; }
@@ -62,8 +65,8 @@ inline Block cropStage(CropKind kind,float age) {
   return Block(int(Block::WheatYoung)+int(kind)*3+(age>=duration ? 2 : age>=duration*.5f ? 1 : 0));
 }
 inline Block wheatStage(float age) { return age>=wheatGrowSeconds ? Block::WheatRipe : age>=wheatGrowSeconds*.5f ? Block::WheatGrowing : Block::WheatYoung; }
-constexpr bool opaque(Block b) { return b != Block::Air && b != Block::Glass && b != Block::Torch && b!=Block::Sprinkler && b!=Block::StoneSlab && !isDoor(b) && !isBed(b) && b!=Block::Fence && !isGate(b) && !isCrop(b); }
-constexpr bool collidable(Block b) { return b != Block::Air && b != Block::Torch && !isCrop(b) && !gateOpen(b); }
+constexpr bool opaque(Block b) { return b != Block::Air && b != Block::Water && b != Block::Glass && b != Block::Torch && b!=Block::Sprinkler && b!=Block::StoneSlab && !isDoor(b) && !isBed(b) && b!=Block::Fence && !isGate(b) && !isCrop(b); }
+constexpr bool collidable(Block b) { return b != Block::Air && b != Block::Water && b != Block::Torch && !isCrop(b) && !gateOpen(b); }
 
 struct ChunkPos {
   int x{}, z{};
@@ -136,6 +139,7 @@ public:
   Inventory inventory;
   FarmState farm;
   std::optional<Cell> castleOrigin;
+  std::optional<Cell> cityOrigin;
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;
   bool set(Cell cell, Block block);
@@ -152,6 +156,7 @@ public:
   std::optional<PlayerPose> load(const std::filesystem::path& path);
   std::size_t editCount() const { return edits_.size(); }
   bool edited(Cell cell) const { return edits_.contains(cell); }
+  bool editedIn(Cell minimum,Cell maximum) const;
 private:
   std::unordered_map<Cell, Block, PositionHash> edits_;
   void invalidate(ChunkPos pos);

@@ -142,6 +142,8 @@ For disposable visual previews:
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-bed --time 22
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-farm --mute
 ./build/blockworld.app/Contents/MacOS/blockworld --demo-castle --time 10 --frames 120 --screenshot artifacts/castle.bmp --mute
+./build/blockworld.app/Contents/MacOS/blockworld --demo-city --time 10 --frames 120 --hide-ui --screenshot artifacts/city.bmp --mute
+./build/blockworld.app/Contents/MacOS/blockworld --demo-city --city-view roof --time 17 --mute
 ./build/sound_tests artifacts/soundscape.wav
 ./build/sound_tests artifacts/soundscape.wav artifacts/car-engine.wav
 ./build/farm_tests artifacts/garden-starter.ppm
@@ -187,3 +189,11 @@ gardening guide. `world.*` advances crops, weather, moisture, and shelter bonuse
 `castle.*` builds the castle in an untouched parcel and handles safe visits.
 Use `--castle` to start at the castle in your saved world. `--demo-castle` is a
 disposable preview and never reads or writes the saved world.
+
+`city.*` generates the waterfront district before saved player edits are applied
+to each streamed chunk. The save records its origin instead of a full copy of
+the buildings. City tests walk all twelve staircases up and down, reach each
+penthouse bed, drive the street loop, swim out of the lake, and check edit
+persistence, legacy saves, and parcel protection. `--city` visits the saved city;
+`--demo-city` uses a disposable world. Its `--city-view` can be `skyline`, `street`,
+`roof`, or `interior`. `--hide-ui` omits overlays from real framebuffer captures.

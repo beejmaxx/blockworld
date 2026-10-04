@@ -19,7 +19,7 @@ struct HudState {
   Block selectedBlock() const { return itemBlock(selectedItem()); }
   Tool tool() const { return itemTool(selectedItem()); }
   float fps{};
-  bool paused{},flying{},help=true;
+  bool paused{},flying{},help=true,hidden=false;
   bool muted=false,audioAvailable=true,sleeping=false,waking=false;
   float sleepFade=0;
   Menu menu=Menu::None;
