@@ -112,7 +112,7 @@ void persistence(const std::filesystem::path& map) {
   check(initializeCoast(protectedWorld,p) && protectedWorld.coastOrigin->x==-896 && protectedWorld.get(prior)==Block::Brick,"existing edits reserve a proposed landscape site");
   World legacy(123,true); legacy.cityOrigin=city; legacy.save(path,p.pose);
   std::ifstream input(path); std::vector<std::string> lines; for(std::string line;std::getline(input,line);) lines.push_back(line);
-  lines[0]="BLOCKWORLD 12 123 1"; lines.erase(lines.begin()+12);
+  lines[0]="BLOCKWORLD 12 123 1"; lines.erase(lines.begin()+12,lines.begin()+14);
   auto write=[&]{std::ofstream out(path);for(auto& line:lines) out<<line<<'\n';}; write();
   check(loaded.load(path).has_value() && !loaded.coastOrigin && loaded.cityOrigin==city,"v12 saves load with their original city");
   lines[0]="BLOCKWORLD 13 123 1"; lines.insert(lines.begin()+12,"1 160 18 -96"); write();

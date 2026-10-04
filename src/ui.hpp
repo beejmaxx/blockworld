@@ -24,7 +24,7 @@ struct HudState {
   float sleepFade=0;
   Menu menu=Menu::None;
   bool menuOpen() const { return menu!=Menu::None; }
-  int inventoryHover=-1;
+  int inventoryHover=-1,toolPage=0;
   glm::vec2 pointer{};
   int recipeSelected=0;
   FarmView farm;
@@ -52,7 +52,8 @@ public:
   std::vector<UiVertex> vertices;
   void build(const HudState& hud);
   static int recipeAt(int width,int height,float x,float y);
-  static int toolAt(int width,int height,float x,float y,PlayMode mode);
+  static int toolAt(int width,int height,float x,float y,PlayMode mode,int page=0);
+  static int toolPageAt(int width,int height,float x,float y);
   static std::optional<PlayMode> modeAt(int width,int height,float x,float y);
   static Menu menuTabAt(int width,int height,float x,float y);
   static int farmAnimalAt(int width,int height,float x,float y,int page,int count);

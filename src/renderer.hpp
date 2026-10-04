@@ -18,10 +18,10 @@ public:
   std::size_t triangleCount() const;
   std::size_t meshCount() const { return meshes_.size(); }
 private:
-  struct Mesh { SDL_GPUBuffer* buffer{}; Uint32 vertices{}; std::vector<glm::vec3> lights; };
+  struct Mesh { SDL_GPUBuffer* buffer{}; Uint32 vertices{},opaqueVertices{}; std::vector<glm::vec3> lights; };
   SDL_Window* window_{};
   SDL_GPUDevice* device_{};
-  SDL_GPUGraphicsPipeline *worldPipeline_{},*skyPipeline_{},*uiPipeline_{},*previewPipeline_{},*placementPipeline_{};
+  SDL_GPUGraphicsPipeline *worldPipeline_{},*glassPipeline_{},*skyPipeline_{},*uiPipeline_{},*previewPipeline_{},*placementPipeline_{};
   SDL_GPUTexture *color_{},*depth_{};
   SDL_GPUTexture* fontTexture_{};
   SDL_GPUSampler* fontSampler_{};

@@ -8,7 +8,7 @@ Block itemBlock(Item item) {
   constexpr std::array blocks{Block::Air,Block::Planks,Block::Wood,Block::Stone,Block::Glass,Block::DoorZ,Block::Torch,
     Block::Grass,Block::Leaves,Block::Brick,Block::BedZ,Block::Workbench,Block::Fence,Block::GateZ,Block::WheatYoung,Block::Air,Block::Air,Block::Dirt,Block::Sand,
     Block::CarrotYoung,Block::StrawberryYoung,Block::PumpkinYoung,Block::Air,Block::Air,Block::Air,Block::Sprinkler,Block::Air,Block::StoneSlab,
-    Block::Concrete,Block::Limestone,Block::Terracotta,Block::Sage,Block::Charcoal,Block::Asphalt,Block::Water,Block::Lamp};
+    Block::Concrete,Block::Limestone,Block::Terracotta,Block::Sage,Block::Charcoal,Block::Asphalt,Block::Water,Block::Lamp,Block::BlueGlass,Block::BlueTile,Block::RedTile,Block::GoldTile,Block::Sofa,Block::Table,Block::Chair,Block::Planter};
   return item<Item::Count ? blocks[int(item)] : Block::Air;
 }
 Tool itemTool(Item item) { return item==Item::Axe ? Tool::Axe : item==Item::Pickaxe ? Tool::Pickaxe : Tool::Hands; }
@@ -58,7 +58,7 @@ std::span<const Item> modeTools(PlayMode mode) {
   static constexpr std::array farm{Item::Hoe,Item::WateringCan,Item::Carrot,Item::Wheat,Item::Strawberry,Item::Pumpkin,Item::Compost,Item::Sprinkler,Item::Greenhouse};
   static constexpr std::array build{Item::Planks,Item::Wood,Item::Stone,Item::Glass,Item::Door,Item::Torch,Item::Fence,Item::Gate,Item::Bed,
     Item::Brick,Item::Grass,Item::Leaves,Item::Dirt,Item::StoneSlab,Item::Sand,Item::Workbench,
-    Item::Concrete,Item::Limestone,Item::Terracotta,Item::Sage,Item::Charcoal,Item::Asphalt,Item::Water,Item::Lamp};
+    Item::Concrete,Item::Limestone,Item::Terracotta,Item::Sage,Item::Charcoal,Item::Asphalt,Item::Water,Item::Lamp,Item::BlueGlass,Item::BlueTile,Item::RedTile,Item::GoldTile,Item::Sofa,Item::Table,Item::Chair,Item::Planter};
   static constexpr std::array remove{Item::Empty,Item::Axe,Item::Pickaxe};
   switch(mode) {
     case PlayMode::Farm: return farm;
@@ -74,7 +74,7 @@ std::string_view toolName(Item item) {
   constexpr std::array names{"Hammer","Planks","Logs","Stone","Glass","Door","Torch","Grass","Leaves","Bricks","Bed","Workbench",
     "Fence","Gate","Wheat / feed","Wooden axe","Pickaxe","Dirt","Sand","Carrot seeds","Strawberry seeds","Pumpkin seeds",
     "Watering can","Hoe","Compost","Sprinkler","Greenhouse","Stone step",
-    "Concrete","Limestone","Terracotta","Sage","Charcoal","Asphalt","Water","Lantern"};
+    "Concrete","Limestone","Terracotta","Sage","Charcoal","Asphalt","Water","Lantern","Blue glass","Blue tile","Red tile","Gold tile","Sofa","Table","Chair","Planter"};
   return item<Item::Count ? names[int(item)] : "";
 }
 Item ToolSelection::held() const { return mode==PlayMode::Farm ? farm : mode==PlayMode::Build ? build : remove; }

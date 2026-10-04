@@ -26,13 +26,20 @@ A free, open-source game for **macOS**, built with a custom **C++26** engine,
   cave, watch the sunset, and sleep until morning.
 - **Your castle:** press **K** to visit a four-tower stone castle. Walk up the
   courtyard staircase and along the walls to the tower roof, or furnish the hall.
-- **Coastal landscape:** press **J** to explore curved coves, a wooded island,
-  a lagoon, hills, beaches, and a drivable shoreline road. Walk down the pier
-  into the water, or fly over the landscape. This is the terrain foundation for
-  the next city; its buildings are still being designed.
-- **Waterfront city:** press **T** to visit twelve apartment buildings around a
-  lake. Drive the broad streets, cross the garden bridge, and climb the stairs to
-  furnished penthouses, rooftop pools, and planted terraces. Every building is editable.
+- **Coastal city:** press **T** for ten buildings along curved coves and beaches.
+  Walk from the street to the rooftops, explore furnished apartments, and visit
+  the fourteen-floor tower. **U** takes you to the main penthouse terrace, with
+  a pool, pergola, skylights, a living room, and an upstairs bedroom.
+- **Explore the bay:** press **J** for the northern shore. Follow the coastal road
+  around the island, lagoon, and wooded hills, or bring your car with **C**.
+- **Original city:** **Shift+T** returns to the earlier district. Your buildings
+  and changes there remain saved.
+
+![The coastal city's towers, coves and beaches](docs/images/harbor.png)
+
+![The penthouse's stepped terraces, pool and skylights](docs/images/penthouse.png)
+
+*Actual Metal framebuffer captures from version 0.14.0.*
 
 ![Wooded coastal hills, coves, and stepped beaches](docs/images/coast.png)
 
@@ -89,6 +96,7 @@ there are no slots to arrange. Your active mode stays visible at the bottom.
 
 **V** places or interacts in every mode. In Build, press **E** to choose another material.
 The numbered bar in Build lets you select materials directly with **1–9**; no menu or slot setup needed.
+Choose **E → Build → More** for facade glass, colored tiles, sofas, tables, chairs, and flower planters.
 
 | Action | Input |
 | --- | --- |
@@ -105,7 +113,8 @@ The numbered bar in Build lets you select materials directly with **1–9**; no 
 | Fly up / down | Space / Shift |
 | Return home | R |
 | Bring your free car nearby / visit the castle | C / K |
-| Visit the waterfront city / coastal landscape | T / J |
+| Coastal city street / penthouse terrace | T / U |
+| Northern coast / original city | J / Shift+T |
 | Pause and release the mouse | Esc |
 | Mute / unmute | M |
 

@@ -3,6 +3,7 @@
 #include "farm.hpp"
 #include "city.hpp"
 #include "coast.hpp"
+#include "harbor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -32,8 +33,9 @@ std::size_t PositionHash::operator()(Cell p) const noexcept {
   return (*this)(ChunkPos{p.x, p.z}) ^ (std::uint64_t(mix(std::uint32_t(p.y))) * 0x9e3779b97f4a7c15ull);
 }
 std::string_view blockName(Block b) {
+  if(isFurniture(b)) { constexpr std::array names{"Sofa","Coffee table","Chair","Planter"}; return names[int(b)-int(Block::Sofa)]; }
   if(isCityMaterial(b)) {
-    constexpr std::array names{"White concrete","Limestone","Terracotta","Sage concrete","Charcoal","Asphalt","Water","Lantern block"};
+    constexpr std::array names{"White concrete","Limestone","Terracotta","Sage concrete","Charcoal","Asphalt","Water","Lantern block","Blue facade glass","Blue roof tile","Red tile","Gold tile"};
     return names[int(b)-int(Block::Concrete)];
   }
   if(isDoor(b)) return "Oak door";
@@ -50,9 +52,10 @@ std::string_view blockName(Block b) {
   return names[static_cast<unsigned>(b)];
 }
 glm::vec3 blockColor(Block b) {
+  if(isFurniture(b)) return b==Block::Planter ? glm::vec3(.3f,.53f,.28f) : b==Block::Sofa ? glm::vec3(.83f,.81f,.72f) : glm::vec3(.44f,.29f,.18f);
   if(isCityMaterial(b)) {
-    constexpr std::array<glm::vec3,8> colors{{{.88f,.89f,.84f},{.78f,.72f,.55f},{.72f,.34f,.22f},{.34f,.53f,.40f},
-      {.20f,.24f,.26f},{.16f,.19f,.21f},{.15f,.52f,.63f},{1.f,.80f,.43f}}};
+    constexpr std::array<glm::vec3,12> colors{{{.88f,.89f,.84f},{.78f,.72f,.55f},{.72f,.34f,.22f},{.34f,.53f,.40f},
+      {.20f,.24f,.26f},{.16f,.19f,.21f},{.15f,.52f,.63f},{1.f,.80f,.43f},{.27f,.54f,.65f},{.20f,.58f,.69f},{.83f,.22f,.19f},{.96f,.71f,.20f}}};
     return colors[int(b)-int(Block::Concrete)];
   }
   if(isDoor(b)) return {.61f,.40f,.20f};
@@ -77,6 +80,10 @@ Box blockBounds(Cell c, Block block) {
   if(block==Block::Sprinkler) { low={.18f,0,.18f}; high={.82f,.65f,.82f}; }
   if(isBed(block)) high.y=bedHead(block) ? .63f : .55f;
   if(block==Block::StoneSlab) high.y=.5f;
+  if(block==Block::Sofa) { low={0,0,.06f}; high={1,.88f,.94f}; }
+  if(block==Block::Table) { low={.05f,0,.05f}; high={.95f,.58f,.95f}; }
+  if(block==Block::Chair) { low={.16f,0,.12f}; high={.84f,.94f,.88f}; }
+  if(block==Block::Planter) { low={.16f,0,.16f}; high={.84f,.98f,.84f}; }
   if(isWheat(block)) { low={.14f,0,.14f}; high={.86f,block==Block::WheatYoung ? .28f : block==Block::WheatGrowing ? .53f : .85f,.86f}; }
   else if(isCrop(block)) {
     int stage=(int(block)-int(Block::WheatYoung))%3;
@@ -300,6 +307,7 @@ void World::insert(Chunk chunk) {
   const auto p = chunk.pos;
   if(cityOrigin) generateCity(chunk,*cityOrigin);
   if(coastOrigin) generateCoast(chunk,terrain,*coastOrigin);
+  if(coastOrigin && harborLots) generateHarbor(chunk,*coastOrigin,*harborLots);
   for (const auto& [cell, block] : edits_) if (chunkAt(cell.x,cell.z) == p)
     chunk.set(localCoord(cell.x),cell.y,localCoord(cell.z),block);
   chunks.insert_or_assign(p, std::move(chunk));
@@ -366,7 +374,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 13 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 14 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -394,6 +402,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   file<<cityOrigin.has_value()<<' '<<city.x<<' '<<city.y<<' '<<city.z<<'\n';
   const auto coast=coastOrigin.value_or(Cell{});
   file<<coastOrigin.has_value()<<' '<<coast.x<<' '<<coast.y<<' '<<coast.z<<'\n';
+  file<<harborLots.has_value()<<' '<<harborLots.value_or(0)<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
   file<<'\n';
@@ -420,7 +429,8 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   CraftState savedCrafting;
   FarmState savedFarm;
   std::optional<Cell> savedCastle,savedCity,savedCoast;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>13) corrupt();
+  std::optional<std::uint32_t> savedHarbor;
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>14) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -539,12 +549,17 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       savedCoast=c;
     } else if(c!=Cell{}) corrupt();
   }
+  if(version>=14) {
+    bool present=false; std::uint32_t mask=0;
+    if(!(file>>present>>mask) || mask>=(1u<<harborBuildings().size()) || (present && !savedCoast) || (!present && mask)) corrupt();
+    if(present) savedHarbor=mask;
+  }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {
     if(!(file>>savedInventory.selected) || savedInventory.selected<0 || savedInventory.selected>=hotbarSize) corrupt();
     for(auto& item : savedInventory.slots) {
       int value=-1;
-      if(!(file>>value) || value<0 || value>=(version>=12 ? int(Item::Count) : version==11 ? int(Item::Concrete) : version>=9 ? int(Item::StoneSlab) : version==8 ? int(Item::Hoe) : int(Item::Carrot)) || !itemAvailable(Item(value),savedCrafting)) corrupt();
+      if(!(file>>value) || value<0 || value>=(version>=14 ? int(Item::Count) : version>=12 ? int(Item::BlueGlass) : version==11 ? int(Item::Concrete) : version>=9 ? int(Item::StoneSlab) : version==8 ? int(Item::Hoe) : int(Item::Carrot)) || !itemAvailable(Item(value),savedCrafting)) corrupt();
       item=Item(value);
     }
   }
@@ -556,7 +571,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
     Cell c; int b{};
     if (!(file >> c.x >> c.y >> c.z >> b) || !validCell(c) || b < 0 || b==int(Block::Bedrock)
         || b >= (version==1 ? int(Block::Bedrock) : version==2 ? int(Block::BedZ) : version==3 ? int(Block::Workbench)
-                 : version==4 ? int(Block::Fence) : version<8 ? int(Block::CarrotYoung) : version==8 ? int(Block::Farmland) : version<11 ? int(Block::StoneSlab) : version==11 ? int(Block::Concrete) : int(Block::Count))) corrupt();
+                 : version==4 ? int(Block::Fence) : version<8 ? int(Block::CarrotYoung) : version==8 ? int(Block::Farmland) : version<11 ? int(Block::StoneSlab) : version==11 ? int(Block::Concrete) : version<14 ? int(Block::BlueGlass) : int(Block::Count))) corrupt();
     if (!edits.emplace(c,static_cast<Block>(b)).second) corrupt();
     if(Block(b)==Block::Sprinkler) savedFarm.sprinklers.push_back({c.x,c.y,c.z});
   }
@@ -573,7 +588,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   file >> std::ws;
   if (!file.eof()) corrupt();
   terrain = Terrain(seed,adventure!=0); guideFlags=flags; clock=savedClock; crafting=savedCrafting; inventory=savedInventory;
-  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; edits_ = std::move(edits); chunks.clear();
+  farm=std::move(savedFarm); castleOrigin=savedCastle; cityOrigin=savedCity; coastOrigin=savedCoast; harborLots=savedHarbor; edits_ = std::move(edits); chunks.clear();
   return pose;
 }
 
@@ -664,7 +679,7 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
     auto city=world.cityOrigin;
     bool inCity=city && wx>=city->x && wx<city->x+citySize && wz>=city->z && wz<city->z+citySize;
     // The city is graded below some original hills; its streets aren't caves.
-    surface[z*chunkSize+x]=world.coastOrigin && coastContains(*world.coastOrigin,float(wx),float(wz))
+    surface[z*chunkSize+x]=world.coastOrigin && world.harborLots && harborGraded(*world.coastOrigin,*world.harborLots,wx,wz) ? harborGround-1 : world.coastOrigin && coastContains(*world.coastOrigin,float(wx),float(wz))
       ? coastColumn(world.terrain,*world.coastOrigin,wx,wz).ground : inCity ? city->y-1 : world.terrain.height(wx,wz);
   }
   for (int y=0;y<worldHeight;++y) for (int z=0;z<chunkSize;++z) for (int x=0;x<chunkSize;++x) {
@@ -676,6 +691,34 @@ std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk) {
       int floor=y-1;
       while(floor>0 && world.get({c.x,floor,c.z})==Block::Water) --floor;
       daylight=float(y-floor);
+    }
+    if(isFurniture(block)) {
+      glm::vec3 p(c.x,c.y,c.z);
+      auto part=[&](glm::vec3 lo,glm::vec3 hi,float material) { appendBox(vertices,{p+lo,p+hi},c,material,daylight); };
+      if(block==Block::Sofa) {
+        part({.04f,.08f,.1f},{.96f,.24f,.9f},64);
+        part({.025f,.24f,.08f},{.975f,.48f,.91f},73);
+        part({0,.4f,.75f},{1,.88f,.94f},73);
+        if(world.get(c+Cell{-1,0,0})!=Block::Sofa) part({0,.28f,.08f},{.16f,.65f,.9f},73);
+        if(world.get(c+Cell{1,0,0})!=Block::Sofa) part({.84f,.28f,.08f},{1,.65f,.9f},73);
+        part({.25f,.49f,.6f},{.7f,.75f,.78f},63);
+      } else if(block==Block::Table) {
+        part({.05f,.48f,.05f},{.95f,.58f,.95f},72);
+        for(float x : {.15f,.77f}) for(float z : {.15f,.77f}) part({x,0,z},{x+.08f,.48f,z+.08f},64);
+      } else if(block==Block::Chair) {
+        part({.16f,.4f,.12f},{.84f,.5f,.88f},73);
+        part({.16f,.5f,.76f},{.84f,.94f,.88f},72);
+        for(float x : {.2f,.72f}) for(float z : {.18f,.76f}) part({x,0,z},{x+.08f,.4f,z+.08f},72);
+      } else {
+        part({.25f,0,.25f},{.75f,.43f,.75f},62);
+        part({.21f,.36f,.21f},{.79f,.47f,.79f},60);
+        part({.46f,.43f,.46f},{.54f,.75f,.54f},5);
+        part({.16f,.59f,.16f},{.84f,.84f,.84f},6);
+        part({.28f,.8f,.28f},{.72f,.92f,.72f},6);
+        for(auto blossom : {glm::vec3{.25f,.82f,.25f},glm::vec3{.56f,.88f,.48f},glm::vec3{.3f,.83f,.65f}})
+          part(blossom,blossom+glm::vec3(.17f,.09f,.17f),70);
+      }
+      continue;
     }
     if(block==Block::StoneSlab) {
       auto first=vertices.size();

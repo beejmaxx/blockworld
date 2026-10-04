@@ -19,7 +19,7 @@ void coordinates() {
   auto world=emptyWorld();
   check(world.set({-1,5,-16},Block::Brick),"set block in negative chunk");
   check(world.get({-1,5,-16})==Block::Brick,"read block in negative chunk");
-  check(!world.set({0,0,0},Block::Air) && !world.set({0,64,0},Block::Stone),"world vertical bounds");
+  check(!world.set({0,0,0},Block::Air) && !world.set({0,worldHeight,0},Block::Stone),"world vertical bounds");
 }
 void terrain() {
   Terrain a(42),b(42),c(43);

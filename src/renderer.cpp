@@ -40,6 +40,7 @@ Renderer::Renderer(SDL_Window* window) : window_(window) {
     if(!SDL_SetGPUSwapchainParameters(device_,window_,SDL_GPU_SWAPCHAINCOMPOSITION_SDR,SDL_GPU_PRESENTMODE_VSYNC)) fail("Set swapchain");
     format_=SDL_GetGPUSwapchainTextureFormat(device_,window_);
     worldPipeline_=pipeline("world.metal","worldVertex","worldFragment",0);
+    glassPipeline_=pipeline("world.metal","worldVertex","worldFragment",5);
     skyPipeline_=pipeline("world.metal","skyVertex","skyFragment",1);
     uiPipeline_=pipeline("ui.metal","uiVertex","uiFragment",2);
     previewPipeline_=pipeline("world.metal","worldVertex","worldFragment",3);
@@ -99,7 +100,7 @@ void Renderer::cleanup() noexcept {
   if(depth_) SDL_ReleaseGPUTexture(device_,depth_);
   if(fontTexture_) SDL_ReleaseGPUTexture(device_,fontTexture_);
   if(fontSampler_) SDL_ReleaseGPUSampler(device_,fontSampler_);
-  for(auto p : {worldPipeline_,skyPipeline_,uiPipeline_,previewPipeline_,placementPipeline_}) if(p) SDL_ReleaseGPUGraphicsPipeline(device_,p);
+  for(auto p : {worldPipeline_,glassPipeline_,skyPipeline_,uiPipeline_,previewPipeline_,placementPipeline_}) if(p) SDL_ReleaseGPUGraphicsPipeline(device_,p);
   SDL_ReleaseWindowFromGPUDevice(device_,window_);
   SDL_DestroyGPUDevice(device_); device_=nullptr;
 }
@@ -133,7 +134,7 @@ SDL_GPUGraphicsPipeline* Renderer::pipeline(const char* file,const char* vs,cons
     {1,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,offsetof(UiVertex,color)},
     {2,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,offsetof(UiVertex,uv)}};
   SDL_GPUColorTargetDescription target{}; target.format=format_;
-  if(kind==2 || kind==3 || kind==4) {
+  if(kind==2 || kind==3 || kind==4 || kind==5) {
     target.blend_state.enable_blend=true;
     target.blend_state.src_color_blendfactor=SDL_GPU_BLENDFACTOR_SRC_ALPHA;
     target.blend_state.dst_color_blendfactor=SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
@@ -146,12 +147,12 @@ SDL_GPUGraphicsPipeline* Renderer::pipeline(const char* file,const char* vs,cons
   info.vertex_shader=vertex; info.fragment_shader=fragment; info.primitive_type=SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
   if(kind!=1) info.vertex_input_state={&buffer,1,kind==2 ? uiAttributes : worldAttributes,Uint32(kind==2 ? 3 : 5)};
   info.rasterizer_state.fill_mode=SDL_GPU_FILLMODE_FILL;
-  info.rasterizer_state.cull_mode=kind==0 ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
+  info.rasterizer_state.cull_mode=(kind==0 || kind==5) ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
   info.rasterizer_state.front_face=SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
   info.rasterizer_state.enable_depth_clip=true;
   info.multisample_state.sample_count=SDL_GPU_SAMPLECOUNT_1;
   info.depth_stencil_state.compare_op=SDL_GPU_COMPAREOP_LESS;
-  info.depth_stencil_state.enable_depth_test=kind==0 || kind==4;
+  info.depth_stencil_state.enable_depth_test=kind==0 || kind==4 || kind==5;
   info.depth_stencil_state.enable_depth_write=kind==0;
   info.target_info.color_target_descriptions=&target; info.target_info.num_color_targets=1;
   info.target_info.has_depth_stencil_target=true; info.target_info.depth_stencil_format=SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
@@ -192,7 +193,11 @@ void Renderer::sync(World& world,ChunkPos center,int budget) {
   for(auto* chunk : dirty) {
     if(done++>=budget) break;
     auto vertices=buildMesh(world,*chunk);
+    // Draw the opaque world first. Only window frames need alpha blending;
+    // enabling it for terrain and every tower wall wastes tile bandwidth.
+    auto glass=std::stable_partition(vertices.begin(),vertices.end(),[](const Vertex& v){return v.material!=12.f;});
     Mesh replacement{}; replacement.vertices=Uint32(vertices.size());
+    replacement.opaqueVertices=Uint32(glass-vertices.begin());
     for(int y=1;y<worldHeight;++y) for(int z=0;z<chunkSize;++z) for(int x=0;x<chunkSize;++x)
       if(chunk->get(x,y,z)==Block::Torch || chunk->get(x,y,z)==Block::Lamp)
         replacement.lights.emplace_back(chunk->pos.x*chunkSize+x+.5f,y+.68f,chunk->pos.z*chunkSize+z+.5f);
@@ -331,7 +336,7 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   SDL_BindGPUGraphicsPipeline(pass,worldPipeline_); SDL_PushGPUVertexUniformData(command,0,&camera,sizeof(camera));
   for(const auto& [pos,mesh] : meshes_) if(mesh.buffer && visible(pos,camera.viewProjection)) {
     SDL_GPUBufferBinding binding{mesh.buffer,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
-    SDL_DrawGPUPrimitives(pass,mesh.vertices,1,0,0);
+    SDL_DrawGPUPrimitives(pass,mesh.opaqueVertices,1,0,0);
   }
   if(!chickens.empty()) {
     SDL_GPUBufferBinding binding{chickenBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
@@ -340,6 +345,11 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   if(!particles.empty()) {
     SDL_GPUBufferBinding binding{debrisBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
     SDL_DrawGPUPrimitives(pass,Uint32(particles.size()),1,0,0);
+  }
+  SDL_BindGPUGraphicsPipeline(pass,glassPipeline_);
+  for(const auto& [pos,mesh] : meshes_) if(mesh.buffer && mesh.vertices>mesh.opaqueVertices && visible(pos,camera.viewProjection)) {
+    SDL_GPUBufferBinding binding{mesh.buffer,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
+    SDL_DrawGPUPrimitives(pass,mesh.vertices-mesh.opaqueVertices,1,mesh.opaqueVertices,0);
   }
   if(placement) {
     SDL_BindGPUGraphicsPipeline(pass,placementPipeline_);

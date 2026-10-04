@@ -307,7 +307,9 @@ silently if none is available. No microphone access is used.
 | R | Go home; use P → Garden → Visit garden to return to the beds |
 | C | Bring your free car nearby; while driving, move it to clear ground |
 | K | Visit your castle |
-| T | Visit the waterfront city |
+| T | Visit the coastal city street |
+| U | Visit the penthouse terrace |
+| Shift+T | Visit the original waterfront city |
 | J | Visit the coastal landscape |
 | H | Toggle the guide and movement hints |
 | M | Mute / unmute sound |
@@ -319,9 +321,9 @@ The first click on the pause screen only resumes play. Menu clicks select tools
 without editing the world. Mode/tool changes, menus, and focus loss cancel held
 actions. Holding use does not repeatedly toggle doors, gates, or vehicle rides.
 
-## Waterfront city
+## Original waterfront city
 
-Press **T** to arrive beside the lake. **C** brings your car; the broad streets
+Press **Shift+T** to arrive beside the lake. **C** brings your car; the broad streets
 form a loop around the waterfront. Cross the wooden bridge to the island garden,
 or walk into any of the twelve apartment buildings through its south-facing entrance.
 
@@ -340,15 +342,37 @@ The city uses an untouched parcel and leaves your farm and castle in place.
 Press **J** to visit the new terrain region. It has connected coves, a lagoon,
 a wooded island, sandy shelves, rocky hilltops, and a coastal driving loop.
 **C** brings your car. Follow the road, or use **Tab** to fly; **Space** climbs
-and **Shift** descends. **R** returns home and **T** visits the original city.
+and **Shift** descends. **R** returns home; **T** visits the city on the southern shore.
 The pier on the northern bay has half-height steps all the way into the water,
 so you can swim out and walk back up without jumping.
 
-The coast is the foundation for the next city. New landmarks and penthouses are
-not placed yet. It occupies an untouched 384 × 384 region, preserves your farm,
-castle, and existing city, and keeps any blocks you add or remove. Water is deeper
+The coast occupies an untouched 384 × 384 region, preserves your farm,
+castle, and original city, and keeps any blocks you add or remove. Water is deeper
 and darker away from the sand shelves; its surface has animated sun highlights.
 There are no water currents or flowing-water simulation.
+
+## Coastal city and penthouses
+
+**T** takes you to the city street. **U** takes you straight to the outdoor terrace
+of Bay Terraces. The pool faces the bay; the glazed living room is behind it.
+The narrow outdoor staircase beside the living room leads to the upper terrace
+and bedroom. You can sleep in the bed at night. The pool has a shallow step to
+walk out. To explore on foot, enter a building lobby and take the stairs on the
+left; every floor and rooftop connects back to the street.
+
+Ten buildings range from four to fourteen floors, with terracotta, sage, white,
+blue and charcoal facades. The tall crowned building is Pearl Tower. The main
+cluster sits on the southern shore, with smaller buildings by the lagoon and
+coves. **J** visits the northern coast; **Shift+T** visits the original city.
+
+You can edit the buildings with the usual Build/Remove controls. **E → Build →
+More** includes blue facade glass, colored tiles, sofas, tables, chairs and flower
+planters. Number keys **1–9** retain their existing materials. Building now reaches
+128 blocks high. Furniture is decorative; beds still support sleeping.
+
+When adding the city to an existing coastal save, a building plot containing your
+edits or animals is left alone. Buildings and their approaches are generated
+before saved edits, so demolished blocks stay removed after travelling or loading.
 
 ## Saved worlds
 
@@ -362,7 +386,7 @@ A damaged or unknown save is rejected without overwriting it. Use
 session.
 
 Your original sandbox is preserved in `world.bw`. Run `./run.command --classic`
-to open it. The loader accepts versions 1–13. Version 13 adds the coastal landscape location. Version 12 adds the city location and
+to open it. The loader accepts versions 1–14. Version 14 records the coastal city plots and new furniture/materials. Version 13 adds the coastal landscape location. Version 12 adds the city location and
 city materials. Version 11 adds the castle location and stone steps. Earlier terrain, edits, tutorial
 progress, clocks, crafting, and farm data are retained. Worlds from before the
 shared inventory receive a starter hotbar containing owned tools; version 6's

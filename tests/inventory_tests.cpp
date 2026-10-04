@@ -79,8 +79,8 @@ void modeToolsAndRemoval() {
   CraftState locked;
   tools.cycle(1,locked);
   check(tools.held()==Item::Concrete,"scrolling skips the uncrafted workbench and reaches city materials");
-  tools.choose(Item::Lamp,locked); tools.cycle(1,locked);
-  check(tools.held()==Item::Planks,"scrolling wraps after the final city material");
+  tools.choose(Item::Planter,locked); tools.cycle(1,locked);
+  check(tools.held()==Item::Planks,"scrolling wraps after the final furniture item");
   check(!tools.choose(Item::Axe,locked) && tools.mode==PlayMode::Build && tools.held()==Item::Planks,
         "a locked tool cannot change the current mode or selection");
   check(!tools.choose(Item::Count,locked) && !tools.select(-1,locked) && !tools.select(99,locked),"invalid tool choices are inert");

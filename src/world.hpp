@@ -23,7 +23,7 @@ static_assert(__cplusplus > 202302L, "Blockworld requires C++26 mode.");
 namespace bw {
 
 inline constexpr int chunkSize = 16;
-inline constexpr int worldHeight = 64;
+inline constexpr int worldHeight = 128;
 inline constexpr int viewRadius = 6;
 inline constexpr int coordinateLimit = 100000;
 
@@ -35,11 +35,11 @@ enum class Block : std::uint8_t {
   Fence,GateZ,GateZOpen,GateX,GateXOpen,WheatYoung,WheatGrowing,WheatRipe,
   CarrotYoung,CarrotGrowing,CarrotRipe,StrawberryYoung,StrawberryGrowing,StrawberryRipe,
   PumpkinYoung,PumpkinGrowing,PumpkinRipe,Farmland,Sprinkler,StoneSlab,
-  Concrete,Limestone,Terracotta,Sage,Charcoal,Asphalt,Water,Lamp,Count
+  Concrete,Limestone,Terracotta,Sage,Charcoal,Asphalt,Water,Lamp,BlueGlass,BlueTile,RedTile,GoldTile,Sofa,Table,Chair,Planter,Count
 };
 std::string_view blockName(Block block);
 glm::vec3 blockColor(Block block);
-constexpr bool isCityMaterial(Block b) { return b>=Block::Concrete && b<=Block::Lamp; }
+constexpr bool isCityMaterial(Block b) { return b>=Block::Concrete && b<=Block::GoldTile; }
 constexpr float cityMaterial(Block b) { return 60.f+float(int(b)-int(Block::Concrete)); }
 constexpr bool isDoor(Block b) { return b >= Block::DoorZ && b <= Block::DoorXOpenTop; }
 constexpr bool doorUpper(Block b) { return isDoor(b) && (int(b)-int(Block::DoorZ))%2 == 1; }
@@ -65,7 +65,8 @@ inline Block cropStage(CropKind kind,float age) {
   return Block(int(Block::WheatYoung)+int(kind)*3+(age>=duration ? 2 : age>=duration*.5f ? 1 : 0));
 }
 inline Block wheatStage(float age) { return age>=wheatGrowSeconds ? Block::WheatRipe : age>=wheatGrowSeconds*.5f ? Block::WheatGrowing : Block::WheatYoung; }
-constexpr bool opaque(Block b) { return b != Block::Air && b != Block::Water && b != Block::Glass && b != Block::Torch && b!=Block::Sprinkler && b!=Block::StoneSlab && !isDoor(b) && !isBed(b) && b!=Block::Fence && !isGate(b) && !isCrop(b); }
+constexpr bool isFurniture(Block b) { return b>=Block::Sofa && b<=Block::Planter; }
+constexpr bool opaque(Block b) { return b != Block::Air && b != Block::Water && b != Block::Glass && b != Block::Torch && b!=Block::Sprinkler && b!=Block::StoneSlab && !isDoor(b) && !isBed(b) && b!=Block::Fence && !isGate(b) && !isCrop(b) && !isFurniture(b); }
 constexpr bool collidable(Block b) { return b != Block::Air && b != Block::Water && b != Block::Torch && !isCrop(b) && !gateOpen(b); }
 
 struct ChunkPos {
@@ -141,6 +142,7 @@ public:
   std::optional<Cell> castleOrigin;
   std::optional<Cell> cityOrigin;
   std::optional<Cell> coastOrigin;
+  std::optional<std::uint32_t> harborLots;
   std::unordered_map<ChunkPos, Chunk, PositionHash> chunks;
   Block get(Cell cell) const;
   bool set(Cell cell, Block block);

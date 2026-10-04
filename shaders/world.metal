@@ -101,6 +101,12 @@ float3 blockTexture(int material,float2 uv) {
     case 65: color=float3(.16,.19,.21); break;
     case 66: color=float3(.15,.52,.63); break;
     case 67: color=float3(1.0,.80,.43); break;
+    case 68: color=float3(.27,.54,.65); break;
+    case 69: color=float3(.20,.58,.69); break;
+    case 70: color=float3(.83,.22,.19); break;
+    case 71: color=float3(.96,.71,.20); break;
+    case 72: color=float3(.36,.23,.14); break;
+    case 73: color=float3(.85,.82,.73); break;
     default: {
       float ring=fmod(floor(max(abs(p.x-7.5),abs(p.y-7.5))),3.0);
       color=ring==0.0 ? float3(.45,.30,.16) : float3(.70,.52,.30); break;
@@ -118,6 +124,8 @@ float3 blockTexture(int material,float2 uv) {
     noise=.5+(noise-.5)*.25;
     if((material==61 || material==62) && (p.y==0 || (p.x==0 && fmod(p.y,8.0)<1.0))) color*=.88;
   }
+  if(material==72) color*=.92+.12*sin(p.x*.8+sin(p.y*.18));
+  if(material==73) noise=.5+(noise-.5)*.16;
   if(material==67 && (p.x<1 || p.x>14 || p.y<1 || p.y>14)) color*=.28;
   if(material==35 && fmod(p.x+floor(p.y/4.0)*2.0,5.0)==0.0 && fmod(p.y,4.0)==1.0) color=float3(1.0,.81,.35);
   if(material==36 && fmod(p.x,4.0)==0.0) color*=.72;
@@ -150,8 +158,12 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     float3 tint=material==22 ? float3(.45,1.0,.65) : float3(1.0,.32,.24);
     return float4(tint,edge<.03 ? .85 : .13);
   }
-  if(material==12 && edge>.055 && abs(in.uv.x-in.uv.y-.28)>.024 && abs(in.uv.x-in.uv.y+.30)>.015)
-    discard_fragment();
+  float opacity=1.0;
+  if(material==12) {
+    float aa=max(fwidth(edge),.002);
+    opacity=1.0-smoothstep(.022-aa,.022+aa,edge);
+    if(opacity<.08) discard_fragment();
+  }
   float3 base=blockTexture(material,in.uv);
   float3 color=base*in.light*camera.ambient.rgb;
   if(material==66) {
@@ -174,11 +186,22 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
     color=mix(water*camera.ambient.rgb,reflection,fresnel);
     color+=float3(1.0,.88,.65)*spec*camera.ambient.w*.3;
   }
+  if(material==68) {
+    // Opaque curtain-wall panels suggest sky reflection; real Glass is used
+    // at lobbies and viewing decks so the player can see through them.
+    float reflection=.20+.18*saturate(in.world.y/64.0);
+    color=mix(color,camera.horizon.rgb,reflection);
+    if(edge<.018 || abs(in.uv.x-.5)<.008) color*=.65;
+    float night=1.0-camera.ambient.w;
+    if(hash21(in.block.xz+in.block.y*13)>.58 && edge>.12)
+      color=mix(color,float3(.94,.71,.38),night*.85);
+  }
+  if(material>=69 && material<=71 && edge<.014) color*=.85;
   if(material==67) color=base*.95;
   if(material==37) color=base*.95;
   for(int i=0;i<8;++i) if(camera.lights[i].w>0) {
     float falloff=saturate(1.0-length(in.world-camera.lights[i].xyz)/camera.lights[i].w);
-    color+=base*float3(1.35,.73,.26)*falloff*falloff;
+    color+=base*float3(1.35,.73,.26)*falloff*falloff*mix(1.0,.18,camera.ambient.w);
   }
   if(material==14) color=float3(1.0,.62+.14*sin(camera.screen.w*9+in.world.x),.13);
   if(camera.selection.w>0.5 && all(abs(in.block-camera.selection.xyz)<.1)) {
@@ -198,7 +221,7 @@ fragment float4 worldFragment(Varying in [[stage_in]],constant Camera& camera [[
   float distance=length(in.world.xz-camera.eye.xz);
   float fog=camera.eye.w>1.5 ? smoothstep(120.0,205.0,distance) : camera.eye.w>.5 ? smoothstep(78.0,138.0,distance) : smoothstep(52.0,91.0,distance);
   float3 fogColor=camera.horizon.rgb;
-  return float4(mix(color,fogColor,fog),1.0);
+  return float4(mix(color,fogColor,fog),opacity);
 }
 
 struct SkyVarying { float4 position [[position]]; float2 uv; };
@@ -237,7 +260,7 @@ fragment float4 skyFragment(SkyVarying in [[stage_in]],constant Camera& camera [
     color=float3(.73,.79,.89)*(crater>.70 ? .73 : 1.0);
   }
   if(dir.y>.055) {
-    float2 cloud=(camera.eye.xz+dir.xz*(100.0-camera.eye.y)/dir.y)/19.0;
+    float2 cloud=(camera.eye.xz+dir.xz*(170.0-camera.eye.y)/dir.y)/19.0;
     cloud.x+=camera.screen.w*.013;
     float2 cell=floor(cloud);
     float cover=hash21(floor(cell/float2(3,2)));

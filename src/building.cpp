@@ -65,7 +65,7 @@ void DebrisCloud::emit(Cell c,Block block) {
                  : isWheat(block) ? (block==Block::WheatRipe ? 25.f : 24.f)
                  : isCrop(block) ? (cropRipe(block) ? (cropKind(block)==CropKind::Strawberry ? 35.f : 34.f) : 24.f)
                  : block==Block::Farmland ? 40.f : block==Block::Sprinkler ? 42.f : block==Block::StoneSlab ? 3.f
-                 : isCityMaterial(block) ? cityMaterial(block) : float(block);
+                 : isCityMaterial(block) ? cityMaterial(block) : isFurniture(block) ? 72.f : float(block);
   for(std::size_t i=0;i<count;++i) {
     glm::vec3 offset(random(),random(),random());
     glm::vec3 velocity{(random()-.5f)*3.4f,.9f+random()*2.2f,(random()-.5f)*3.4f};

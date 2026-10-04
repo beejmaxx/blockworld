@@ -223,13 +223,20 @@ void Ui::modeButtons(const HudState& h,float x,float y,float width,float height)
     labelCentered(modeName(mode),x+i*stride+(stride-8)*.5f,y+(height-28)*.5f,22,active ? panel : cream);
   }
 }
-int Ui::toolAt(int width,int height,float px,float py,PlayMode mode) {
+int Ui::toolAt(int width,int height,float px,float py,PlayMode mode,int page) {
   float x=float(width)*.5f-workshopWidth*.5f+24,y=float(height)*.5f-workshopHeight*.5f+toolsTop;
   if(px<x || py<y) return -1;
   int columns=toolColumns(mode); float stride=640.f/float(columns);
-  int col=int((px-x)/stride),row=int((py-y)/toolStrideY),index=row*columns+col;
-  if(col>=columns || index>=int(modeTools(mode).size()) || px-x-col*stride>=stride-8 || py-y-row*toolStrideY>=toolHeight) return -1;
+  int col=int((px-x)/stride),row=int((py-y)/toolStrideY),index=row*columns+col+(mode==PlayMode::Build ? std::clamp(page,0,1)*24 : 0);
+  if(row>=4 || col>=columns || index>=int(modeTools(mode).size()) || px-x-col*stride>=stride-8 || py-y-row*toolStrideY>=toolHeight) return -1;
   return index;
+}
+int Ui::toolPageAt(int width,int height,float px,float py) {
+  float x=float(width)*.5f-workshopWidth*.5f,y=float(height)*.5f-workshopHeight*.5f;
+  if(py<y+480 || py>=y+514) return -1;
+  if(px>=x+24 && px<x+166) return 0;
+  if(px>=x+514 && px<x+656) return 1;
+  return -1;
 }
 std::optional<PlayMode> Ui::modeAt(int width,int height,float px,float py) {
   float x=float(width)*.5f-workshopWidth*.5f+24,y=float(height)*.5f-workshopHeight*.5f+76;
@@ -438,8 +445,10 @@ void Ui::inventory(const HudState& h) {
     : h.tools.mode==PlayMode::Build ? "Left-click builds. Right-click removes. V also places."
     : "Click to remove one block instantly. Animals stay safe.",x+24,y+136,17,ink);
   auto choices=modeTools(h.tools.mode); int columns=toolColumns(h.tools.mode); float stride=640.f/float(columns);
-  for(int i=0;i<int(choices.size());++i) {
-    float sx=x+24+(i%columns)*stride,sy=y+toolsTop+(i/columns)*toolStrideY,width=stride-8;
+  int first=h.tools.mode==PlayMode::Build ? std::clamp(h.toolPage,0,1)*24 : 0;
+  for(int i=first;i<std::min(first+24,int(choices.size()));++i) {
+    int slot=i-first;
+    float sx=x+24+(slot%columns)*stride,sy=y+toolsTop+(slot/columns)*toolStrideY,width=stride-8;
     bool ready=itemAvailable(choices[i],h.craft.bag),selected=choices[i]==h.selectedItem();
     rectangle(sx,sy,width,toolHeight,selected ? glm::vec4(.23f,.33f,.28f,1) : panel);
     if(selected) rectangle(sx,sy,3,toolHeight,ink);
@@ -452,6 +461,12 @@ void Ui::inventory(const HudState& h) {
   }
   std::string selection=std::string(modeName(h.tools.mode))+" / "+std::string(toolName(h.selectedItem()));
   labelCentered(selection,cx,y+485,19,ink);
+  if(h.tools.mode==PlayMode::Build) {
+    rectangle(x+24,y+480,142,34,h.toolPage==0 ? ink : panel);
+    labelCentered("Materials",x+95,y+486,17,h.toolPage==0 ? panel : cream);
+    rectangle(x+514,y+480,142,34,h.toolPage==1 ? ink : panel);
+    labelCentered("More",x+585,y+486,17,h.toolPage==1 ? panel : cream);
+  }
   labelCentered("E or Esc: Back to game",cx,y+526,16,cream);
 }
 int Ui::recipeAt(int width,int height,float px,float py) {
@@ -762,7 +777,7 @@ void Ui::build(const HudState& h) {
   }
   if(h.help && !h.paused) {
     label(h.riding ? "Mouse: look around    R: return home" : h.flying ? "Flying: Space up / Shift down / Tab to land" : "WASD / arrows: move     Space: jump",24,height-217,15,cream);
-    label("J: coast    T: city    C: car    K: castle    R: home    H: help",24,height-194,14,muted);
+    label("T: city    U: penthouse    J: coast    C: car    R: home    H: help",24,height-194,14,muted);
   }
   if(!h.notice.empty()) {
     float size=std::min(18.f,18.f*(w-80)/std::max(1.f,readableWidth(h.notice,18)));
@@ -788,7 +803,7 @@ void Ui::build(const HudState& h) {
     rectangle(x+36,top+326,448,44,accent);
     labelCentered("Click or press Esc to play",cx,top+332,22,panel);
     labelCentered("Space: jump     Tab: fly     R: home     M: sound",cx,top+391,15,muted);
-    labelCentered("J: coast     T: city     C: car     K: castle",cx,top+421,17,accent);
+    labelCentered("J: coast    T: city    C: car    K: castle",cx,top+421,17,accent);
   }
   if(h.sleeping) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});

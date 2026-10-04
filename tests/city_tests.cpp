@@ -114,7 +114,7 @@ void persistenceAndProtection() {
   // A v11 save has a castle record but no city record or new block/item IDs.
   World legacy(123,true); legacy.ensure({0,0},0); legacy.save(path,p.pose);
   std::ifstream input(path); std::vector<std::string> lines; for(std::string line;std::getline(input,line);) lines.push_back(line);
-  lines[0]="BLOCKWORLD 11 123 1"; lines.erase(lines.begin()+11,lines.begin()+13);
+  lines[0]="BLOCKWORLD 11 123 1"; lines.erase(lines.begin()+11,lines.begin()+14);
   { std::ofstream output(path); for(const auto& line : lines) output<<line<<'\n'; }
   check(loaded.load(path).has_value() && !loaded.cityOrigin && loaded.terrain.seed()==123,"version-eleven worlds load without a city or lost state");
   auto saved=loaded.editCount(); lines[0]="BLOCKWORLD 12 123 1"; lines.insert(lines.begin()+11,"1 160 60 -96");
