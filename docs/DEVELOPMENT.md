@@ -96,7 +96,7 @@ sleeps until the next morning, and checks the actual audio callback. Additional 
 thin-object raycasts, safe two-part door placement/removal, blocked door closing,
 torch support, glass visibility, the entire guide-building sequence, the cave
 passage, paired bed placement/removal across chunk boundaries, sleep reach and
-headroom, day rollover, and save compatibility through version 17. Building tests exercise the
+headroom, day rollover, and save compatibility through version 18. Building tests exercise the
 whole crafting lesson, workbench reach and blocked access, recipe costs, tool
 speed, input cancellation, placement validity, and bounded debris. UI tests check
 recipe and inventory hit areas, menu bounds, and all held items throughout their
@@ -343,3 +343,23 @@ Pass `city_life_tests INPUT.bw OUTPUT.bw` to install the district into a copy of
 ```
 
 Other metro preview views: street, roof, garage, collection, bank, apartment, servers.
+
+## Population and families (0.18)
+
+84 street residents follow sidewalk routes derived from the saved game clock.
+They render only on loaded, clear sidewalk cells, with animated arms and legs.
+These decorative pedestrians do not block cars. Eight apartment residents retain
+independent adult relationships. After dating, a shared family dialogue starts a
+two-game-day pregnancy. Each household supports three children, rendered at home
+with a smaller model on their first day. Children use a separate interaction kind
+that opens their parent's household page.
+
+Save version 18 appends a due day and three child birth dates for each adult
+resident to the existing city-state line. Version 17 relationships migrate with
+empty family records. Loading validates dates and household capacity before
+changing the world. Birth updates are idempotent, including after sleep and reload.
+The city tests cover independent households, birth timing, duplicate prevention,
+child targeting, walking residents, rendering capacity, and save migration.
+
+`--demo-population` and `--demo-family` open temporary preview worlds for real Metal
+captures. Both disable saving; the family preview supplies a sample child.

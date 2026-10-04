@@ -48,12 +48,45 @@ std::optional<float> ray(glm::vec3 origin,glm::vec3 direction,Box box,float reac
 }
 Box personBox(glm::vec3 p){return {p+glm::vec3(-.32f,0,-.24f),p+glm::vec3(.32f,1.8f,.24f)};}
 bool overlap(Box a,Box b) {return a.max.x>b.min.x && a.min.x<b.max.x && a.max.y>b.min.y && a.min.y<b.max.y && a.max.z>b.min.z && a.min.z<b.max.z;}
+glm::vec3 childPosition(const World& w,int resident,int child) {
+  constexpr std::array<glm::vec3,3> offsets{{{1.5f,0,.5f},{-1.5f,0,.5f},{0,0,-1.25f}}};
+  return metroResidentHome(*w.metroOrigin,resident)+offsets[child];
+}
+Box childBox(glm::vec3 at){return {at+glm::vec3(-.24f,0,-.22f),at+glm::vec3(.24f,.9f,.22f)};}
+double workerPhase(const World& w,int i) {return std::fmod(w.clock.phase*WorldClock::daySeconds*.06+i*.371,1.0);}
+bool workerVisible(const World& w,glm::vec3 at) {
+  return w.chunks.contains(chunkAt(int(std::floor(at.x)),int(std::floor(at.z))))
+    && collidable(w.get({int(at.x),22,int(at.z)})) && !collidable(w.get({int(at.x),23,int(at.z)}));
+}
 }
 std::span<const CarSpec> garageCars(){return cars;}
 std::span<const ResidentSpec> cityResidents(){return residents;}
 FarmCar parkedCar(const World& w,int i) {
   if(!w.metroOrigin || i<0 || i>=garageSize)return {};
   return {true,garagePosition(*w.metroOrigin,i),i<10 ? 3.14159265f : 0.f};
+}
+glm::vec3 cityWorkerPosition(const World& w,int i) {
+  if(!w.metroOrigin || i<0 || i>=cityWorkerCount)return {};
+  auto o=*w.metroOrigin;double phase=workerPhase(w,i);float patrol=float(phase<.5 ? phase*2 : 2-phase*2);
+  return {o.x+((i/2)%metroColumns)*64+22.f+20*patrol,23,o.z+(i/(metroColumns*2))*64+56.8f+(i%2)*1.4f};
+}
+int cityChildCount(const ResidentState& r){return int(std::ranges::count_if(r.children,[](auto day){return day>0;}));}
+std::string startCityFamily(World& w,int index) {
+  if(!w.metroOrigin || index<0 || index>=residentCount)return "Visit an apartment first.";
+  auto& r=w.cityLife.residents[index];auto name=std::string(residents[index].name);
+  if(!r.dating)return name+": Let's build a relationship before starting a family.";
+  if(r.pregnancyDue)return name+": We're already expecting a baby. I'm excited to meet them!";
+  if(cityChildCount(r)==3)return name+": Our family of three children keeps us busy!";
+  if(w.clock.day>std::numeric_limits<std::uint32_t>::max()-2)return "The calendar cannot advance further.";
+  r.pregnancyDue=w.clock.day+2;
+  return name+": Yes, I'd like to start a family with you. Our baby is due on day "+std::to_string(r.pregnancyDue)+".";
+}
+void updateCityFamilies(World& w) {
+  if(!w.metroOrigin)return;
+  for(auto& r:w.cityLife.residents)if(r.pregnancyDue && w.clock.day>=r.pregnancyDue) {
+    for(auto& birth:r.children)if(!birth){birth=r.pregnancyDue;break;}
+    r.pregnancyDue=0;
+  }
 }
 bool bankTransfer(World& w,int amount,bool deposit) {
   auto& balance=w.cityLife.bank;auto& wallet=w.farm.garden.coins;
@@ -111,19 +144,28 @@ std::optional<CityTarget> targetCity(const World& w,const Player& p,float reach)
   if(auto hit=w.raycast(p.eye(),p.direction(),reach))nearest=hit->distance+.02f;
   std::optional<CityTarget> found;
   auto test=[&](Box box,CityTargetKind kind,int index){if(auto distance=ray(p.eye(),p.direction(),box,nearest)){nearest=*distance;found=CityTarget{kind,index,nearest};}};
-  for(int i=0;i<residentCount;++i)test(personBox(metroResidentHome(*w.metroOrigin,i)),CityTargetKind::Resident,i);
+  for(int i=0;i<residentCount;++i) {
+    test(personBox(metroResidentHome(*w.metroOrigin,i)),CityTargetKind::Resident,i);
+    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c])test(childBox(childPosition(w,i,c)),CityTargetKind::Child,i*3+c);
+  }
+  for(int i=0;i<cityWorkerCount;++i) {auto at=cityWorkerPosition(w,i);if(workerVisible(w,at))test(personBox(at),CityTargetKind::Worker,i);}
   for(int i=0;i<garageSize;++i)if(i!=w.cityLife.activeCar)test(carBounds(parkedCar(w,i)),CityTargetKind::Car,i);
   auto b=bankTerminal(*w.metroOrigin);test({b-glm::vec3(1.5f,1.5f,.65f),b+glm::vec3(1.5f,1.5f,.65f)},CityTargetKind::Bank,0);
   return found;
 }
 std::string cityPrompt(const World& w,CityTarget target) {
+  if(target.kind==CityTargetKind::Worker)return "City resident / V to say hello";
+  if(target.kind==CityTargetKind::Child)return "Your child with "+std::string(residents[target.index/3].name)+" / V to visit your family";
   if(target.kind==CityTargetKind::Bank)return "Civic Bank / V to open your account";
   if(target.kind==CityTargetKind::Car)return std::string(cars[target.index].name)+" / V to drive";
   return std::string(residents[target.index].name)+" / 18 / "+(w.cityLife.residents[target.index].dating ? "Girlfriend / " : "")+"V to talk";
 }
 bool cityPeopleOverlap(const World& w,Box box) {
   if(!w.metroOrigin)return false;
-  for(int i=0;i<residentCount;++i)if(overlap(box,personBox(metroResidentHome(*w.metroOrigin,i))))return true;
+  for(int i=0;i<residentCount;++i) {
+    if(overlap(box,personBox(metroResidentHome(*w.metroOrigin,i))))return true;
+    for(int c=0;c<3;++c)if(w.cityLife.residents[i].children[c] && overlap(box,childBox(childPosition(w,i,c))))return true;
+  }
   for(int i=0;i<garageSize;++i)if(i!=w.cityLife.activeCar && overlap(box,carBounds(parkedCar(w,i))))return true;
   return false;
 }
@@ -142,6 +184,7 @@ std::vector<Vertex> residentMesh(const World& w,float time) {
       box({arm-.062f,.64f+sway,-.085f},{arm+.062f,.82f+sway,.085f},skin);
     }
     box({-.22f,.72f,-.13f},{.22f,1.29f,.13f},shirt);
+    if(w.cityLife.residents[i].pregnancyDue)box({-.19f,.77f,-.23f},{.19f,1.13f,-.12f},shirt);
     box({-.08f,1.27f,-.08f},{.08f,1.38f,.08f},skin);
     box({-.19f,1.34f,-.17f},{.19f,1.74f,.17f},skin);
     box({-.20f,1.64f,-.185f},{.20f,1.80f,.20f},hair);
@@ -154,6 +197,40 @@ std::vector<Vertex> residentMesh(const World& w,float time) {
     if(i%2==0)box({-.17f,.83f,-.143f},{.17f,.865f,-.131f},77);
     for(float x:{-.10f,.07f})box({x,1.52f,-.181f},{x+.035f,1.56f,-.169f},75);
     box({-.055f,1.43f,-.182f},{.055f,1.45f,-.170f},79);
+    for(int c=0;c<3;++c)if(auto born=w.cityLife.residents[i].children[c]) {
+      auto at=childPosition(w,i,c);float size=w.clock.day<=born ? .43f : .64f;
+      auto piece=[&](glm::vec3 a,glm::vec3 b,float m){appendBox(mesh,{at+a*size,at+b*size},{-100007,1,i*3+c},m,.92f);};
+      piece({-.23f,.40f,-.15f},{.23f,.97f,.15f},80+float((i+c+4)%20));
+      piece({-.24f,.96f,-.20f},{.24f,1.41f,.20f},skin);
+      piece({-.25f,1.33f,-.21f},{.25f,1.45f,.21f},hair);
+      for(float side:{-.15f,.15f}) {
+        piece({side-.06f,0,-.09f},{side+.06f,.43f,.09f},75);
+        piece({side*1.8f-.055f,.45f,-.08f},{side*1.8f+.055f,.88f,.08f},skin);
+        piece({side*.7f-.025f,1.15f,-.212f},{side*.7f+.025f,1.19f,-.201f},75);
+      }
+    }
+  }
+  for(int i=0;i<cityWorkerCount;++i) {
+    auto at=cityWorkerPosition(w,i);if(!workerVisible(w,at))continue;
+    std::size_t start=mesh.size();float skin=105+float(i%3),shirt=80+float((i*7+2)%20);
+    float stride=std::sin(float(w.clock.phase*WorldClock::daySeconds)*7+i)*.10f;
+    auto box=[&](glm::vec3 a,glm::vec3 b,float m){appendBox(mesh,{a,b},{-100009,0,i},m,.92f);};
+    for(float side:{-1.f,1.f}) {
+      float x=side*.115f,step=side*stride;
+      box({x-.08f,.05f,-.09f+step},{x+.08f,.73f,.09f+step},75);
+      box({x-.09f,0,-.14f+step},{x+.09f,.12f,.11f+step},77);
+      box({side*.265f-.06f,.69f,-.08f-step},{side*.265f+.06f,1.25f,.08f-step},shirt);
+      box({side*.265f-.055f,.62f,-.08f-step},{side*.265f+.055f,.79f,.08f-step},skin);
+    }
+    box({-.22f,.73f,-.13f},{.22f,1.30f,.13f},shirt);
+    box({-.17f,1.33f,-.15f},{.17f,1.72f,.15f},skin);
+    box({-.18f,1.65f,-.16f},{.18f,1.78f,.17f},i%2 ? 72 : 75);
+    for(float x:{-.09f,.065f})box({x,1.51f,-.16f},{x+.027f,1.55f,-.151f},75);
+    box({-.045f,1.42f,-.16f},{.045f,1.44f,-.151f},79);
+    float direction=workerPhase(w,i)<.5 ? 1 : -1;
+    for(std::size_t v=start;v<mesh.size();++v) {
+      auto p=mesh[v].position;mesh[v].position=at+glm::vec3(-p.z*direction,p.y,p.x*direction);
+    }
   }
   return mesh;
 }

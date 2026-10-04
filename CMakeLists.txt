@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
-project(Blockworld VERSION 0.17.0 LANGUAGES C CXX)
+project(Blockworld VERSION 0.18.0 LANGUAGES C CXX)
 
 if(NOT APPLE)
   message(FATAL_ERROR "Blockworld currently requires macOS (Metal and CoreText).")

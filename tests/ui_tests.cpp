@@ -143,6 +143,16 @@ int main(int argc,char** argv) {
       check(Ui::cityActionAt(hud,x+300,y+458).action==CityAction::None,"chat requires visiting the resident");
       hud.nearResident=true;check(Ui::cityActionAt(hud,x+300,y+458).action==CityAction::Chat,"nearby resident enables chat");
       hud.cityMessage="Mei: Yes, I'd love to go out with you! Come visit me again.";ui.build(hud);bounds(ui,size.x,size.y);
+      auto& household=hud.cityLife.residents[hud.residentSelected];household={};
+      check(Ui::cityActionAt(hud,x+400,y+500).action==CityAction::None,"family dialogue requires dating");
+      household.dating=true;hud.nearResident=false;
+      check(Ui::cityActionAt(hud,x+400,y+500).action==CityAction::None,"family dialogue requires visiting");
+      hud.nearResident=true;
+      check(Ui::cityActionAt(hud,x+400,y+500).action==CityAction::StartFamily,"family button opens the correct dialogue");
+      hud.cityMessage.clear();ui.build(hud);bounds(ui,size.x,size.y);
+      household.pregnancyDue=999;ui.build(hud);bounds(ui,size.x,size.y);
+      household.pregnancyDue=0;household.children[0]=998;ui.build(hud);bounds(ui,size.x,size.y);
+      household={};
     }
     hud.cityMessage.clear();
     hud.menu=Menu::Inventory; hud.notice.clear();

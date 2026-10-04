@@ -386,7 +386,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   const auto temporary = std::filesystem::path(path.string() + ".tmp");
   std::ofstream file(temporary, std::ios::trunc);
   if (!file) throw std::runtime_error("Cannot open world save: " + temporary.string());
-  file << "BLOCKWORLD 17 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
+  file << "BLOCKWORLD 18 " << terrain.seed() << ' ' << terrain.adventure() << '\n' << std::setprecision(9)
        << player.position.x << ' ' << player.position.y << ' ' << player.position.z << ' '
        << player.yaw << ' ' << player.pitch << ' ' << player.flying << '\n' << guideFlags << '\n'
        << std::setprecision(17) << clock.phase << ' ' << clock.day << '\n'
@@ -424,6 +424,7 @@ void World::save(const std::filesystem::path& path, const PlayerPose& player) co
   for(auto r:cityLife.residents)file<<' '<<r.conversations<<' '<<r.dating;
   file<<' '<<cityLife.statement.size();
   for(auto e:cityLife.statement)file<<' '<<int(e.kind)<<' '<<e.amount<<' '<<e.day;
+  for(auto r:cityLife.residents){file<<' '<<r.pregnancyDue;for(auto birth:r.children)file<<' '<<birth;}
   file<<'\n';
   file<<inventory.selected;
   for(auto item : inventory.slots) file<<' '<<int(item);
@@ -454,7 +455,7 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
   CityLifeState savedLife;
   std::optional<std::uint32_t> savedHarbor;
   std::vector<glm::vec3> savedRoad;
-  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>17) corrupt();
+  if (!(file >> magic >> version >> seed) || magic != "BLOCKWORLD" || version<1 || version>18) corrupt();
   if(version>=2 && (!(file>>adventure) || adventure<0 || adventure>1)) corrupt();
   if (!(file >> pose.position.x >> pose.position.y >> pose.position.z >> pose.yaw >> pose.pitch >> pose.flying)) corrupt();
   if(version>=2 && (!(file>>flags) || flags>(version==2 ? 63u : 127u))) corrupt();
@@ -621,6 +622,15 @@ std::optional<PlayerPose> World::load(const std::filesystem::path& path) {
       if(!(file>>kind>>e.amount>>e.day) || kind<0 || kind>3 || e.amount<=0 || e.amount>bankLimit || e.day<1 || e.day>savedClock.day || e.day<previousDay)corrupt();
       e.kind=BankKind(kind);savedLife.statement.push_back(e);previousDay=e.day;
     }
+  }
+  if(version>=18)for(auto& r:savedLife.residents) {
+    if(!(file>>r.pregnancyDue) || std::uint64_t(r.pregnancyDue)>std::uint64_t(savedClock.day)+2 || (r.pregnancyDue && !r.dating))corrupt();
+    bool ended=false;std::uint32_t previousBirth=0;int children=0;
+    for(auto& birth:r.children) {
+      if(!(file>>birth) || birth>savedClock.day || (birth && (!r.dating || ended || birth<previousBirth)))corrupt();
+      if(birth){previousBirth=birth;++children;}else ended=true;
+    }
+    if(r.pregnancyDue && (children==3 || r.pregnancyDue<=previousBirth))corrupt();
   }
   auto savedInventory=startingInventory(savedCrafting);
   if(version>=6) {

@@ -56,7 +56,7 @@ Renderer::Renderer(SDL_Window* window) : window_(window) {
     bi.size=Uint32(DebrisCloud::capacity*6*sizeof(Vertex)); ti.size=bi.size;
     debrisBuffer_=SDL_CreateGPUBuffer(device_,&bi); debrisTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!debrisBuffer_ || !debrisTransfer_) fail("Create debris buffers");
-    bi.size=Uint32((chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+10000)*sizeof(Vertex)); ti.size=bi.size;
+    bi.size=Uint32((chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+peopleVertexLimit)*sizeof(Vertex)); ti.size=bi.size;
     chickenBuffer_=SDL_CreateGPUBuffer(device_,&bi); chickenTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!chickenBuffer_ || !chickenTransfer_) fail("Create chicken buffers");
     const auto& font=readableFont();
@@ -372,7 +372,7 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   }
   chickens.insert(chickens.end(),skyline_.begin(),skyline_.end());
   if(!chickens.empty()) {
-    if(chickens.size()>chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+10000) throw std::runtime_error("Farm mesh exceeds its buffer");
+    if(chickens.size()>chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+peopleVertexLimit) throw std::runtime_error("Farm mesh exceeds its buffer");
     auto* memory=SDL_MapGPUTransferBuffer(device_,chickenTransfer_,true); if(!memory) fail("Map chickens");
     Uint32 size=Uint32(chickens.size()*sizeof(Vertex));
     std::memcpy(memory,chickens.data(),size); SDL_UnmapGPUTransferBuffer(device_,chickenTransfer_);

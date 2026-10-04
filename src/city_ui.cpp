@@ -31,6 +31,7 @@ CityClick Ui::cityActionAt(const HudState& h,float px,float py) {
     if(in(260,392,396,38))return {CityAction::VisitResident,h.residentSelected};
     if(h.nearResident && in(260,442,188,38))return {CityAction::Chat,h.residentSelected};
     if(h.nearResident && in(468,442,188,38))return {CityAction::Date,h.residentSelected};
+    if(h.nearResident && h.cityLife.residents[h.residentSelected].dating && in(260,486,396,30))return {CityAction::StartFamily,h.residentSelected};
   } else {
     for(int i=0;i<propertyRows;++i)if(in(24,195+i*30,632,28)) {
       int index=h.propertyPage*propertyRows+i;
@@ -48,7 +49,7 @@ void Ui::cityPage(const HudState& h) {
   rectangle(0,0,h.width,h.height,{.025f,.045f,.07f,.68f});
   rectangle(x,y,680,552,{.055f,.095f,.13f,.99f});rectangle(x,y,680,3,blue);
   label("Your city",x+24,y+15,30,ink);
-  label("Your buildings, your collection, and the people who live here.",x+24,y+62,17,dim);
+  label("Meet your neighbors, visit your properties, and grow your family.",x+24,y+62,17,dim);
   auto button=[&](float bx,float by,float w,float height,std::string_view title,bool enabled=true,bool selected=false) {
     rectangle(x+bx,y+by,w,height,selected ? blue : enabled ? glm::vec4(.18f,.30f,.36f,1) : card);
     labelCentered(title,x+bx+w*.5f,y+by+(height-22)*.5f,17,selected ? card : enabled ? ink : dim);
@@ -107,12 +108,21 @@ void Ui::cityPage(const HudState& h) {
     int i=h.residentSelected;auto person=cityResidents()[i];auto state=h.cityLife.residents[i];
     label(std::string(person.name)+", 18",x+260,y+150,28,ink);
     label(std::string(metroBuildings()[i].name)+" / Floor "+std::to_string(1+i%4),x+260,y+187,17,blue);
-    label(state.dating ? "Your girlfriend" : state.conversations ? "Getting to know each other" : "You haven't met yet",x+260,y+215,17,gold);
+    int children=cityChildCount(state);
+    auto relationship=state.pregnancyDue ? "Expecting a baby / due day "+std::to_string(state.pregnancyDue)
+      : children ? "Your girlfriend / "+std::to_string(children)+(children==1 ? " child" : " children")
+      : state.dating ? std::string("Your girlfriend") : state.conversations ? std::string("Getting to know each other") : std::string("You haven't met yet");
+    label(relationship,x+260,y+215,17,gold);
     wrap("Enjoys "+std::string(person.interest)+".",260,246,385,17,dim);
-    wrap(h.cityMessage.empty() ? "Visit her apartment, then press V to talk. Chat and get to know her before asking her out." : h.cityMessage,260,298,386,18,ink);
+    std::string guidance=state.pregnancyDue ? "Your baby will arrive here on the due day. Time passes while you play or sleep; menus pause it."
+      : children ? "Your children live here with their mother. Visit your family, chat, or spend time together."
+      : state.dating ? "Visit her apartment to spend time together. Choose Start a family if you'd like to have a baby together."
+      : "Visit her apartment, then press V to talk. Chat and get to know her before asking her out.";
+    wrap(h.cityMessage.empty() ? guidance : h.cityMessage,260,298,386,18,ink);
     button(260,392,396,38,"Visit apartment");button(260,442,188,38,"Chat",h.nearResident);
     button(468,442,188,38,state.dating ? "Spend time" : "Ask on a date",h.nearResident);
-    if(!h.nearResident)label("Conversation is available when you're there.",x+260,y+486,15,dim);
+    if(h.nearResident && state.dating)button(260,486,396,30,state.pregnancyDue ? "Baby on the way" : cityChildCount(state)==3 ? "Your family has 3 children" : "Start a family",!state.pregnancyDue && cityChildCount(state)<3);
+    else if(!h.nearResident)label("Conversation is available when you're there.",x+260,y+486,15,dim);
   } else {
     label("You own 36 towers and 2 data centers",x+24,y+142,23,ink);
     label("Income: "+std::to_string(h.rentPerDay+h.serverPerDay)+" coins / day, paid to your bank",x+24,y+173,17,gold);

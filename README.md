@@ -16,6 +16,12 @@ castle are in the same world, linked by roads.
 
 *Actual Metal captures from version 0.17.0.*
 
+| People on the streets | A family at home |
+| :---: | :---: |
+| ![Residents walking on downtown sidewalks](docs/images/population.png) | ![An adult resident and her child in their apartment](docs/images/family.png) |
+
+*Actual Metal captures from version 0.18.0. The family preview uses a temporary world.*
+
 ![A wooden cabin in the meadow after sunrise](docs/images/cabin.png)
 
 *Actual in-game screenshots from an earlier build. The current HUD and controls have changed.*
@@ -53,9 +59,12 @@ castle are in the same world, linked by roads.
 - **Bank:** **L → Bank** lets you deposit farm earnings and withdraw spending money.
 - **Garage:** **L → Garage** holds 20 drivable cars across six body styles.
   Click a car to drive out, or walk among the collection. **C** brings your selected car.
-- **Residents:** meet eight adult women in separate apartments. Visit, chat,
-  and optionally date them. Relationships persist independently. This is a simple
-  dialogue system; pregnancy and children are not implemented.
+- **City life:** 84 neighbors walk downtown sidewalks. Meet eight adult women
+  in their apartments, chat, and optionally date them. Relationships persist independently.
+- **Start a family:** while visiting your girlfriend, choose **Start a family**.
+  A baby arrives in her apartment two game days later. Households can have up to
+  three children; pregnancy and children are saved. This is a simple, non-explicit
+  family simulation.
 - **Coastal city:** **L → Bank → Visit waterfront** visits ten buildings along curved coves and beaches.
   Walk from the street to the rooftops, explore furnished apartments, and visit
   the fourteen-floor tower. The main penthouse terrace has

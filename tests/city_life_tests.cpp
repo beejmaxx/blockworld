@@ -81,7 +81,7 @@ void residents(World& w,Player p) {
     auto target=targetCity(w,p);check(target && target->kind==CityTargetKind::Resident && target->index==i,"resident can be targeted inside own apartment");
     check(!miningTarget(w,p),"remove mode cannot dig through a resident");
     auto home=metroResidentHome(*w.metroOrigin,i);
-    auto mesh=residentMesh(w,0);check(!mesh.empty() && mesh.size()<10000,"resident geometry stays within GPU budget");
+    auto mesh=residentMesh(w,0);check(!mesh.empty() && mesh.size()<peopleVertexLimit,"resident and population geometry stays within GPU budget");
     talkToResident(w,i,true);check(!w.cityLife.residents[i].dating,"asking before getting acquainted is declined");
     talkToResident(w,i,false);talkToResident(w,i,false);talkToResident(w,i,true);
     check(w.cityLife.residents[i].dating,"dating is independent for every adult resident");
@@ -131,11 +131,34 @@ void finance(World& w) {
   c.bank=1000;w.farm.garden.coins=coinLimit;check(!bankTransfer(w,1,false),"cannot overflow wallet");
   w.farm.garden.coins=575;
 }
+void families(World& w,Player p) {
+  auto& r=w.cityLife.residents[0];auto& other=w.cityLife.residents[1];
+  r.dating=false;startCityFamily(w,0);check(!r.pregnancyDue,"starting a family requires a relationship");r.dating=true;
+  startCityFamily(w,0);auto due=w.clock.day+2;check(r.pregnancyDue==due,"pregnancy is due two game days later");
+  startCityFamily(w,0);check(r.pregnancyDue==due,"repeated requests do not restart pregnancy");
+  startCityFamily(w,1);check(other.pregnancyDue==due,"each partner's household is independent");
+  ++w.clock.day;updateCityFamilies(w);check(cityChildCount(r)==0,"baby does not arrive early");
+  ++w.clock.day;updateCityFamilies(w);check(cityChildCount(r)==1 && cityChildCount(other)==1 && !r.pregnancyDue,"birth occurs once on the due day");
+  updateCityFamilies(w);check(cityChildCount(r)==1,"repeated updates cannot duplicate a baby");
+  check(visitResident(w,p,0),"apartment is still accessible after a birth");
+  auto child=metroResidentHome(*w.metroOrigin,0)+glm::vec3(1.5f,0,.5f);
+  p.pose.position=child+glm::vec3(0,0,-2);auto d=glm::normalize(child+glm::vec3(0,.35f,0)-p.eye());
+  p.pose.yaw=std::atan2(d.x,-d.z);p.pose.pitch=std::asin(d.y);
+  auto hit=targetCity(w,p);check(hit && hit->kind==CityTargetKind::Child,"child is a separate family interaction, not a dating target");
+  startCityFamily(w,0);check(r.pregnancyDue>w.clock.day,"a later pregnancy can coexist with an existing child");
+  collectCityIncome(w);
+  auto at=cityWorkerPosition(w,0);w.clock.phase+=.001;
+  check(glm::length(at-cityWorkerPosition(w,0))>.1f,"city population walks while game time advances");
+  w.ensure(chunkAt(int(at.x),int(at.z)),2);
+  auto mesh=residentMesh(w,0);check(mesh.size()<peopleVertexLimit,"workers and families fit the render buffer");
+  for(auto v:mesh)check(std::isfinite(v.position.x) && std::isfinite(v.position.y) && std::isfinite(v.position.z),"population mesh is finite");
+}
 void persistence(World& w,Player p) {
   auto path=std::filesystem::temp_directory_path()/("blockworld-metro-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".bw");
   struct Cleanup{std::filesystem::path p;~Cleanup(){std::error_code e;std::filesystem::remove(p,e);}}cleanup{path};
   w.save(path,p.pose);World loaded;check(loaded.load(path).has_value(),"new city save loads");
   check(loaded.metroOrigin==w.metroOrigin && loaded.cityLife.bank==w.cityLife.bank && loaded.cityLife.activeCar==w.cityLife.activeCar && loaded.cityLife.residents[7].dating,"bank, cars and relationships survive reload");
+  check(loaded.cityLife.residents[0].children==w.cityLife.residents[0].children && loaded.cityLife.residents[0].pregnancyDue==w.cityLife.residents[0].pregnancyDue,"children and pregnancy survive reload");
   int bank=loaded.cityLife.bank;collectCityIncome(loaded);check(bank==loaded.cityLife.bank,"reload does not duplicate rent");
   std::vector<std::string> lines;std::ifstream in(path);for(std::string s;std::getline(in,s);)lines.push_back(s);
   auto write=[&](const auto& data){std::ofstream out(path);for(auto& s:data)out<<s<<'\n';};
@@ -146,6 +169,15 @@ void persistence(World& w,Player p) {
     bool rejected=false;try{loaded.load(path);}catch(const std::exception&){rejected=true;}
     check(rejected && loaded.cityLife.bank==bank && loaded.metroOrigin==w.metroOrigin,"corrupt city data is rejected atomically");
   }
+  int familyFields=24+std::stoi(tokens[23])*3;
+  for(int field:{familyFields,familyFields+1,familyFields+3}) {
+    auto changed=lines,parts=tokens;parts[field]="999999999";std::string line;for(auto& v:parts)line+=v+" ";changed[index]=line;write(changed);
+    bool rejected=false;try{loaded.load(path);}catch(const std::exception&){rejected=true;}
+    check(rejected && loaded.cityLife.residents[0].children==w.cityLife.residents[0].children,"corrupt family dates are rejected atomically");
+  }
+  auto v17=lines;v17[0]="BLOCKWORLD 17 7262026 1";std::string oldState;
+  for(int i=0;i<familyFields;++i)oldState+=tokens[i]+" ";v17[index]=oldState;write(v17);
+  check(loaded.load(path).has_value() && loaded.cityLife.residents[0].dating && !loaded.cityLife.residents[0].pregnancyDue && cityChildCount(loaded.cityLife.residents[0])==0,"v17 relationships migrate without inventing family members");
   auto legacy=lines;legacy[0]="BLOCKWORLD 16 7262026 1";legacy.erase(legacy.begin()+index);write(legacy);
   check(loaded.load(path).has_value() && !loaded.metroOrigin && loaded.cityLife.bank==0 && loaded.editCount()==w.editCount() && loaded.farm.crops.size()==w.farm.crops.size(),"v16 migration retains farm, inventory and all edits");
 }
@@ -164,7 +196,7 @@ int main(int argc,char** argv) {
       auto o=*w.metroOrigin;std::cout<<"Installed at "<<o.x<<','<<o.y<<','<<o.z<<"; preserved "<<edits<<" edits; daily rent "<<propertyRentPerDay(w)<<" + servers "<<serverIncomePerDay(w)<<'\n';
       if(argc>2)w.save(argv[2],p.pose);
     } else {
-      Fixture f;access(f.w,f.p);residents(f.w,f.p);garage(f.w,f.p);finance(f.w);persistence(f.w,f.p);preservation();
+      Fixture f;access(f.w,f.p);residents(f.w,f.p);garage(f.w,f.p);finance(f.w);families(f.w,f.p);persistence(f.w,f.p);preservation();
       auto map=buildMiniMap(f.w,{10,10},true,false);auto o=*f.w.metroOrigin;auto point=mapPoint(map,{o.x+metroWidth,o.z+metroDepth});
       check(point.x<1 && point.y<1 && std::ranges::any_of(map.markers,[](auto m){return m.name=="Garage";}),"overview contains whole city and garage marker");
       auto mesh=metropolisSkyline(f.w,{o.x-100.f,120,o.z-100.f});check(!mesh.empty() && mesh.size()<=skylineVertexLimit,"skyline fits its draw budget");
