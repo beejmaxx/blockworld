@@ -25,7 +25,7 @@ struct Options {
   bool smoke=false,save=true,paused=true,classic=false,demoCabin=false,demoCave=false,demoBed=false,demoFarm=false,demoCastle=false,castle=false,muted=false;
   bool city=false,demoCity=false,coast=false,demoCoast=false,harbor=false,demoHarbor=false,hideUi=false;
   bool road=false,demoRoad=false,demoBoost=false,country=false,demoCountry=false,mapOverview=false;
-  bool downtown=false,garage=false,bank=false,demoMetro=false,demoFamily=false,demoPopulation=false,demoFeeding=false,demoHome=false;
+  bool downtown=false,garage=false,bank=false,demoMetro=false,demoFamily=false,demoPopulation=false,demoFeeding=false,demoHome=false,demoNight=false;
   std::string metroView="skyline",cityMenu;
   std::string roadView="car";
   std::string cityView="skyline",coastView="bay",harborView="skyline";
@@ -43,6 +43,7 @@ Options parse(int argc,char** argv) {
     else if(arg=="--classic") result.classic=true;
     else if(arg=="--mute") result.muted=true;
     else if(arg=="--castle") result.castle=true;
+    else if(arg=="--demo-night") {result.demoNight=true;result.demoMetro=true;result.metroView="apartment";result.save=false;result.paused=false;}
     else if(arg=="--demo-family" || arg=="--demo-population" || arg=="--demo-feeding" || arg=="--demo-home") {
       result.demoFeeding=arg=="--demo-feeding";result.demoHome=arg=="--demo-home";
       result.demoFamily=arg=="--demo-family" || result.demoFeeding || result.demoHome;result.demoPopulation=arg=="--demo-population";
@@ -125,6 +126,7 @@ Options parse(int argc,char** argv) {
         <<"  --demo-population      Preview walking city residents without touching saves\n"
         <<"  --demo-family          Preview an apartment family without touching saves\n"
         <<"  --demo-feeding / --demo-home  Preview feeding or the decorated apartment\n"
+        <<"  --demo-night           Preview an adult date and morning transition without saves\n"
         <<"  --metro-view VIEW      skyline, street, roof, garage, collection, bank, apartment, servers\n"
         <<"  --city-menu PAGE       bank, garage, residents, properties\n"
         <<"  --road                 Start beside your GT2 at the home end of the city road\n"
@@ -183,7 +185,7 @@ std::string sleepMessage(SleepResult status) {
 
 int run(const Options& options) {
   const bool interactive=!options.smoke && options.frames==0;
-  SDL_SetAppMetadata("Blockworld","0.19.1","dev.bijan.blockworld");
+  SDL_SetAppMetadata("Blockworld","0.20.0","dev.bijan.blockworld");
   if(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) throw std::runtime_error(SDL_GetError());
   SdlLifetime sdl;
   std::unique_ptr<SDL_Window,decltype(&SDL_DestroyWindow)> window(
@@ -368,6 +370,7 @@ int run(const Options& options) {
         player.pose.yaw=std::atan2(d.x,-d.z);player.pose.pitch=std::asin(d.y);player.pose.flying=true;
       }
       if(options.demoFamily){auto& r=world.cityLife.residents[0];r.conversations=3;r.dating=true;r.children[0]=world.clock.day;}
+      if(options.demoNight){auto& r=world.cityLife.residents[0];r.conversations=3;r.dating=true;world.clock.phase=.85;}
       if(options.demoFeeding)feedCityFamily(world,0);
       if(options.demoHome) {
         auto b=metroBuildings()[0];player.pose.position=harborPosition(o,b,{15.5f,5,12.5f});
@@ -422,6 +425,7 @@ int run(const Options& options) {
   std::size_t cluckBird=0;
   bool leftFoot=false,sleepApplied=false;
   std::optional<Cell> sleepingBed;
+  std::optional<int> nightPartner;
   std::optional<std::size_t> trackedAnimal;
   auto knownFlockSize=world.farm.chickens.size();
   int frame=0,fpsFrames=0;
@@ -457,7 +461,7 @@ int run(const Options& options) {
   auto requestSleep=[&](Cell cell) {
     auto status=bedSleepStatus(world,player,cell);
     if(status!=SleepResult::Ready) { notice(sleepMessage(status)); return false; }
-    sleepingBed=cell; sleepRemaining=3.2f; sleepApplied=false; player.velocity={};
+    sleepingBed=cell; nightPartner.reset();sleepRemaining=3.2f; sleepApplied=false; player.velocity={};
     audio.play(Sound::Sleep); return true;
   };
   auto broke=[&](BreakEvent event) {
@@ -482,6 +486,11 @@ int run(const Options& options) {
     cancelEdits(); player.velocity={}; capture(menu==Menu::None);
   };
   auto cityAction=[&](CityClick click) {
+    if(click.action==CityAction::SpendNight) {
+      if(auto problem=partnerNightProblem(world,player,click.index)){hud.cityMessage=*problem;return;}
+      showMenu(Menu::None);nightPartner=click.index;sleepingBed.reset();sleepRemaining=3.2f;sleepApplied=false;
+      audio.play(Sound::Sleep);return;
+    }
     if(click.action==CityAction::Page) {hud.cityPage=CityPage(click.index);hud.cityMessage.clear();return;}
     if(click.action==CityAction::Resident) {hud.residentSelected=click.index;hud.cityMessage.clear();return;}
     if(click.action==CityAction::Previous || click.action==CityAction::Next) {
@@ -794,6 +803,7 @@ int run(const Options& options) {
   int smokeDoorActions=0;
   int smokeSleeps=0;
   const auto start=SDL_GetPerformanceCounter();
+  if(options.demoNight)cityAction({CityAction::SpendNight,0});
   while(running) {
     auto now=SDL_GetPerformanceCounter();
     float realDt=float(double(now-previous)/frequency); previous=now;
@@ -1032,8 +1042,13 @@ int run(const Options& options) {
     if(hud.paused || hud.menuOpen() || sleepRemaining>0) cancelEdits();
     if(!hud.paused && !hud.menuOpen()) debris.tick(dt);
     if(!hud.paused && !hud.menuOpen() && sleepRemaining>0) {
-      sleepRemaining=std::max(0.f,sleepRemaining-(options.smoke ? .1f : dt));
-      if(!sleepApplied && sleepRemaining<=1.8f && sleepingBed) {
+      sleepRemaining=std::max(0.f,sleepRemaining-(options.smoke || options.demoNight ? .1f : dt));
+      if(!sleepApplied && sleepRemaining<=1.8f && nightPartner) {
+        if(spendNightWithResident(world,player,*nightPartner)) {
+          sleepApplied=true;audio.play(Sound::Wake);
+          if(options.save)save();
+        } else {sleepRemaining=0;notice("The bedroom is no longer available.");nightPartner.reset();}
+      } else if(!sleepApplied && sleepRemaining<=1.8f && sleepingBed) {
         auto beforeClock=world.clock;
         auto result=sleepInBed(world,player,*sleepingBed);
         if(result==SleepResult::Ready) {
@@ -1043,6 +1058,9 @@ int run(const Options& options) {
           if(options.smoke) ++smokeSleeps;
           if(options.save) save();
         } else { sleepRemaining=0; notice(sleepMessage(result)); }
+      }
+      if(sleepRemaining<=0 && nightPartner) {
+        notice(std::string(cityResidents()[*nightPartner].name)+": Good morning. I'm glad you stayed.");nightPartner.reset();
       }
     } else if(!hud.paused && !hud.menuOpen()) {
       world.clock.advance(options.smoke ? 1./60. : dt);
@@ -1149,6 +1167,7 @@ int run(const Options& options) {
     }
     hud.toolSwing=toolSwingRemaining>0 ? 1.f-toolSwingRemaining/toolSwingSeconds : 0.f;
     hud.clock=world.clock; hud.sleeping=sleepRemaining>0; hud.waking=sleepApplied;
+    hud.nightPartner=nightPartner ? std::string(cityResidents()[*nightPartner].name) : std::string{};
     hud.sleepFade=sleepRemaining>2.f ? (3.2f-sleepRemaining)/1.2f : std::min(1.f,sleepRemaining/1.2f);
     hud.audioAvailable=audio.available();
     float exposure=1.f;
@@ -1255,6 +1274,11 @@ int run(const Options& options) {
     if(hud.paused || hud.menuOpen()) SDL_Delay(12);
   }
   endNaming(); capture(false);
+  if(options.demoNight && options.frames>=40) {
+    if(!sleepApplied || sleepRemaining>0 || world.clock.day!=2 || world.clock.phase<WorldClock::morning || world.clock.phase>.32
+       || world.cityLife.bank!=propertyRentPerDay(world)+serverIncomePerDay(world))throw std::runtime_error("Partner night preview failed to reach the next morning exactly once");
+    std::cout<<"PARTNER NIGHT PASS: fade, morning, and one daily income payment\n";
+  }
   // Exit saves propagate failure so the caller never sees a successful save that did not happen.
   if(options.save) {collectCityIncome(world);updateCityFamilies(world);world.save(savePath,player.pose);}
   double elapsed=double(SDL_GetPerformanceCounter()-start)/frequency;

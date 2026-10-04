@@ -67,6 +67,9 @@ castle are in the same world, linked by roads.
   Click a car to drive out, or walk among the collection. **C** brings your selected car.
 - **City life:** 84 neighbors walk downtown sidewalks. Meet eight adult women
   in their apartments, chat, and optionally date them. Relationships persist independently.
+- **Spend the night:** visit an adult partner and choose **Spend the night**.
+  She agrees, the scene fades to black, and you wake up at the apartment in the
+  morning. The day advances crops, rent, and existing pregnancies.
 - **Start a family:** while visiting your girlfriend, choose **Start a family**.
   A baby arrives in her apartment two game days later. Households can have up to
   three children; pregnancy and children are saved. This is a simple, non-explicit

@@ -11,7 +11,7 @@ namespace bw {
 struct UiVertex { glm::vec2 position; glm::vec4 color; glm::vec2 uv{-1,-1}; };
 enum class Menu { None,Inventory,Crafting,Farm,City };
 enum class CityPage { Bank,Garage,Residents,Properties };
-enum class CityAction { None,Page,Deposit,Withdraw,Drive,Garage,Resident,VisitResident,Chat,Date,Property,Previous,Next,Bank,Downtown,Servers,Harbor,StartFamily,FeedFamily };
+enum class CityAction { None,Page,Deposit,Withdraw,Drive,Garage,Resident,VisitResident,Chat,Date,Property,Previous,Next,Bank,Downtown,Servers,Harbor,StartFamily,FeedFamily,SpendNight };
 struct CityClick { CityAction action=CityAction::None; int index=0; };
 enum class FarmAction { None,Seeds,Carrots,Strawberries,Pumpkins,WateringCan,Fences,Gates,Name,SaveName,Hatch,Find,Previous,Next,Cabin,Garden,Animals,Shop,Hoe,Compost,Sprinkler,Greenhouse,Visit,Sell,BuyCompost,BuySprinkler,BuyGreenhouse,RanchShop,GardenShop,BuyCow,BuyHorse,Car,BuySheep,BuyFox };
 struct AnimalLabel { glm::vec2 position; std::string name; bool baby=false; };
@@ -27,6 +27,7 @@ struct HudState {
   bool paused{},flying{},help=true,hidden=false;
   bool muted=false,audioAvailable=true,sleeping=false,waking=false;
   float sleepFade=0;
+  std::string nightPartner;
   Menu menu=Menu::None;
   bool menuOpen() const { return menu!=Menu::None; }
   int inventoryHover=-1,toolPage=0;

@@ -219,6 +219,29 @@ void apartments(World& w,Player p) {
     auto mesh=residentMesh(w,0);check(mesh.size()<peopleVertexLimit,"decorated homes and residents fit the GPU budget");
   }
 }
+void partnerNights() {
+  Fixture f;auto& w=f.w;auto& p=f.p;check(visitResident(w,p,0),"partner's home is reachable");
+  auto clock=w.clock;
+  check(!spendNightWithResident(w,p,-1) && !spendNightWithResident(w,p,residentCount),"invalid partners cannot start a night");
+  check(!spendNightWithResident(w,p,0) && w.clock.day==clock.day && w.clock.phase==clock.phase,"a relationship is required before spending the night");
+  auto& r=w.cityLife.residents[0];r.conversations=2;r.dating=true;
+  Player far=p;far.pose.position.x+=20;
+  check(!spendNightWithResident(w,far,0),"spending the night requires visiting the adult partner");
+  auto b=metroBuildings()[0];auto o=harborPosition(*w.metroOrigin,b,{0,5,0});
+  std::array<Cell,2> beds{{{int(o.x)+b.width-5,int(o.y),int(o.z)+b.depth-4},{int(o.x)+b.width-4,int(o.y),int(o.z)+b.depth-4}}};
+  for(auto c:beds)w.set(c,Block::Air);
+  check(!spendNightWithResident(w,p,0),"removed beds prevent the transition");
+  for(auto c:beds){w.set(c,Block::BedZ);w.set(c+Cell{0,1,0},Block::Concrete);}
+  check(!spendNightWithResident(w,p,0),"blocked beds prevent the transition");
+  for(auto c:beds)w.set(c+Cell{0,1,0},Block::Air);
+  w.clock.phase=.85;startCityFamily(w,0);
+  check(spendNightWithResident(w,p,0) && w.clock.day==clock.day+1 && w.clock.phase==WorldClock::morning,"a partner night ends the next morning");
+  int income=propertyRentPerDay(w)+serverIncomePerDay(w);
+  check(w.cityLife.bank==income && !cityChildCount(r),"one night pays one day's income and preserves pregnancy timing");
+  collectCityIncome(w);check(w.cityLife.bank==income,"morning refresh cannot duplicate income");
+  check(spendNightWithResident(w,p,0) && cityChildCount(r)==1 && w.cityLife.bank==income*2,"another night advances family growth and income once");
+  check(!w.cityLife.residents[1].dating && !w.cityLife.residents[1].pregnancyDue,"other residents' relationships remain unchanged");
+}
 }
 int main(int argc,char** argv) {
   try {
@@ -228,7 +251,7 @@ int main(int argc,char** argv) {
       auto o=*w.metroOrigin;std::cout<<"Installed at "<<o.x<<','<<o.y<<','<<o.z<<"; preserved "<<edits<<" edits; daily rent "<<propertyRentPerDay(w)<<" + servers "<<serverIncomePerDay(w)<<'\n';
       if(argc>2)w.save(argv[2],p.pose);
     } else {
-      Fixture f;access(f.w,f.p);residents(f.w,f.p);apartments(f.w,f.p);garage(f.w,f.p);finance(f.w);families(f.w,f.p);persistence(f.w,f.p);preservation();
+      Fixture f;access(f.w,f.p);residents(f.w,f.p);apartments(f.w,f.p);garage(f.w,f.p);finance(f.w);families(f.w,f.p);persistence(f.w,f.p);preservation();partnerNights();
       auto map=buildMiniMap(f.w,{10,10},true,false);auto o=*f.w.metroOrigin;auto point=mapPoint(map,{o.x+metroWidth,o.z+metroDepth});
       check(point.x<1 && point.y<1 && std::ranges::any_of(map.markers,[](auto m){return m.name=="Garage";}),"overview contains whole city and garage marker");
       auto mesh=metropolisSkyline(f.w,{o.x-100.f,120,o.z-100.f});check(!mesh.empty() && mesh.size()<=skylineVertexLimit,"skyline fits its draw budget");

@@ -149,6 +149,7 @@ int main(int argc,char** argv) {
       check(Ui::cityActionAt(hud,x+400,y+500).action==CityAction::None,"family dialogue requires visiting");
       hud.nearResident=true;
       check(Ui::cityActionAt(hud,x+400,y+500).action==CityAction::StartFamily,"family button opens the correct dialogue");
+      check(Ui::cityActionAt(hud,x+520,y+458).action==CityAction::SpendNight,"dating enables the adult partner night action");
       hud.cityMessage.clear();ui.build(hud);bounds(ui,size.x,size.y);
       household.pregnancyDue=999;ui.build(hud);bounds(ui,size.x,size.y);
       household.pregnancyDue=0;household.children[0]=998;ui.build(hud);bounds(ui,size.x,size.y);
@@ -157,6 +158,9 @@ int main(int argc,char** argv) {
       check(Ui::cityActionAt(hud,x+520,y+500).action==CityAction::None,"feeding requires a family visit");
       hud.nearResident=true;
       household={};
+      hud.menu=Menu::None;hud.sleeping=true;hud.sleepFade=1;hud.nightPartner="Sofia";
+      for(bool morning:{false,true}){hud.waking=morning;ui.build(hud);bounds(ui,size.x,size.y);}
+      hud.sleeping=false;hud.nightPartner.clear();hud.menu=Menu::City;
     }
     hud.cityMessage.clear();
     hud.menu=Menu::Inventory; hud.notice.clear();

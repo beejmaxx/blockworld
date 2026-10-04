@@ -382,3 +382,16 @@ walks through every furnished home, save round trips, and v18 migration.
 
 Use `--demo-home` for the furnished room or `--demo-feeding` for a mother and baby.
 These preview worlds do not read or write the player's save.
+
+## Partner nights (0.20)
+
+Dating adult residents offer a non-explicit **Spend the night** action. The action
+requires a visit and a complete, unobstructed bed in the apartment. A 3.2-second
+fade advances the clock once at blackout, updates farm growth, income and existing
+pregnancies, and saves before returning to the morning view. No new save fields
+are required. Ordinary bed sleep keeps its existing behavior.
+
+`--demo-night --frames 45` runs the real transition in a temporary world with a
+fixed fade timestep and verifies the new morning and single daily income payment.
+The city suite covers relationship, distance and bedroom validation and family
+progress during consecutive nights.

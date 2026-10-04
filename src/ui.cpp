@@ -860,8 +860,13 @@ void Ui::build(const HudState& h) {
     rectangle(0,0,w,height,{.018f,.025f,.055f,h.sleepFade});
     if(h.sleepFade>.7f) {
       auto ink=cream; ink.a=(h.sleepFade-.7f)/.3f;
-      centered(h.waking ? "A NEW DAY" : "REST WELL",cx,height*.5f-15,3.f,ink);
-      centered(h.waking ? "MORNING LIGHT FINDS YOUR HOME" : "THE MEADOW GROWS QUIET",cx,height*.5f+26,1.3f,ink);
+      if(!h.nightPartner.empty()) {
+        labelCentered(h.waking ? "Good morning" : "A night together",cx,height*.5f-20,30,ink);
+        labelCentered(h.waking ? "You wake up together with "+h.nightPartner+"." : h.nightPartner+": I'd love to spend the night with you.",cx,height*.5f+26,19,ink);
+      } else {
+        centered(h.waking ? "A NEW DAY" : "REST WELL",cx,height*.5f-15,3.f,ink);
+        centered(h.waking ? "MORNING LIGHT FINDS YOUR HOME" : "THE MEADOW GROWS QUIET",cx,height*.5f+26,1.3f,ink);
+      }
     }
   }
 }

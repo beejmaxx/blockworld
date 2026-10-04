@@ -21,6 +21,8 @@ int propertyRentPerDay(const World&);
 int serverIncomePerDay(const World&);
 void collectCityIncome(World&);
 std::string talkToResident(World&,int resident,bool askOut);
+std::optional<std::string> partnerNightProblem(const World&,const Player&,int resident);
+bool spendNightWithResident(World&,const Player&,int resident);
 bool visitResident(World&,Player&,int resident);
 bool takeGarageCar(World&,Player&,RideState&,int index);
 enum class CityTargetKind { Resident,Car,Bank,Worker,Child };

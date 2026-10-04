@@ -30,7 +30,7 @@ CityClick Ui::cityActionAt(const HudState& h,float px,float py) {
     for(int i=0;i<residentCount;++i)if(in(24,151+i*39,212,35))return {CityAction::Resident,i};
     if(in(260,392,396,38))return {CityAction::VisitResident,h.residentSelected};
     if(h.nearResident && in(260,442,188,38))return {CityAction::Chat,h.residentSelected};
-    if(h.nearResident && in(468,442,188,38))return {CityAction::Date,h.residentSelected};
+    if(h.nearResident && in(468,442,188,38))return {h.cityLife.residents[h.residentSelected].dating ? CityAction::SpendNight : CityAction::Date,h.residentSelected};
     auto& r=h.cityLife.residents[h.residentSelected];
     if(h.nearResident && r.dating && in(260,486,cityChildCount(r) ? 188 : 396,30))return {CityAction::StartFamily,h.residentSelected};
     if(h.nearResident && cityChildCount(r) && in(468,486,188,30))return {CityAction::FeedFamily,h.residentSelected};
@@ -118,11 +118,11 @@ void Ui::cityPage(const HudState& h) {
     wrap("Enjoys "+std::string(person.interest)+".",260,246,385,17,dim);
     std::string guidance=state.pregnancyDue ? "Your baby will arrive here on the due day. Time passes while you play or sleep; menus pause it."
       : children ? (hungryCityChildren(state,h.clock) ? "Time for a feed. Visit, then choose Feed baby or Feed children. Babies rest in the crib and are held while feeding." : "Fed and happy. Visit your family, chat, or spend time together.")
-      : state.dating ? "Visit her apartment to spend time together. Choose Start a family if you'd like to have a baby together."
+      : state.dating ? "Visit to spend the night together, then wake up here in the morning. Choose Start a family when you both want a baby."
       : "Visit her apartment, then press V to talk. Chat and get to know her before asking her out.";
     wrap(h.cityMessage.empty() ? guidance : h.cityMessage,260,298,386,18,ink);
     button(260,392,396,38,"Visit apartment");button(260,442,188,38,"Chat",h.nearResident);
-    button(468,442,188,38,state.dating ? "Spend time" : "Ask on a date",h.nearResident);
+    button(468,442,188,38,state.dating ? "Spend the night" : "Ask on a date",h.nearResident);
     if(h.nearResident && state.dating) {
       button(260,486,children ? 188 : 396,30,state.pregnancyDue ? "Baby on the way" : children==3 ? "Family complete" : "Start a family",!state.pregnancyDue && children<3);
       if(children) {

@@ -432,6 +432,10 @@ The district has 36 towers, a park, a garage, and two data centers. The earlier
 - **Residents:** select a resident and **Visit apartment**. Aim at her and press
   **V** to open the conversation. Chat twice, then ask on a date. Each of the eight
   residents is 18 and has her own apartment and independent relationship state.
+  Once dating, **Spend the night** starts an agreed, off-screen romantic evening.
+  The screen fades to black, then returns to the apartment in the morning. The
+  bedroom needs a complete, unobstructed bed. Crops, rent, and existing pregnancies
+  advance with the day. Starting a pregnancy still uses **Start a family**.
   Once dating, choose **Start a family** while visiting. She agrees, and a baby
   arrives in her apartment two game days later. The Residents page shows the due
   day. Menus pause time; playing or sleeping advances it. Children appear at home

@@ -1,4 +1,5 @@
 #include "city_life.hpp"
+#include "adventure.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -156,6 +157,28 @@ bool visitResident(World& w,Player& p,int index) {
   w.ensure(chunkAt(int(at.x),int(at.z)),2);
   if(p.collides(w,at))return false;
   p.pose.position=at;p.pose.yaw=3.14159265f;p.pose.pitch=-.05f;p.stopFlying();p.velocity={};return true;
+}
+std::optional<std::string> partnerNightProblem(const World& w,const Player& p,int index) {
+  if(!w.metroOrigin || index<0 || index>=residentCount || residents[index].age<18 || !w.cityLife.residents[index].dating)
+    return "Get to know each other and start dating first.";
+  if(glm::length(metroResidentHome(*w.metroOrigin,index)-p.pose.position)>=4)return "Visit your partner's apartment first.";
+  if(w.clock.day==std::numeric_limits<std::uint32_t>::max() && w.clock.phase>=WorldClock::morning)return "The calendar cannot advance further.";
+  auto b=metroBuildings()[index];auto origin=harborPosition(*w.metroOrigin,b,{0,float(1+index%4)*harborFloorHeight,0});
+  for(int z=2;z<b.depth-1;++z)for(int x=15;x<b.width-1;++x) {
+    Cell bed{int(origin.x)+x,int(origin.y),int(origin.z)+z};auto block=w.get(bed);
+    if(!isBed(block) || bedHead(block))continue;
+    Player atBed=p;atBed.pose.position=glm::vec3(bed.x+.5f,bed.y,bed.z+.5f);
+    auto status=bedSleepStatus(w,atBed,bed);
+    if(status==SleepResult::Ready || status==SleepResult::Daytime)return {};
+  }
+  return "Your bedroom needs a complete bed with clear space above it.";
+}
+bool spendNightWithResident(World& w,const Player& p,int index) {
+  if(partnerNightProblem(w,p,index))return false;
+  auto before=w.clock;w.clock.wakeAtMorning();
+  double elapsed=(double(w.clock.day)-before.day+w.clock.phase-before.phase)*WorldClock::daySeconds;
+  growFarm(w,float(elapsed));collectCityIncome(w);updateCityFamilies(w);
+  return true;
 }
 bool takeGarageCar(World& w,Player& p,RideState& ride,int index) {
   if(index<0 || index>=garageSize || !w.metroOrigin)return false;
