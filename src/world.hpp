@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
@@ -197,7 +198,14 @@ struct Vertex {
   float material;
   float light;
   glm::vec3 block;
+  bool operator==(const Vertex&) const = default;
 };
+struct IndexedMesh {
+  std::vector<Vertex> vertices;
+  std::vector<std::uint32_t> indices;
+};
+// Share identical corners within each face without changing triangle order or AO.
+IndexedMesh indexMesh(std::span<const Vertex> vertices);
 std::vector<Vertex> buildMesh(const World& world, const Chunk& chunk);
 void appendBox(std::vector<Vertex>& vertices,Box box,Cell cell,float material,float light);
 std::vector<Vertex> buildPreview(Cell cell, Block block,float material=20.f,bool exact=false);

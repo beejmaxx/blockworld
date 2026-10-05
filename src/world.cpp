@@ -754,6 +754,25 @@ void ChunkWorker::collect(World& world, ChunkPos center) {
     && !world.chunks.contains(c.pos)) world.insert(std::move(c));
 }
 
+IndexedMesh indexMesh(std::span<const Vertex> vertices) {
+  if(vertices.size()>std::numeric_limits<std::uint32_t>::max())
+    throw std::length_error("Mesh exceeds 32-bit index range");
+  IndexedMesh result;
+  result.vertices.reserve((vertices.size()+5)/6*4);
+  result.indices.reserve(vertices.size());
+  for(std::size_t face=0;face<vertices.size();face+=6) {
+    const auto first=result.vertices.size();
+    const auto end=std::min(face+6,vertices.size());
+    for(auto i=face;i<end;++i) {
+      auto index=first;
+      while(index<result.vertices.size() && !(result.vertices[index]==vertices[i])) ++index;
+      if(index==result.vertices.size()) result.vertices.push_back(vertices[i]);
+      result.indices.push_back(static_cast<std::uint32_t>(index));
+    }
+  }
+  return result;
+}
+
 void appendBox(std::vector<Vertex>& vertices,Box box,Cell cell,float material,float light) {
   constexpr std::array<glm::vec3,6> normals{{{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}}};
   constexpr std::array<glm::vec3,6> us{{{0,0,-1},{0,0,1},{1,0,0},{1,0,0},{1,0,0},{-1,0,0}}};

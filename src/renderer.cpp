@@ -57,9 +57,12 @@ Renderer::Renderer(SDL_Window* window) : window_(window) {
     bi.size=Uint32(DebrisCloud::capacity*6*sizeof(Vertex)); ti.size=bi.size;
     debrisBuffer_=SDL_CreateGPUBuffer(device_,&bi); debrisTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!debrisBuffer_ || !debrisTransfer_) fail("Create debris buffers");
-    bi.size=Uint32((chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+peopleVertexLimit)*sizeof(Vertex)); ti.size=bi.size;
+    bi.size=Uint32((chickenVertexLimit+ranchVertexLimit+peopleVertexLimit)*sizeof(Vertex)); ti.size=bi.size;
     chickenBuffer_=SDL_CreateGPUBuffer(device_,&bi); chickenTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
     if(!chickenBuffer_ || !chickenTransfer_) fail("Create chicken buffers");
+    bi.size=Uint32(skylineVertexLimit*sizeof(Vertex)); ti.size=bi.size;
+    skylineBuffer_=SDL_CreateGPUBuffer(device_,&bi); skylineTransfer_=SDL_CreateGPUTransferBuffer(device_,&ti);
+    if(!skylineBuffer_ || !skylineTransfer_) fail("Create skyline buffers");
     const auto& font=readableFont();
     SDL_GPUTextureCreateInfo fi{}; fi.type=SDL_GPU_TEXTURETYPE_2D; fi.format=SDL_GPU_TEXTUREFORMAT_R8_UNORM;
     fi.usage=SDL_GPU_TEXTUREUSAGE_SAMPLER; fi.width=FontAtlas::width; fi.height=FontAtlas::height;
@@ -91,7 +94,10 @@ Renderer::~Renderer() { cleanup(); }
 void Renderer::cleanup() noexcept {
   if(!device_) return;
   SDL_WaitForGPUIdle(device_);
-  for(auto& [p,m] : meshes_) if(m.buffer) SDL_ReleaseGPUBuffer(device_,m.buffer);
+  for(auto& [p,m] : meshes_) {
+    if(m.buffer) SDL_ReleaseGPUBuffer(device_,m.buffer);
+    if(m.indexBuffer) SDL_ReleaseGPUBuffer(device_,m.indexBuffer);
+  }
   if(uiBuffer_) SDL_ReleaseGPUBuffer(device_,uiBuffer_);
   if(uiTransfer_) SDL_ReleaseGPUTransferBuffer(device_,uiTransfer_);
   if(previewBuffer_) SDL_ReleaseGPUBuffer(device_,previewBuffer_);
@@ -100,6 +106,8 @@ void Renderer::cleanup() noexcept {
   if(debrisTransfer_) SDL_ReleaseGPUTransferBuffer(device_,debrisTransfer_);
   if(chickenBuffer_) SDL_ReleaseGPUBuffer(device_,chickenBuffer_);
   if(chickenTransfer_) SDL_ReleaseGPUTransferBuffer(device_,chickenTransfer_);
+  if(skylineBuffer_) SDL_ReleaseGPUBuffer(device_,skylineBuffer_);
+  if(skylineTransfer_) SDL_ReleaseGPUTransferBuffer(device_,skylineTransfer_);
   if(color_) SDL_ReleaseGPUTexture(device_,color_);
   if(depth_) SDL_ReleaseGPUTexture(device_,depth_);
   if(fontTexture_) SDL_ReleaseGPUTexture(device_,fontTexture_);
@@ -181,6 +189,7 @@ void Renderer::sync(World& world,ChunkPos center,int budget) {
   for(auto it=meshes_.begin();it!=meshes_.end();) {
     if(!world.chunks.contains(it->first)) {
       if(it->second.buffer) SDL_ReleaseGPUBuffer(device_,it->second.buffer);
+      if(it->second.indexBuffer) SDL_ReleaseGPUBuffer(device_,it->second.indexBuffer);
       it=meshes_.erase(it);
     } else ++it;
   }
@@ -200,31 +209,53 @@ void Renderer::sync(World& world,ChunkPos center,int budget) {
     // Draw the opaque world first. Only window frames need alpha blending;
     // enabling it for terrain and every tower wall wastes tile bandwidth.
     auto glass=std::stable_partition(vertices.begin(),vertices.end(),[](const Vertex& v){return v.material!=12.f;});
-    Mesh replacement{}; replacement.vertices=Uint32(vertices.size());
-    replacement.opaqueVertices=Uint32(glass-vertices.begin());
+    Mesh replacement{}; replacement.indices=Uint32(vertices.size());
+    replacement.opaqueIndices=Uint32(glass-vertices.begin());
     for(int y=1;y<worldHeight;++y) for(int z=0;z<chunkSize;++z) for(int x=0;x<chunkSize;++x)
       if(chunk->get(x,y,z)==Block::Torch || chunk->get(x,y,z)==Block::Lamp)
         replacement.lights.emplace_back(chunk->pos.x*chunkSize+x+.5f,y+.68f,chunk->pos.z*chunkSize+z+.5f);
     if(!vertices.empty()) {
-      Uint32 bytes=Uint32(vertices.size()*sizeof(Vertex));
-      SDL_GPUBufferCreateInfo bi{SDL_GPU_BUFFERUSAGE_VERTEX,bytes,0};
-      replacement.buffer=SDL_CreateGPUBuffer(device_,&bi); if(!replacement.buffer) fail("Create mesh buffer");
-      SDL_GPUTransferBufferCreateInfo ti{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,bytes,0};
-      auto* transfer=SDL_CreateGPUTransferBuffer(device_,&ti); if(!transfer) fail("Create mesh transfer");
-      auto* data=SDL_MapGPUTransferBuffer(device_,transfer,false); if(!data) fail("Map mesh transfer");
-      std::memcpy(data,vertices.data(),bytes); SDL_UnmapGPUTransferBuffer(device_,transfer);
-      SDL_GPUTransferBufferLocation source{transfer,0}; SDL_GPUBufferRegion target{replacement.buffer,0,bytes};
-      SDL_UploadToGPUBuffer(copy,&source,&target,false); SDL_ReleaseGPUTransferBuffer(device_,transfer);
+      auto indexed=indexMesh(vertices);
+      Uint32 vertexBytes=Uint32(indexed.vertices.size()*sizeof(Vertex));
+      Uint32 indexBytes=Uint32(indexed.indices.size()*sizeof(std::uint32_t));
+      replacement.bytes=vertexBytes+indexBytes;
+      SDL_GPUBufferCreateInfo bi{SDL_GPU_BUFFERUSAGE_VERTEX,vertexBytes,0};
+      replacement.buffer=SDL_CreateGPUBuffer(device_,&bi);
+      bi.usage=SDL_GPU_BUFFERUSAGE_INDEX; bi.size=indexBytes;
+      replacement.indexBuffer=SDL_CreateGPUBuffer(device_,&bi);
+      SDL_GPUTransferBufferCreateInfo ti{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,replacement.bytes,0};
+      auto* transfer=SDL_CreateGPUTransferBuffer(device_,&ti);
+      auto* data=transfer ? SDL_MapGPUTransferBuffer(device_,transfer,false) : nullptr;
+      if(!replacement.buffer || !replacement.indexBuffer || !data) {
+        if(data) SDL_UnmapGPUTransferBuffer(device_,transfer);
+        if(transfer) SDL_ReleaseGPUTransferBuffer(device_,transfer);
+        if(replacement.buffer) SDL_ReleaseGPUBuffer(device_,replacement.buffer);
+        if(replacement.indexBuffer) SDL_ReleaseGPUBuffer(device_,replacement.indexBuffer);
+        SDL_EndGPUCopyPass(copy); SDL_CancelGPUCommandBuffer(command);
+        fail("Create mesh buffers");
+      }
+      std::memcpy(data,indexed.vertices.data(),vertexBytes);
+      std::memcpy(static_cast<std::byte*>(data)+vertexBytes,indexed.indices.data(),indexBytes);
+      SDL_UnmapGPUTransferBuffer(device_,transfer);
+      SDL_GPUTransferBufferLocation source{transfer,0}; SDL_GPUBufferRegion target{replacement.buffer,0,vertexBytes};
+      SDL_UploadToGPUBuffer(copy,&source,&target,false);
+      source.offset=vertexBytes; target={replacement.indexBuffer,0,indexBytes};
+      SDL_UploadToGPUBuffer(copy,&source,&target,false);
+      SDL_ReleaseGPUTransferBuffer(device_,transfer);
     }
     auto& old=meshes_[chunk->pos];
     if(old.buffer) SDL_ReleaseGPUBuffer(device_,old.buffer);
-    old=replacement; chunk->dirty=false;
+    if(old.indexBuffer) SDL_ReleaseGPUBuffer(device_,old.indexBuffer);
+    old=std::move(replacement); chunk->dirty=false;
   }
   SDL_EndGPUCopyPass(copy);
   if(!SDL_SubmitGPUCommandBuffer(command)) fail("Submit mesh upload");
 }
 std::size_t Renderer::triangleCount() const {
-  std::size_t count{}; for(const auto& [p,m] : meshes_) count+=m.vertices/3; return count;
+  std::size_t count{}; for(const auto& [p,m] : meshes_) count+=m.indices/3; return count;
+}
+std::size_t Renderer::meshBytes() const {
+  std::size_t bytes{}; for(const auto& [p,m] : meshes_) bytes+=m.bytes; return bytes;
 }
 void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudState hud,float time,const DebrisCloud& debris,const World& world,const std::filesystem::path& screenshot) {
   auto* command=SDL_AcquireGPUCommandBuffer(device_); if(!command) fail("Acquire frame");
@@ -261,7 +292,9 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   if(hud.breaking) camera.breaking={float(hud.breaking->x),float(hud.breaking->y),float(hud.breaking->z),hud.breakProgress};
   std::vector<glm::vec3> lights;
   for(const auto& [pos,mesh] : meshes_) for(auto light : mesh.lights) lights.push_back(light);
-  std::ranges::sort(lights,[&](auto a,auto b){return glm::length(a-eye)<glm::length(b-eye);});
+  std::partial_sort(lights.begin(),lights.begin()+std::min(lights.size(),camera.lights.size()),lights.end(),[&](auto a,auto b){
+    return glm::dot(a-eye,a-eye)<glm::dot(b-eye,b-eye);
+  });
   for(std::size_t i=0;i<std::min(lights.size(),camera.lights.size());++i) camera.lights[i]=glm::vec4(lights[i],7.f);
   if(hud.guide.destination) {
     glm::vec4 clip=camera.viewProjection*glm::vec4(*hud.guide.destination,1);
@@ -369,12 +402,23 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   auto chickens=chickenMesh(world);
   auto ranch=ranchMesh(world); chickens.insert(chickens.end(),ranch.begin(),ranch.end());
   auto residents=residentMesh(world,time);chickens.insert(chickens.end(),residents.begin(),residents.end());
-  if(time-skylineUpdated_>.3f || glm::length(eye-skylineEye_)>8 || (!skylineOrigin_ && world.metroOrigin)) {
-    skyline_=metropolisSkyline(world,eye);skylineEye_=eye;skylineUpdated_=time;skylineOrigin_=world.metroOrigin;
+  if(time-skylineUpdated_>.3f || glm::length(eye-skylineEye_)>8 || skylineOrigin_!=world.metroOrigin) {
+    // Distant geometry stays on the GPU between refreshes instead of joining
+    // the animated animals and people in every frame's upload.
+    auto skyline=metropolisSkyline(world,eye);
+    if(skyline.size()>skylineVertexLimit) throw std::runtime_error("Skyline mesh exceeds its buffer");
+    skylineVertices_=Uint32(skyline.size());
+    if(skylineVertices_) {
+      auto* memory=SDL_MapGPUTransferBuffer(device_,skylineTransfer_,true); if(!memory) fail("Map skyline");
+      Uint32 size=skylineVertices_*sizeof(Vertex);
+      std::memcpy(memory,skyline.data(),size); SDL_UnmapGPUTransferBuffer(device_,skylineTransfer_);
+      SDL_GPUTransferBufferLocation source{skylineTransfer_,0}; SDL_GPUBufferRegion destination{skylineBuffer_,0,size};
+      SDL_UploadToGPUBuffer(copy,&source,&destination,true);
+    }
+    skylineEye_=eye;skylineUpdated_=time;skylineOrigin_=world.metroOrigin;
   }
-  chickens.insert(chickens.end(),skyline_.begin(),skyline_.end());
   if(!chickens.empty()) {
-    if(chickens.size()>chickenVertexLimit+ranchVertexLimit+skylineVertexLimit+peopleVertexLimit) throw std::runtime_error("Farm mesh exceeds its buffer");
+    if(chickens.size()>chickenVertexLimit+ranchVertexLimit+peopleVertexLimit) throw std::runtime_error("Farm mesh exceeds its buffer");
     auto* memory=SDL_MapGPUTransferBuffer(device_,chickenTransfer_,true); if(!memory) fail("Map chickens");
     Uint32 size=Uint32(chickens.size()*sizeof(Vertex));
     std::memcpy(memory,chickens.data(),size); SDL_UnmapGPUTransferBuffer(device_,chickenTransfer_);
@@ -391,11 +435,16 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   SDL_BindGPUGraphicsPipeline(pass,worldPipeline_); SDL_PushGPUVertexUniformData(command,0,&camera,sizeof(camera));
   for(const auto& [pos,mesh] : meshes_) if(mesh.buffer && visible(pos,camera.viewProjection)) {
     SDL_GPUBufferBinding binding{mesh.buffer,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
-    SDL_DrawGPUPrimitives(pass,mesh.opaqueVertices,1,0,0);
+    SDL_GPUBufferBinding indices{mesh.indexBuffer,0}; SDL_BindGPUIndexBuffer(pass,&indices,SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    SDL_DrawGPUIndexedPrimitives(pass,mesh.opaqueIndices,1,0,0,0);
   }
   if(!chickens.empty()) {
     SDL_GPUBufferBinding binding{chickenBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
     SDL_DrawGPUPrimitives(pass,Uint32(chickens.size()),1,0,0);
+  }
+  if(skylineVertices_) {
+    SDL_GPUBufferBinding binding{skylineBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
+    SDL_DrawGPUPrimitives(pass,skylineVertices_,1,0,0);
   }
   if(!particles.empty()) {
     SDL_GPUBufferBinding binding{debrisBuffer_,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
@@ -403,14 +452,15 @@ void Renderer::draw(const Player& player,const std::optional<RayHit>& hit,HudSta
   }
   SDL_BindGPUGraphicsPipeline(pass,glassPipeline_);
   std::vector<std::pair<float,const Mesh*>> glass;
-  for(const auto& [pos,mesh]:meshes_)if(mesh.buffer && mesh.vertices>mesh.opaqueVertices && visible(pos,camera.viewProjection)) {
+  for(const auto& [pos,mesh]:meshes_)if(mesh.buffer && mesh.indices>mesh.opaqueIndices && visible(pos,camera.viewProjection)) {
     auto d=glm::vec2(pos.x*16+8.f-eye.x,pos.z*16+8.f-eye.z);glass.emplace_back(glm::dot(d,d),&mesh);
   }
   std::ranges::sort(glass,[](auto a,auto b){return a.first>b.first;});
   for(const auto& [distance,entry]:glass) {
     const auto& mesh=*entry;
     SDL_GPUBufferBinding binding{mesh.buffer,0}; SDL_BindGPUVertexBuffers(pass,0,&binding,1);
-    SDL_DrawGPUPrimitives(pass,mesh.vertices-mesh.opaqueVertices,1,mesh.opaqueVertices,0);
+    SDL_GPUBufferBinding indices{mesh.indexBuffer,0}; SDL_BindGPUIndexBuffer(pass,&indices,SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    SDL_DrawGPUIndexedPrimitives(pass,mesh.indices-mesh.opaqueIndices,1,mesh.opaqueIndices,0,0);
   }
   if(placement) {
     SDL_BindGPUGraphicsPipeline(pass,placementPipeline_);

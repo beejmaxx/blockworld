@@ -1,5 +1,6 @@
 #include "adventure.hpp"
 #include "diagnostics.hpp"
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -48,6 +49,40 @@ void mesh() {
     auto a=vertices[i].position,b=vertices[i+1].position,c=vertices[i+2].position;
     check(glm::dot(glm::cross(b-a,c-a),(a+b+c)/3.f-glm::vec3(16.5f,5.5f,.5f))>0,"outward triangle winding");
   }
+}
+void indexedMeshes() {
+  auto verify=[](const std::vector<Vertex>& original) {
+    auto indexed=indexMesh(original);
+    check(indexed.indices.size()==original.size(),"indexing preserves triangle count");
+    for(std::size_t i=0;i<original.size();++i) {
+      check(indexed.indices[i]<indexed.vertices.size(),"mesh indices stay in bounds");
+      check(indexed.vertices[indexed.indices[i]]==original[i],"indexing preserves every triangle corner and attribute");
+    }
+    return indexed;
+  };
+  check(verify({}).vertices.empty(),"empty mesh has no indices or vertices");
+  const Vertex a{{0,0,0},{0,0},1,.4f,{0,0,0}},b{{1,0,0},{1,0},1,.6f,{0,0,0}},
+               c{{1,1,0},{1,1},1,.8f,{0,0,0}},d{{0,1,0},{0,1},1,1.f,{0,0,0}};
+  check(verify({a,b,c,a,c,d}).vertices.size()==4,"normal diagonal shares two corners");
+  check(verify({a,b,d,b,c,d}).vertices.size()==4,"alternate AO diagonal shares two corners");
+  auto uv=a,material=a,light=a,block=a;
+  uv.uv.x=1;material.material=12;light.light=1;block.block.x=1;
+  check(verify({a,uv,material,light,block,a}).vertices.size()==5,"coincident corners retain UV, material, lighting and block seams");
+  verify({a,b,c}); // Also accepts independent triangles, not just pairs.
+  auto world=emptyWorld();
+  int x=1;
+  for(auto block : {Block::Stone,Block::Glass,Block::Torch,Block::StoneSlab,Block::DoorZ,Block::Sofa,Block::Planter}) {
+    world.set({x,5,1},block); x+=2;
+  }
+  auto vertices=buildMesh(world,world.chunks.at({0,0}));
+  auto glass=std::stable_partition(vertices.begin(),vertices.end(),[](const Vertex& v){return v.material!=12.f;});
+  const auto opaque=std::size_t(glass-vertices.begin());
+  auto indexed=verify(vertices);
+  check(indexed.vertices.size()*sizeof(Vertex)+indexed.indices.size()*sizeof(std::uint32_t)<vertices.size()*sizeof(Vertex),"indexed building mesh uses fewer bytes");
+  for(std::size_t i=0;i<indexed.indices.size();++i)
+    check((indexed.vertices[indexed.indices[i]].material!=12.f)==(i<opaque),"opaque and glass draw ranges survive indexing");
+  World terrain(42); terrain.ensure({0,0},1);
+  for(const auto& [pos,chunk] : terrain.chunks) verify(buildMesh(terrain,chunk));
 }
 void rays() {
   auto world=emptyWorld(); world.set({-1,5,0},Block::Stone);
@@ -275,7 +310,7 @@ void guidedAdventure() {
 }
 int main() {
   try {
-    for(auto [name,test] : {std::pair{"coordinates",&coordinates},{"terrain",terrain},{"mesh",mesh},
+    for(auto [name,test] : {std::pair{"coordinates",&coordinates},{"terrain",terrain},{"mesh",mesh},{"indexed meshes",indexedMeshes},
                            {"raycast",rays},{"physics",physics},{"persistence",saves},{"debug tools",debugTools},
                            {"doors and torches",doorsAndTorches},{"glass",glass},{"daylight",dayCycle},{"beds",beds},
                            {"guided adventure",guidedAdventure}}) {

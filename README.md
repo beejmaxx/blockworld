@@ -4,6 +4,10 @@ Build a life in a city you can shape: grow food, furnish homes, drive, and own p
 A free, open-source game for **macOS**, built with a custom **C++26** engine,
 **SDL3**, and **Metal**.
 
+**0.22.1 performance update:** terrain graphics buffers use 23% less memory,
+and distant scenery stays on the GPU between updates. Buildings, view distance,
+controls and saved worlds are unchanged. [Benchmark details](docs/DEVELOPMENT.md#rendering-optimization-0221).
+
 ![Seabreeze villa, its pool and the downtown skyline](docs/images/estates.png)
 
 **New in 0.22: move in and run your business.** Open **L → Home** to choose your

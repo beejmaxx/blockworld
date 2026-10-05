@@ -477,3 +477,39 @@ both use disposable worlds and never read or write the player's save.
 Tenant demand, resident work schedules, marriage, yacht driving and a stock market
 remain future work. Property rent is still a fixed portfolio income; server profits
 now depend on the player's business decisions.
+
+## Rendering optimization (0.22.1)
+
+Terrain meshes share identical corners within each face using 32-bit indices.
+Triangle order, both ambient-occlusion diagonals, material/UV seams, and the
+opaque/glass draw ranges are preserved. The diagnostics overlay counts actual
+vertex plus index buffer allocation. Distant terrain and tower geometry have a
+separate retained GPU buffer, uploaded on the existing skyline refresh cadence
+instead of with animated people and animals every frame. Light selection sorts
+only the nearest eight candidates.
+
+Measured on an Apple M1 Mac with 16 GiB RAM, using RelWithDebInfo, Metal, and the
+same 2,400-frame street preview (625 loaded chunks, 5,489,400 loaded triangles):
+
+| Metric | 0.22.0 | 0.22.1 |
+| --- | ---: | ---: |
+| Terrain vertex/index buffers | 628 MiB | 481 MiB |
+| Final process physical footprint | 1,061–1,069 MiB | 855–856 MiB |
+| Whole-run average FPS | 76–82 | 104–116 |
+
+These are local runs, not a hardware-independent FPS guarantee. Presentation
+timing varies; the final 120-frame p95 ranged from 25–26 ms before and 10–26 ms
+after, so the average throughput gain does not imply that all stutters are gone.
+GPU buffer figures exclude render targets, dynamic geometry and driver overhead;
+process footprint includes more than terrain buffers. No draw-distance or visual
+quality settings were reduced. Save format remains version 21.
+
+Reproduce without reading or writing the player save:
+
+```sh
+./build/blockworld.app/Contents/MacOS/blockworld \
+  --demo-metropolis --metro-view street --debug --mute --frames 2400
+```
+
+Core regression tests reconstruct the original triangle stream from the indexed
+mesh, including glass, furniture, terrain, UV seams and alternate AO diagonals.

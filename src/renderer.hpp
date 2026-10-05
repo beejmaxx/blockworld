@@ -16,10 +16,14 @@ public:
   void draw(const Player& player,const std::optional<RayHit>& hit,HudState hud,float time,
             const DebrisCloud& debris,const World& world,const std::filesystem::path& screenshot={});
   std::size_t triangleCount() const;
-  std::size_t meshBytes() const { return triangleCount()*3*sizeof(Vertex); }
+  std::size_t meshBytes() const;
   std::size_t meshCount() const { return meshes_.size(); }
 private:
-  struct Mesh { SDL_GPUBuffer* buffer{}; Uint32 vertices{},opaqueVertices{}; std::vector<glm::vec3> lights; };
+  struct Mesh {
+    SDL_GPUBuffer *buffer{},*indexBuffer{};
+    Uint32 indices{},opaqueIndices{},bytes{};
+    std::vector<glm::vec3> lights;
+  };
   SDL_Window* window_{};
   SDL_GPUDevice* device_{};
   SDL_GPUGraphicsPipeline *worldPipeline_{},*glassPipeline_{},*skyPipeline_{},*uiPipeline_{},*previewPipeline_{},*placementPipeline_{};
@@ -36,10 +40,12 @@ private:
   SDL_GPUTransferBuffer* debrisTransfer_{};
   SDL_GPUBuffer* chickenBuffer_{};
   SDL_GPUTransferBuffer* chickenTransfer_{};
+  SDL_GPUBuffer* skylineBuffer_{};
+  SDL_GPUTransferBuffer* skylineTransfer_{};
+  Uint32 skylineVertices_{};
   Uint32 uiCapacity_{};
   std::unordered_map<ChunkPos,Mesh,PositionHash> meshes_;
   Ui ui_;
-  std::vector<Vertex> skyline_;
   glm::vec3 skylineEye_{};
   float skylineUpdated_=-100;
   std::optional<Cell> skylineOrigin_;
